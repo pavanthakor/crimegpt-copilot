@@ -2,9 +2,12 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.auth import router as auth_router
 from app.core.db import get_db
 
 app = FastAPI(title="CrimeGPT Copilot")
+
+app.include_router(auth_router)
 
 
 @app.get("/health")
