@@ -32,9 +32,11 @@ class CaseCreate(BaseModel):
 
 
 class CaseUpdate(BaseModel):
-    """All optional; only provided fields are applied (PATCH semantics)."""
+    """All optional; only provided fields are applied (PATCH semantics).
 
-    case_number: str | None = None
+    case_number is intentionally omitted — it is immutable after creation.
+    """
+
     title: str | None = None
     case_type: CaseType | None = None
     fir_number: str | None = None
