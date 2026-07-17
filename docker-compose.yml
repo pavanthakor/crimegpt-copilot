@@ -1,6 +1,4 @@
 # Stub docker-compose — postgres only for now.
-version: "3.9"
-
 services:
   db:
     image: postgres:15
