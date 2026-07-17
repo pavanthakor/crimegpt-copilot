@@ -7,6 +7,8 @@ yarn-error.log*
 out/
 build/
 dist/
+next-env.d.ts
+*.tsbuildinfo
 
 # Python
 __pycache__/

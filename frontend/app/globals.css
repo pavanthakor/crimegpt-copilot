@@ -1,0 +1,50 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  color: #111;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 14px;
+  vertical-align: top;
+}
+th {
+  background: #f3f3f3;
+}
+tbody tr:hover {
+  background: #f9f9f9;
+}
+button {
+  cursor: pointer;
+  padding: 6px 10px;
+}
+input,
+textarea,
+select {
+  padding: 6px;
+  width: 100%;
+  max-width: 520px;
+  font-size: 14px;
+}
+label {
+  display: block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+h1 {
+  font-size: 22px;
+}
+a {
+  color: #1155cc;
+}
