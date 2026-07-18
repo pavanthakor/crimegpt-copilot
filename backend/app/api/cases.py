@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.models import (
     AuditLog,
@@ -23,7 +23,13 @@ from app.models import (
     Statement,
     User,
 )
-from app.models.enums import ActivityType, AuditAction, UserRole
+from app.models.enums import ActivityType, AuditAction, CaseStatus, UserRole
+
+# Status transitions that warrant an auto-generated case-diary entry.
+_STATUS_TO_ACTIVITY = {
+    CaseStatus.ARREST: ActivityType.ARREST,
+    CaseStatus.REMAND: ActivityType.REMAND,
+}
 from app.schemas.case import (
     CaseCreate,
     CaseDetailOut,
@@ -65,7 +71,7 @@ def _get_visible_case(db: Session, user: User, case_id: int) -> Case:
 def create_case(
     body: CaseCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role(UserRole.IO, UserRole.SHO)),
 ):
     if db.query(Case).filter(Case.case_number == body.case_number).first():
         raise HTTPException(
@@ -166,7 +172,7 @@ def update_case(
     case_id: int,
     body: CaseUpdate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role(UserRole.IO, UserRole.SHO)),
 ):
     case = _get_visible_case(db, user, case_id)
 
@@ -195,6 +201,20 @@ def update_case(
             performed_by=user.id,
         )
     )
+
+    # Auto-generate a case-diary entry when the case status transitions.
+    if "status" in changes:
+        new_status = changes["status"]
+        db.add(
+            CaseDiaryEntry(
+                case_id=case.id,
+                entry_datetime=datetime.now(timezone.utc),
+                activity_type=_STATUS_TO_ACTIVITY.get(new_status, ActivityType.OTHER),
+                description=f"Case status updated to {new_status.value}.",
+                auto_generated=True,
+                created_by=user.id,
+            )
+        )
 
     db.commit()
     db.refresh(case)

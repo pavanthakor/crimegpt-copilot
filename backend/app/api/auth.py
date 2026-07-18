@@ -12,8 +12,8 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models import User
-from app.models.enums import UserRole
+from app.models import AuditLog, User
+from app.models.enums import AuditAction, UserRole
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 bearer_scheme = HTTPBearer()
@@ -123,6 +123,23 @@ def register(
         role=body.role,
     )
     db.add(user)
+    db.flush()  # assign user.id
+
+    db.add(
+        AuditLog(
+            case_id=None,
+            entity_type="user",
+            entity_id=user.id,
+            action=AuditAction.CREATE,
+            field_changes={
+                "username": body.username,
+                "full_name": body.full_name,
+                "role": body.role.value,
+            },
+            performed_by=_admin.id,
+        )
+    )
+
     db.commit()
     db.refresh(user)
     return user
