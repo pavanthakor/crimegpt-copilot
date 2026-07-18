@@ -41,6 +41,28 @@ _SYSTEM = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Purpose-scoped retrieval — each legal question searches only its own act, so
+# offence mapping is never polluted by procedural/evidentiary sections.
+#   BNS  = substantive offences (charge mapping)
+#   BNSS = criminal procedure  (arrest, remand, custody, search) — used later
+#   BSA  = evidence law                                          — used later
+# ---------------------------------------------------------------------------
+def retrieve_offences(query: str, k: int = 8) -> list[dict]:
+    """Candidate substantive-offence sections (BNS) for charge mapping."""
+    return rag.search(query, k=k, act="BNS")
+
+
+def retrieve_procedure(query: str, k: int = 8) -> list[dict]:
+    """Candidate procedure sections (BNSS) — arrest/remand/custody/search."""
+    return rag.search(query, k=k, act="BNSS")
+
+
+def retrieve_evidence(query: str, k: int = 8) -> list[dict]:
+    """Candidate evidence-law sections (BSA)."""
+    return rag.search(query, k=k, act="BSA")
+
+
 def _format_candidates(candidates: list[dict]) -> str:
     lines = []
     for c in candidates:
@@ -58,14 +80,12 @@ def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
         "Select ONLY the candidate sections that genuinely apply to this narrative. "
         "You MUST NOT invent a section number — only choose from the candidate section_codes below.\n\n"
         "For each selected section provide:\n"
-        "  - triggering_phrase: an EXACT substring copied word-for-word FROM THE NARRATIVE below "
-        "(the complaint text). It must appear verbatim in the narrative. "
-        "Do NOT quote the candidate section definitions — quote the complaint.\n"
+        "  - triggering_phrase: a run of words copied character-for-character FROM THE NARRATIVE "
+        "below (the complaint text). It MUST appear verbatim in that narrative. Do NOT paraphrase, "
+        "do NOT copy the candidate section definitions, and do NOT invent words. If you cannot find "
+        "a supporting phrase in the narrative itself, omit that section.\n"
         "  - reason: a short reason it applies.\n"
         "  - confidence: 0.0-1.0.\n\n"
-        "Example: if the narrative says 'the accused snatched her purse', a valid "
-        "triggering_phrase is \"snatched her purse\" (copied from the narrative), never the "
-        "statutory definition of the section.\n\n"
         f"NARRATIVE (quote triggering_phrase from HERE):\n\"\"\"{narrative}\"\"\"\n\n"
         f"CANDIDATE SECTIONS (choose section_code from HERE):\n{_format_candidates(candidates)}\n"
     )
@@ -73,18 +93,21 @@ def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
 
 def validate_selections(
     selections: list[dict], candidates: list[dict], narrative: str
-) -> list[dict]:
-    """Drop any selection not grounded in both the candidate set and the narrative.
+) -> tuple[list[dict], list[dict]]:
+    """Split selections into (validated, rejected).
 
     A selection survives only if:
       * its (act, section_code) pair is one of the retrieved candidates, AND
       * its triggering_phrase literally appears in the narrative.
 
-    Surviving selections are enriched with the candidate's title/citation/act_name.
+    Surviving selections are enriched with the candidate's title/citation.
+    Rejected selections carry a `rejection_reason` so the UI/demo can show why
+    a suggestion was dropped rather than silently swallowing it.
     """
     by_key = {(c["act"], str(c["section_code"])): c for c in candidates}
     narrative_lc = narrative.lower()
     validated: list[dict] = []
+    rejected: list[dict] = []
 
     for sel in selections:
         act = sel.get("act", "")
@@ -96,12 +119,28 @@ def validate_selections(
             logger.warning(
                 "REJECT ungrounded section %s %s — not in retrieved candidate set", act, code
             )
+            rejected.append(
+                {
+                    "act": act,
+                    "section_code": code,
+                    "triggering_phrase": phrase,
+                    "rejection_reason": "not in retrieved candidate set (possibly hallucinated)",
+                }
+            )
             continue
 
         if not phrase or (phrase not in narrative and phrase.lower() not in narrative_lc):
             logger.warning(
                 "REJECT section %s %s — triggering_phrase %r not found in narrative",
                 act, code, phrase,
+            )
+            rejected.append(
+                {
+                    "act": act,
+                    "section_code": code,
+                    "triggering_phrase": phrase,
+                    "rejection_reason": "triggering_phrase not found verbatim in narrative",
+                }
             )
             continue
 
@@ -117,13 +156,25 @@ def validate_selections(
                 "confidence": sel.get("confidence"),
             }
         )
-    return validated
+    return validated, rejected
 
 
 def map_sections(narrative: str, language: str = "EN", k: int = 8) -> dict:
-    """Full grounded pipeline. Returns {candidates, validated}."""
-    candidates = rag.search(narrative, k=k)
-    logger.info("retrieved %d candidate sections", len(candidates))
+    """Grounded offence (BNS) charge mapping.
+
+    Returns a UI-ready result:
+        {
+          "sections": [...],   # validated, grounded sections (empty if none survive)
+          "status":   "ok" | "no_grounded_match",
+          "rejected": [...],   # dropped suggestions + why (for review / demo)
+        }
+
+    `status == "no_grounded_match"` means nothing cleared grounding — the UI should
+    show an explicit "no confident match — review manually" state instead of a
+    fabricated section.
+    """
+    candidates = retrieve_offences(narrative, k=k)
+    logger.info("retrieved %d BNS candidate sections", len(candidates))
 
     prompt = _build_prompt(narrative, candidates, language)
     llm_out = call_llm(prompt, system=_SYSTEM, json_schema=SELECTION_SCHEMA)
@@ -133,6 +184,13 @@ def map_sections(narrative: str, language: str = "EN", k: int = 8) -> dict:
     selections = llm_out.get("selected", [])
     logger.info("LLM returned %d raw selections", len(selections))
 
-    validated = validate_selections(selections, candidates, narrative)
-    logger.info("validated %d / %d selections", len(validated), len(selections))
-    return {"candidates": candidates, "validated": validated}
+    validated, rejected = validate_selections(selections, candidates, narrative)
+    logger.info(
+        "validated %d, rejected %d of %d selections",
+        len(validated), len(rejected), len(selections),
+    )
+    return {
+        "sections": validated,
+        "status": "ok" if validated else "no_grounded_match",
+        "rejected": rejected,
+    }
