@@ -81,7 +81,7 @@ export default function CaseDetailPage() {
         {tab === "Persons" && <PersonsTab rows={data.persons} />}
         {tab === "Seized Items" && <SeizedTab rows={data.seized_items} />}
         {tab === "Statements" && <StatementsTab rows={data.statements} />}
-        {tab === "Documents" && <DocumentsTab rows={data.documents} />}
+        {tab === "Documents" && <DocumentsTab caseId={data.id} />}
         {tab === "Diary" && <DiaryTab rows={data.diary_entries} />}
         {tab === "Evidence" && <Placeholder name="Evidence" />}
         {tab === "Sections" && (
@@ -147,18 +147,141 @@ function StatementsTab({ rows }: { rows: any[] }) {
   );
 }
 
-function DocumentsTab({ rows }: { rows: any[] }) {
-  if (!rows?.length) return <p>No documents.</p>;
+const DOC_TYPES: { key: string; label: string }[] = [
+  { key: "SEIZURE_RECEIPT", label: "Seizure Receipt" },
+  { key: "PANCHNAMA", label: "Panchnama" },
+  { key: "REMAND", label: "Remand Request" },
+  { key: "MEDICAL_LETTER", label: "Medical Letter" },
+];
+
+function DocumentsTab({ caseId }: { caseId: number }) {
+  const [docs, setDocs] = useState<any[]>([]);
+  const [busy, setBusy] = useState<string | null>(null); // doc_type currently generating
+  const [err, setErr] = useState<string | null>(null);
+
+  function loadDocs() {
+    api
+      .get(`/api/cases/${caseId}/documents`)
+      .then((r) => setDocs(r.data))
+      .catch((e) => setErr(e?.response?.data?.detail ?? "Failed to load documents"));
+  }
+
+  useEffect(loadDocs, [caseId]);
+
+  async function generate(docType: string) {
+    setBusy(docType);
+    setErr(null);
+    try {
+      await api.post(`/api/cases/${caseId}/documents/${docType}`);
+      loadDocs(); // refresh after success
+    } catch (e: any) {
+      // 400 carries the exact missing-fields message from the backend.
+      setErr(e?.response?.data?.detail ?? "Document generation failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function download(doc: any) {
+    setErr(null);
+    try {
+      const res = await api.get(`/api/documents/${doc.id}/download`, {
+        responseType: "blob",
+      });
+      // Filename from Content-Disposition, else construct one.
+      const cd: string = res.headers["content-disposition"] ?? "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m ? m[1] : `${doc.doc_type}_${caseId}.docx`;
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail ?? "Download failed");
+    }
+  }
+
   return (
-    <ul>
-      {rows.map((d) => (
-        <li key={d.id}>
-          {d.doc_type} v{d.version} — {d.status}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {DOC_TYPES.map((dt) => (
+          <button key={dt.key} onClick={() => generate(dt.key)} disabled={busy !== null}>
+            {busy === dt.key ? `Generating ${dt.label}…` : `Generate ${dt.label}`}
+          </button>
+        ))}
+      </div>
+
+      {err && (
+        <div
+          style={{
+            background: "#fff1f0",
+            border: "1px solid #ffa39e",
+            color: "#a8071a",
+            padding: 10,
+            marginBottom: 12,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {err}
+        </div>
+      )}
+
+      {!docs.length ? (
+        <p style={{ color: "#888" }}>
+          No documents yet. Use the buttons above to generate a draft.
+        </p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Version</th>
+              <th>Status</th>
+              <th>Generated</th>
+              <th>By (user id)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {docs.map((d) => (
+              <tr key={d.id}>
+                <td>{DOC_LABELS[d.doc_type] ?? d.doc_type}</td>
+                <td>v{d.version}</td>
+                <td>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: "1px 8px",
+                      borderRadius: 10,
+                      background: d.status === "FINALIZED" ? "#52c41a" : "#faad14",
+                      color: "white",
+                    }}
+                  >
+                    {d.status}
+                  </span>
+                </td>
+                <td>{d.generated_at ? new Date(d.generated_at).toLocaleString() : "—"}</td>
+                <td>{d.generated_by ?? "—"}</td>
+                <td>
+                  <button onClick={() => download(d)}>Download</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
+
+const DOC_LABELS: Record<string, string> = Object.fromEntries(
+  DOC_TYPES.map((d) => [d.key, d.label])
+);
 
 function DiaryTab({ rows }: { rows: any[] }) {
   if (!rows?.length) return <p>No diary entries.</p>;
