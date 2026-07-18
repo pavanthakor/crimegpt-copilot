@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
@@ -84,7 +84,9 @@ export default function CaseDetailPage() {
         {tab === "Documents" && <DocumentsTab rows={data.documents} />}
         {tab === "Diary" && <DiaryTab rows={data.diary_entries} />}
         {tab === "Evidence" && <Placeholder name="Evidence" />}
-        {tab === "Sections" && <Placeholder name="Legal sections" />}
+        {tab === "Sections" && (
+          <SectionsTab caseId={data.id} narrative={data.complaint_narrative ?? ""} />
+        )}
       </div>
     </div>
   );
@@ -169,5 +171,192 @@ function DiaryTab({ rows }: { rows: any[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// ---------------- Sections (Legal Intelligence) ----------------
+const STATUS_STYLE: Record<string, CSSProperties> = {
+  SUGGESTED: { background: "#fffbe6", border: "1px solid #ffe58f" },
+  ACCEPTED: { background: "#f6ffed", border: "2px solid #52c41a" },
+  REJECTED: { background: "#fafafa", border: "1px solid #d9d9d9", opacity: 0.65 },
+};
+
+function Highlighted({ text, phrase }: { text: string; phrase?: string | null }) {
+  if (!text) return null;
+  const base: CSSProperties = {
+    whiteSpace: "pre-wrap",
+    display: "block",
+    maxHeight: 160,
+    overflow: "auto",
+    background: "#fff",
+    border: "1px solid #eee",
+    padding: 8,
+    fontSize: 13,
+  };
+  if (!phrase) return <span style={base}>{text}</span>;
+  const idx = text.toLowerCase().indexOf(phrase.toLowerCase());
+  if (idx === -1) {
+    // Phrase was validated against the analyzed narrative but isn't in the complaint
+    // text shown here (e.g. it came from a statement). Never render blank — show it.
+    return (
+      <div>
+        <span style={base}>{text}</span>
+        <p style={{ color: "#a00", margin: "4px 0 0" }}>
+          Triggering phrase: “{phrase}” (not located in the complaint text above)
+        </p>
+      </div>
+    );
+  }
+  return (
+    <span style={base}>
+      {text.slice(0, idx)}
+      <mark style={{ background: "#ffe58f", fontWeight: 700 }}>
+        {text.slice(idx, idx + phrase.length)}
+      </mark>
+      {text.slice(idx + phrase.length)}
+    </span>
+  );
+}
+
+function SectionsTab({ caseId, narrative }: { caseId: number; narrative: string }) {
+  const [sections, setSections] = useState<any[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
+  const [rejected, setRejected] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get(`/api/cases/${caseId}/sections`)
+      .then((r) => setSections(r.data))
+      .catch((e) => setErr(e?.response?.data?.detail ?? "Failed to load sections"));
+  }, [caseId]);
+
+  async function analyze() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const r = await api.post(`/api/cases/${caseId}/analyze`);
+      setStatus(r.data.status);
+      setRejected(r.data.rejected ?? []);
+      // Refetch the authoritative list (new suggestions + any prior decisions).
+      const list = await api.get(`/api/cases/${caseId}/sections`);
+      setSections(list.data);
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail ?? "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function decide(sid: number, decision: "ACCEPTED" | "REJECTED") {
+    try {
+      const r = await api.patch(`/api/cases/${caseId}/sections/${sid}`, {
+        status: decision,
+      });
+      setSections((prev) => prev.map((s) => (s.id === sid ? r.data : s)));
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail ?? "Update failed");
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <button onClick={analyze} disabled={loading}>
+          {loading ? "Analyzing… (~5s)" : "Analyze with AI"}
+        </button>
+        {loading && <span style={{ color: "#888" }}>Running grounded section mapping…</span>}
+      </div>
+
+      {err && <p style={{ color: "red" }}>{err}</p>}
+
+      {status === "no_grounded_match" && (
+        <div
+          style={{
+            background: "#fff7e6",
+            border: "1px solid #ffd591",
+            padding: 12,
+            marginBottom: 12,
+          }}
+        >
+          No confidently grounded section found — please review manually.
+        </div>
+      )}
+
+      {!sections.length && !loading && status !== "no_grounded_match" && (
+        <p style={{ color: "#888" }}>
+          No sections yet. Click <b>Analyze with AI</b> to suggest legal sections from the
+          case narrative.
+        </p>
+      )}
+
+      {sections.map((s) => (
+        <div
+          key={s.id}
+          style={{
+            ...STATUS_STYLE[s.status],
+            padding: 12,
+            marginBottom: 12,
+            borderRadius: 4,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <b
+              style={{
+                textDecoration: s.status === "REJECTED" ? "line-through" : "none",
+              }}
+            >
+              {s.act} Section {s.section_code} — {s.section_title}
+            </b>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: 10,
+                background:
+                  s.status === "ACCEPTED"
+                    ? "#52c41a"
+                    : s.status === "REJECTED"
+                    ? "#bbb"
+                    : "#faad14",
+                color: "white",
+              }}
+            >
+              {s.status}
+            </span>
+          </div>
+
+          <p style={{ margin: "6px 0", fontSize: 13 }}>
+            Confidence:{" "}
+            <b>{s.confidence != null ? `${Math.round(s.confidence * 100)}%` : "—"}</b>
+            {s.reason ? <> · {s.reason}</> : null}
+          </p>
+
+          <Highlighted text={narrative} phrase={s.triggering_phrase} />
+
+          {s.status === "SUGGESTED" && (
+            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+              <button onClick={() => decide(s.id, "ACCEPTED")}>Accept</button>
+              <button onClick={() => decide(s.id, "REJECTED")}>Reject</button>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {rejected.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <h4 style={{ margin: "0 0 6px" }}>Rejected by grounding check ({rejected.length})</h4>
+          <ul style={{ fontSize: 12, color: "#a00" }}>
+            {rejected.map((r, i) => (
+              <li key={i}>
+                {r.act} {r.section_code}: {r.rejection_reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

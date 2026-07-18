@@ -15,8 +15,16 @@ pip install -r requirements.txt
 alembic upgrade head
 python -m app.seed                   # demo users + demo case
 python -m app.ai.rag                 # build the legal RAG index (idempotent)
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload   # NOT bare `uvicorn` — see note below
 ```
+
+### Run the server with `python -m uvicorn` (not bare `uvicorn`)
+
+Start the backend as `python -m uvicorn app.main:app`. The bare `uvicorn` launcher on
+some machines binds to a different Python interpreter than the one where the AI deps
+(`chromadb`, `sentence-transformers`) are installed, so importing the legal router fails
+with `ModuleNotFoundError: No module named 'chromadb'`. Running via `python -m` guarantees
+the same interpreter (and therefore the same installed packages) is used.
 
 ### `USE_TF=0` (required for the AI/embeddings layer)
 

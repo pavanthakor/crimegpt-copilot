@@ -1,0 +1,212 @@
+"""Legal-intelligence endpoints (CLAUDE.md §7 `legal`).
+
+    POST  /api/cases/{id}/analyze          run grounded section mapping, persist suggestions
+    GET   /api/cases/{id}/sections         list persisted sections for a case
+    PATCH /api/cases/{id}/sections/{sid}   accept / reject a suggested section
+
+All routes require a valid JWT and enforce the same case visibility as `cases.py`.
+The heavy lifting (RAG retrieval + grounded LLM selection + hard validation) lives in
+`app.ai.legal`; this module only wires it to the DB, audit log, and case diary.
+"""
+from pydantic import BaseModel, ConfigDict
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.ai import legal as ai_legal
+from app.api.auth import get_current_user, require_role
+from app.api.cases import _get_visible_case
+from app.core.db import get_db
+from app.models import AuditLog, Case, CaseDiaryEntry, LegalSection, Statement, User
+from app.models.enums import (
+    ActivityType,
+    AuditAction,
+    LegalAct,
+    SectionStatus,
+    UserRole,
+)
+
+router = APIRouter(prefix="/api/cases", tags=["legal"])
+
+
+# ---------- Schemas ----------
+class LegalSectionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    act: LegalAct
+    section_code: str | None = None
+    section_title: str | None = None
+    reason: str | None = None
+    triggering_phrase: str | None = None
+    confidence: float | None = None
+    status: SectionStatus
+
+
+class RejectedOut(BaseModel):
+    act: str | None = None
+    section_code: str | None = None
+    triggering_phrase: str | None = None
+    rejection_reason: str | None = None
+
+
+class AnalyzeResult(BaseModel):
+    status: str  # "ok" | "no_grounded_match"
+    sections: list[LegalSectionOut]
+    rejected: list[RejectedOut]
+
+
+class SectionStatusUpdate(BaseModel):
+    status: SectionStatus  # only ACCEPTED or REJECTED are allowed (checked in handler)
+
+
+# ---------- Helpers ----------
+def _build_narrative(case: Case, statements: list[Statement]) -> str:
+    """Analysis input = complaint narrative + any recorded statements."""
+    parts: list[str] = []
+    if case.complaint_narrative:
+        parts.append(case.complaint_narrative)
+    for st in statements:
+        if st.statement_text:
+            parts.append(st.statement_text)
+    return "\n\n".join(p for p in parts if p and p.strip())
+
+
+# ---------- Endpoints ----------
+@router.post("/{case_id}/analyze", response_model=AnalyzeResult)
+def analyze_case(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    case = _get_visible_case(db, user, case_id)
+    statements = db.query(Statement).filter(Statement.case_id == case_id).all()
+    narrative = _build_narrative(case, statements)
+    if not narrative:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Case has no narrative or statements to analyze"
+        )
+
+    result = ai_legal.map_sections(narrative)
+
+    # Refresh suggestions: drop prior SUGGESTED rows, keep officer-decided ones so
+    # a re-run never duplicates an already ACCEPTED/REJECTED section.
+    existing = db.query(LegalSection).filter(LegalSection.case_id == case_id).all()
+    decided = {
+        (row.act.value, row.section_code)
+        for row in existing
+        if row.status != SectionStatus.SUGGESTED
+    }
+    for row in existing:
+        if row.status == SectionStatus.SUGGESTED:
+            db.delete(row)
+
+    persisted: list[LegalSection] = []
+    for s in result["sections"]:
+        if (s["act"], str(s["section_code"])) in decided:
+            continue  # already accepted/rejected — don't re-suggest
+        try:
+            act_enum = LegalAct(s["act"])
+        except ValueError:
+            act_enum = LegalAct.OTHER
+        row = LegalSection(
+            case_id=case_id,
+            act=act_enum,
+            section_code=str(s["section_code"]),
+            section_title=s.get("section_title"),
+            reason=s.get("reason"),
+            triggering_phrase=s.get("triggering_phrase"),
+            confidence=s.get("confidence"),
+            status=SectionStatus.SUGGESTED,
+            added_by=user.id,
+        )
+        db.add(row)
+        persisted.append(row)
+
+    db.add(
+        AuditLog(
+            case_id=case_id,
+            entity_type="case",
+            entity_id=case_id,
+            action=AuditAction.CREATE,
+            field_changes={
+                "action": "analyze",
+                "status": result["status"],
+                "suggested": len(persisted),
+                "rejected": len(result["rejected"]),
+            },
+            performed_by=user.id,
+        )
+    )
+    db.add(
+        CaseDiaryEntry(
+            case_id=case_id,
+            activity_type=ActivityType.OTHER,
+            description="AI section analysis run",
+            auto_generated=True,
+            created_by=user.id,
+        )
+    )
+
+    db.commit()
+    for row in persisted:
+        db.refresh(row)
+
+    return AnalyzeResult(
+        status=result["status"],
+        sections=[LegalSectionOut.model_validate(r) for r in persisted],
+        rejected=[RejectedOut(**r) for r in result["rejected"]],
+    )
+
+
+@router.get("/{case_id}/sections", response_model=list[LegalSectionOut])
+def list_sections(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _get_visible_case(db, user, case_id)  # visibility check
+    rows = (
+        db.query(LegalSection)
+        .filter(LegalSection.case_id == case_id)
+        .order_by(LegalSection.id)
+        .all()
+    )
+    return rows
+
+
+@router.patch("/{case_id}/sections/{sid}", response_model=LegalSectionOut)
+def update_section_status(
+    case_id: int,
+    sid: int,
+    body: SectionStatusUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_role(UserRole.IO, UserRole.SHO, UserRole.LEGAL_ADVISOR)
+    ),
+):
+    _get_visible_case(db, user, case_id)  # visibility check
+    if body.status not in (SectionStatus.ACCEPTED, SectionStatus.REJECTED):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "status must be ACCEPTED or REJECTED"
+        )
+
+    section = db.get(LegalSection, sid)
+    if section is None or section.case_id != case_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found")
+
+    old = section.status.value
+    section.status = body.status
+
+    db.add(
+        AuditLog(
+            case_id=case_id,
+            entity_type="legal_section",
+            entity_id=sid,
+            action=AuditAction.UPDATE,
+            field_changes={"status": {"old": old, "new": body.status.value}},
+            performed_by=user.id,
+        )
+    )
+    db.commit()
+    db.refresh(section)
+    return section
