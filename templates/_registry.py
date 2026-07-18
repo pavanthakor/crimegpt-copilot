@@ -1,1 +1,76 @@
-# TODO: template registry — map document types to their .docx templates.
+"""Document template registry (CLAUDE.md §8).
+
+Maps a doc_type (matching models.enums.DocType values) to its Word template, a
+human title, and the context fields that MUST be present for a meaningful document.
+
+Adding a new document = drop a `.docx` into this folder + add ONE entry here.
+No code change anywhere else. This is a Golden Hour seam (§10): a cyber freeze
+letter is just another template + entry.
+
+Kept import-free (no backend/app dependency) so it can be loaded by file path.
+"""
+
+REGISTRY = {
+    "SEIZURE_RECEIPT": {
+        "template_file": "seizure_receipt.docx",
+        "title": "Seizure Receipt",
+        "required_fields": [
+            "case_number",
+            "police_station",
+            "io_name",
+            "seizure_datetime",
+            "seizure_location",
+            "accused_name",
+            "seized_items",
+        ],
+    },
+    "PANCHNAMA": {
+        "template_file": "panchnama.docx",
+        "title": "Panchnama",
+        "required_fields": [
+            "case_number",
+            "police_station",
+            "io_name",
+            "panchnama_date",
+            "panchnama_place",
+            "accused_name",
+            "witnesses",
+            "seized_items",
+        ],
+    },
+    "REMAND": {
+        "template_file": "remand_request.docx",
+        "title": "Remand Request Letter (Police Custody)",
+        "required_fields": [
+            "case_number",
+            "fir_number",
+            "police_station",
+            "accused_name",
+            "sections_applied",
+            "investigation_done",
+            "pending_investigation",
+            "grounds_for_custody",
+        ],
+    },
+    "MEDICAL_LETTER": {
+        "template_file": "medical_letter.docx",
+        "title": "Medical Treatment / Examination Letter",
+        "required_fields": [
+            "case_number",
+            "police_station",
+            "io_name",
+            "subject_name",
+            "examination_purpose",
+        ],
+    },
+}
+
+
+def get_entry(doc_type: str) -> dict:
+    """Return the registry entry for a doc_type, or raise KeyError with the valid set."""
+    try:
+        return REGISTRY[doc_type]
+    except KeyError as exc:
+        raise KeyError(
+            f"Unknown doc_type {doc_type!r}. Registered: {sorted(REGISTRY)}"
+        ) from exc
