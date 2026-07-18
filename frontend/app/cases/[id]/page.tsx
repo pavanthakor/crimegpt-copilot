@@ -78,12 +78,12 @@ export default function CaseDetailPage() {
       </div>
 
       <div style={{ padding: 12, border: "1px solid #ccc", borderTop: "none" }}>
-        {tab === "Persons" && <PersonsTab rows={data.persons} />}
-        {tab === "Seized Items" && <SeizedTab rows={data.seized_items} />}
-        {tab === "Statements" && <StatementsTab rows={data.statements} />}
+        {tab === "Persons" && <PersonsTab caseId={data.id} />}
+        {tab === "Seized Items" && <SeizedTab caseId={data.id} />}
+        {tab === "Statements" && <StatementsTab caseId={data.id} />}
         {tab === "Documents" && <DocumentsTab caseId={data.id} />}
         {tab === "Diary" && <DiaryTab rows={data.diary_entries} />}
-        {tab === "Evidence" && <Placeholder name="Evidence" />}
+        {tab === "Evidence" && <EvidenceTab caseId={data.id} />}
         {tab === "Sections" && (
           <SectionsTab caseId={data.id} narrative={data.complaint_narrative ?? ""} />
         )}
@@ -96,54 +96,295 @@ function Placeholder({ name }: { name: string }) {
   return <p style={{ color: "#888" }}>{name}: not implemented yet (later slice).</p>;
 }
 
-function PersonsTab({ rows }: { rows: any[] }) {
-  if (!rows?.length) return <p>No persons.</p>;
+function useErr() {
+  const [err, setErr] = useState<string | null>(null);
+  const node = err ? (
+    <div style={{ background: "#fff1f0", border: "1px solid #ffa39e", color: "#a8071a", padding: 8, margin: "8px 0" }}>
+      {err}
+    </div>
+  ) : null;
+  return { err, setErr, node };
+}
+
+const inp: CSSProperties = { padding: 4, margin: "2px 4px 2px 0", minWidth: 90 };
+const PERSON_ROLES = ["VICTIM", "ACCUSED", "WITNESS", "COMPLAINANT"];
+const STMT_TYPES = ["WITNESS", "ACCUSED", "VICTIM"];
+const LANGS = ["GU", "HI", "EN"];
+const EV_TYPES = ["IMAGE", "DOCUMENT", "PHYSICAL"];
+
+const EMPTY_PERSON = {
+  role: "WITNESS", full_name: "", alias: "", father_name: "",
+  age: "", gender: "", phone: "", address: "", occupation: "",
+};
+
+function PersonsTab({ caseId }: { caseId: number }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [f, setF] = useState<any>({ ...EMPTY_PERSON });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { setErr, node } = useErr();
+
+  const load = () => api.get(`/api/cases/${caseId}/persons`).then((r) => setRows(r.data));
+  useEffect(() => { load(); }, [caseId]);
+
+  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const reset = () => { setF({ ...EMPTY_PERSON }); setEditId(null); };
+
+  async function save() {
+    setBusy(true); setErr(null);
+    const body: any = { ...f, age: f.age === "" ? null : Number(f.age) };
+    try {
+      if (editId) await api.patch(`/api/cases/${caseId}/persons/${editId}`, body);
+      else await api.post(`/api/cases/${caseId}/persons`, body);
+      reset(); await load();
+    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Save failed"); }
+    finally { setBusy(false); }
+  }
+  async function del(id: number) {
+    setErr(null);
+    try { await api.delete(`/api/cases/${caseId}/persons/${id}`); await load(); }
+    catch (e: any) { setErr(e?.response?.data?.detail ?? "Delete failed"); }
+  }
+  function edit(p: any) {
+    setEditId(p.id);
+    setF({ role: p.role, full_name: p.full_name ?? "", alias: p.alias ?? "", father_name: p.father_name ?? "",
+      age: p.age ?? "", gender: p.gender ?? "", phone: p.phone ?? "", address: p.address ?? "", occupation: p.occupation ?? "" });
+  }
+
   return (
-    <table>
-      <thead>
-        <tr><th>Role</th><th>Name</th><th>Alias</th><th>Age</th><th>Gender</th><th>Phone</th><th>Occupation</th></tr>
-      </thead>
-      <tbody>
-        {rows.map((p) => (
-          <tr key={p.id}>
-            <td>{p.role}</td><td>{p.full_name}</td><td>{p.alias}</td><td>{p.age}</td>
-            <td>{p.gender}</td><td>{p.phone}</td><td>{p.occupation}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <b>{editId ? "Edit person" : "Add person"}</b><br />
+        <select style={inp} value={f.role} onChange={(e) => set("role", e.target.value)}>
+          {PERSON_ROLES.map((r) => <option key={r}>{r}</option>)}
+        </select>
+        <input style={inp} placeholder="Full name" value={f.full_name} onChange={(e) => set("full_name", e.target.value)} />
+        <input style={inp} placeholder="Alias" value={f.alias} onChange={(e) => set("alias", e.target.value)} />
+        <input style={inp} placeholder="Father's name" value={f.father_name} onChange={(e) => set("father_name", e.target.value)} />
+        <input style={{ ...inp, minWidth: 50 }} placeholder="Age" value={f.age} onChange={(e) => set("age", e.target.value)} />
+        <input style={{ ...inp, minWidth: 50 }} placeholder="Gender" value={f.gender} onChange={(e) => set("gender", e.target.value)} />
+        <input style={inp} placeholder="Phone" value={f.phone} onChange={(e) => set("phone", e.target.value)} />
+        <input style={inp} placeholder="Occupation" value={f.occupation} onChange={(e) => set("occupation", e.target.value)} />
+        <input style={{ ...inp, minWidth: 160 }} placeholder="Address" value={f.address} onChange={(e) => set("address", e.target.value)} />
+        <button onClick={save} disabled={busy}>{editId ? "Update" : "Add person"}</button>
+        {editId && <button onClick={reset}>Cancel</button>}
+      </div>
+      {node}
+      {!rows.length ? <p>No persons.</p> : (
+        <table>
+          <thead><tr><th>Role</th><th>Name</th><th>Alias</th><th>Age</th><th>Gender</th><th>Phone</th><th>Occupation</th><th></th></tr></thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.id}>
+                <td>{p.role}</td><td>{p.full_name}</td><td>{p.alias}</td><td>{p.age}</td>
+                <td>{p.gender}</td><td>{p.phone}</td><td>{p.occupation}</td>
+                <td><button onClick={() => edit(p)}>Edit</button> <button onClick={() => del(p.id)}>Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
-function SeizedTab({ rows }: { rows: any[] }) {
-  if (!rows?.length) return <p>No seized items.</p>;
+const EMPTY_ITEM = { description: "", quantity: "", estimated_value: "", seizure_location: "", seizure_datetime: "" };
+
+function SeizedTab({ caseId }: { caseId: number }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [f, setF] = useState<any>({ ...EMPTY_ITEM });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { setErr, node } = useErr();
+
+  const load = () => api.get(`/api/cases/${caseId}/seized-items`).then((r) => setRows(r.data));
+  useEffect(() => { load(); }, [caseId]);
+  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const reset = () => { setF({ ...EMPTY_ITEM }); setEditId(null); };
+
+  async function save() {
+    setBusy(true); setErr(null);
+    const body: any = {
+      description: f.description,
+      quantity: f.quantity === "" ? null : Number(f.quantity),
+      estimated_value: f.estimated_value === "" ? null : Number(f.estimated_value),
+      seizure_location: f.seizure_location || null,
+      seizure_datetime: f.seizure_datetime ? new Date(f.seizure_datetime).toISOString() : null,
+    };
+    try {
+      if (editId) await api.patch(`/api/cases/${caseId}/seized-items/${editId}`, body);
+      else await api.post(`/api/cases/${caseId}/seized-items`, body);
+      reset(); await load();
+    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Save failed"); }
+    finally { setBusy(false); }
+  }
+  async function del(id: number) {
+    setErr(null);
+    try { await api.delete(`/api/cases/${caseId}/seized-items/${id}`); await load(); }
+    catch (e: any) { setErr(e?.response?.data?.detail ?? "Delete failed"); }
+  }
+  function edit(s: any) {
+    setEditId(s.id);
+    setF({ description: s.description ?? "", quantity: s.quantity ?? "", estimated_value: s.estimated_value ?? "",
+      seizure_location: s.seizure_location ?? "", seizure_datetime: "" });
+  }
+
   return (
-    <table>
-      <thead>
-        <tr><th>Description</th><th>Qty</th><th>Est. value</th><th>Seized from (person id)</th><th>Location</th></tr>
-      </thead>
-      <tbody>
-        {rows.map((s) => (
-          <tr key={s.id}>
-            <td>{s.description}</td><td>{s.quantity}</td><td>{s.estimated_value}</td>
-            <td>{s.seized_from}</td><td>{s.seizure_location}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <b>{editId ? "Edit seized item" : "Add seized item"}</b><br />
+        <input style={{ ...inp, minWidth: 220 }} placeholder="Description" value={f.description} onChange={(e) => set("description", e.target.value)} />
+        <input style={{ ...inp, minWidth: 50 }} placeholder="Qty" value={f.quantity} onChange={(e) => set("quantity", e.target.value)} />
+        <input style={inp} placeholder="Est. value (Rs.)" value={f.estimated_value} onChange={(e) => set("estimated_value", e.target.value)} />
+        <input style={inp} placeholder="Seizure location" value={f.seizure_location} onChange={(e) => set("seizure_location", e.target.value)} />
+        <input style={inp} type="datetime-local" value={f.seizure_datetime} onChange={(e) => set("seizure_datetime", e.target.value)} />
+        <button onClick={save} disabled={busy}>{editId ? "Update" : "Add item"}</button>
+        {editId && <button onClick={reset}>Cancel</button>}
+      </div>
+      {node}
+      {!rows.length ? <p>No seized items.</p> : (
+        <table>
+          <thead><tr><th>Description</th><th>Qty</th><th>Est. value</th><th>From (pid)</th><th>Location</th><th></th></tr></thead>
+          <tbody>
+            {rows.map((s) => (
+              <tr key={s.id}>
+                <td>{s.description}</td><td>{s.quantity}</td><td>{s.estimated_value}</td>
+                <td>{s.seized_from}</td><td>{s.seizure_location}</td>
+                <td><button onClick={() => edit(s)}>Edit</button> <button onClick={() => del(s.id)}>Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
-function StatementsTab({ rows }: { rows: any[] }) {
-  if (!rows?.length) return <p>No statements.</p>;
+function StatementsTab({ caseId }: { caseId: number }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [persons, setPersons] = useState<any[]>([]);
+  const [f, setF] = useState<any>({ person_id: "", statement_type: "WITNESS", language: "EN", statement_text: "" });
+  const [busy, setBusy] = useState(false);
+  const { setErr, node } = useErr();
+
+  const load = () => api.get(`/api/cases/${caseId}/statements`).then((r) => setRows(r.data));
+  useEffect(() => {
+    load();
+    api.get(`/api/cases/${caseId}/persons`).then((r) => setPersons(r.data));
+  }, [caseId]);
+  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+
+  async function add() {
+    if (!f.person_id) { setErr("Select a person"); return; }
+    setBusy(true); setErr(null);
+    try {
+      await api.post(`/api/cases/${caseId}/statements`, { ...f, person_id: Number(f.person_id) });
+      setF({ person_id: "", statement_type: "WITNESS", language: "EN", statement_text: "" });
+      await load();
+    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Save failed"); }
+    finally { setBusy(false); }
+  }
+
   return (
-    <ul>
-      {rows.map((s) => (
-        <li key={s.id}>
-          <b>{s.statement_type}</b> (person {s.person_id}, {s.language}): {s.statement_text}
-        </li>
-      ))}
-    </ul>
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <b>Add statement</b><br />
+        <select style={inp} value={f.person_id} onChange={(e) => set("person_id", e.target.value)}>
+          <option value="">— person —</option>
+          {persons.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
+        </select>
+        <select style={inp} value={f.statement_type} onChange={(e) => set("statement_type", e.target.value)}>
+          {STMT_TYPES.map((t) => <option key={t}>{t}</option>)}
+        </select>
+        <select style={inp} value={f.language} onChange={(e) => set("language", e.target.value)}>
+          {LANGS.map((l) => <option key={l}>{l}</option>)}
+        </select>
+        <br />
+        <textarea style={{ ...inp, width: 480, height: 60 }} placeholder="Statement text"
+          value={f.statement_text} onChange={(e) => set("statement_text", e.target.value)} />
+        <br />
+        <button onClick={add} disabled={busy}>Add statement</button>
+      </div>
+      {node}
+      {!rows.length ? <p>No statements.</p> : (
+        <ul>
+          {rows.map((s) => (
+            <li key={s.id}><b>{s.statement_type}</b> (person {s.person_id}, {s.language}): {s.statement_text}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function EvidenceTab({ caseId }: { caseId: number }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [persons, setPersons] = useState<any[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [f, setF] = useState<any>({ type: "IMAGE", description: "", tags: "", linked_person_id: "" });
+  const [busy, setBusy] = useState(false);
+  const { setErr, node } = useErr();
+
+  const load = () => api.get(`/api/cases/${caseId}/evidence`).then((r) => setRows(r.data));
+  useEffect(() => {
+    load();
+    api.get(`/api/cases/${caseId}/persons`).then((r) => setPersons(r.data));
+  }, [caseId]);
+  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+
+  async function upload() {
+    if (!file) { setErr("Choose a file first"); return; }
+    setBusy(true); setErr(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("type", f.type);
+    if (f.description) fd.append("description", f.description);
+    if (f.tags) fd.append("tags", f.tags);
+    if (f.linked_person_id) fd.append("linked_person_id", f.linked_person_id);
+    try {
+      await api.post(`/api/cases/${caseId}/evidence`, fd);
+      setFile(null);
+      setF({ type: "IMAGE", description: "", tags: "", linked_person_id: "" });
+      await load();
+    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Upload failed"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div>
+      <div style={{ marginBottom: 8 }}>
+        <b>Upload evidence</b><br />
+        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <select style={inp} value={f.type} onChange={(e) => set("type", e.target.value)}>
+          {EV_TYPES.map((t) => <option key={t}>{t}</option>)}
+        </select>
+        <input style={{ ...inp, minWidth: 180 }} placeholder="Description" value={f.description} onChange={(e) => set("description", e.target.value)} />
+        <input style={inp} placeholder="Tags (comma-separated)" value={f.tags} onChange={(e) => set("tags", e.target.value)} />
+        <select style={inp} value={f.linked_person_id} onChange={(e) => set("linked_person_id", e.target.value)}>
+          <option value="">— link person —</option>
+          {persons.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
+        </select>
+        <button onClick={upload} disabled={busy}>{busy ? "Uploading…" : "Upload"}</button>
+      </div>
+      {node}
+      {!rows.length ? <p>No evidence uploaded.</p> : (
+        <table>
+          <thead><tr><th>Type</th><th>Description</th><th>Tags</th><th>SHA-256</th><th>Collected by</th><th>Collected at</th></tr></thead>
+          <tbody>
+            {rows.map((ev) => (
+              <tr key={ev.id}>
+                <td>{ev.type}</td>
+                <td>{ev.description}</td>
+                <td>{Array.isArray(ev.tags) ? ev.tags.join(", ") : ""}</td>
+                <td style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all", maxWidth: 260 }}>{ev.file_hash}</td>
+                <td>{ev.collected_by}</td>
+                <td>{ev.collected_at ? new Date(ev.collected_at).toLocaleString() : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
