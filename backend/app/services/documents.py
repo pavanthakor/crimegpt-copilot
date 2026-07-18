@@ -16,6 +16,10 @@ from pathlib import Path
 from docxtpl import DocxTemplate
 from sqlalchemy.orm import Session
 
+from app import demo_cache
+from app.ai.translate import translate
+from app.core.config import settings
+
 from app.models import (
     AuditLog,
     Case,
@@ -32,9 +36,22 @@ from app.models.enums import (
     AuditAction,
     DocStatus,
     DocType,
+    Language,
     PersonRole,
     SectionStatus,
 )
+
+# Free-text narrative clauses per doc type that are drafted (not identifiers) and may be
+# translated. Scoped per doc so we only translate clauses the template actually renders
+# (translating unused context fields would multiply latency for nothing).
+_TRANSLATABLE_BY_DOC = {
+    "PANCHNAMA": ["proceedings_narrative"],
+    "REMAND": ["investigation_done", "pending_investigation", "grounds_for_custody"],
+    "MEDICAL_LETTER": ["examination_purpose"],
+    "SEIZURE_RECEIPT": [],
+}
+
+_LANG_ENUM = {"gu": Language.GU, "hi": Language.HI, "en": Language.EN}
 
 # services/documents.py -> parents: [1]=app, [2]=backend, [3]=repo root
 _APP_DIR = Path(__file__).resolve().parents[1]
@@ -198,8 +215,14 @@ def _missing_required(context: dict, required: list[str]) -> list[str]:
     return missing
 
 
-def generate_document(db: Session, case_id: int, doc_type: DocType, user: User) -> Document:
+def generate_document(
+    db: Session, case_id: int, doc_type: DocType, user: User, lang: str | None = None
+) -> Document:
     """Generate one document for a case and persist it as a DRAFT.
+
+    `lang` ('gu'|'hi'|'en') controls the output language: when it is a non-English
+    language, the free-text narrative clauses are translated (names/numbers/dates/section
+    codes stay verbatim per translate()'s rules); identifiers are never touched.
 
     Raises ValueError with the missing field list rather than rendering blanks.
     """
@@ -212,17 +235,33 @@ def generate_document(db: Session, case_id: int, doc_type: DocType, user: User) 
     if entry is None:
         raise ValueError(f"No template registered for doc_type {doc_type.value}")
 
-    context = _build_context(db, case, user)
+    template_path = TEMPLATES_DIR / entry["template_file"]
+    if not template_path.exists():
+        raise ValueError(f"Template file not found: {template_path}")
+
+    # Resolve language: explicit lang wins, else the case's complaint language.
+    lang_key = (lang or "en").lower()
+    doc_language = _LANG_ENUM.get(lang_key, case.complaint_language)
+
+    # DEMO_MODE: serve the pre-generated (already-translated) context and skip the LLM.
+    # On a cache miss, fall through to the live build+translate below rather than erroring.
+    context = (
+        demo_cache.load_document(case_id, doc_type.value, lang_key)
+        if settings.DEMO_MODE else None
+    )
+    if context is None:
+        context = _build_context(db, case, user)
+        # Translate this doc type's free-text clauses (only) for a non-English language.
+        if lang_key != "en":
+            for field in _TRANSLATABLE_BY_DOC.get(doc_type.value, []):
+                if context.get(field):
+                    context[field] = translate(context[field], target=lang_key)
 
     missing = _missing_required(context, entry["required_fields"])
     if missing:
         raise ValueError(
             f"Cannot generate {entry['title']}: missing required field(s): {', '.join(missing)}"
         )
-
-    template_path = TEMPLATES_DIR / entry["template_file"]
-    if not template_path.exists():
-        raise ValueError(f"Template file not found: {template_path}")
 
     # Persist row first to get an id for a collision-free filename.
     doc = Document(
@@ -231,7 +270,7 @@ def generate_document(db: Session, case_id: int, doc_type: DocType, user: User) 
         version=1,
         status=DocStatus.DRAFT,
         generated_data=context,
-        language=case.complaint_language,
+        language=doc_language,
         generated_by=user.id,
     )
     db.add(doc)

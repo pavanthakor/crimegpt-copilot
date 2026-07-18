@@ -1,0 +1,15 @@
+{
+  "status": "ok",
+  "sections": [
+    {
+      "act": "BNS",
+      "section_code": "305",
+      "section_title": "Theft in a dwelling house, or means of transportation or place of worship, etc",
+      "citation": "BNS Section 305",
+      "triggering_phrase": "stole a gold chain and cash of Rs. 25,000 from the cupboard",
+      "reason": "\"वास्तुकार में किडनी\"",
+      "confidence": 1.0
+    }
+  ],
+  "rejected": []
+}

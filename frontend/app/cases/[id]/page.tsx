@@ -23,6 +23,7 @@ export default function CaseDetailPage() {
   const [data, setData] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Persons");
+  const [lang, setLang] = useState("en"); // drives analyze + document generation
 
   useEffect(() => {
     if (!ready) return;
@@ -42,7 +43,31 @@ export default function CaseDetailPage() {
 
   return (
     <div>
-      <button onClick={() => router.push("/cases")}>← Back to cases</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <button onClick={() => router.push("/cases")}>← Back to cases</button>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "#666" }}>Output language:</span>
+          {[
+            { k: "en", label: "EN" },
+            { k: "hi", label: "हिं" },
+            { k: "gu", label: "ગુ" },
+          ].map((o) => (
+            <button
+              key={o.k}
+              onClick={() => setLang(o.k)}
+              style={{
+                fontWeight: lang === o.k ? 700 : 400,
+                background: lang === o.k ? "#1677ff" : "white",
+                color: lang === o.k ? "white" : "black",
+                border: "1px solid #1677ff",
+                padding: "2px 10px",
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <h1>
         {data.case_number} — {data.title}
       </h1>
@@ -81,11 +106,11 @@ export default function CaseDetailPage() {
         {tab === "Persons" && <PersonsTab caseId={data.id} />}
         {tab === "Seized Items" && <SeizedTab caseId={data.id} />}
         {tab === "Statements" && <StatementsTab caseId={data.id} />}
-        {tab === "Documents" && <DocumentsTab caseId={data.id} />}
+        {tab === "Documents" && <DocumentsTab caseId={data.id} lang={lang} />}
         {tab === "Diary" && <DiaryTab rows={data.diary_entries} />}
         {tab === "Evidence" && <EvidenceTab caseId={data.id} />}
         {tab === "Sections" && (
-          <SectionsTab caseId={data.id} narrative={data.complaint_narrative ?? ""} />
+          <SectionsTab caseId={data.id} narrative={data.complaint_narrative ?? ""} lang={lang} />
         )}
       </div>
     </div>
@@ -395,7 +420,7 @@ const DOC_TYPES: { key: string; label: string }[] = [
   { key: "MEDICAL_LETTER", label: "Medical Letter" },
 ];
 
-function DocumentsTab({ caseId }: { caseId: number }) {
+function DocumentsTab({ caseId, lang }: { caseId: number; lang: string }) {
   const [docs, setDocs] = useState<any[]>([]);
   const [busy, setBusy] = useState<string | null>(null); // doc_type currently generating
   const [err, setErr] = useState<string | null>(null);
@@ -413,7 +438,7 @@ function DocumentsTab({ caseId }: { caseId: number }) {
     setBusy(docType);
     setErr(null);
     try {
-      await api.post(`/api/cases/${caseId}/documents/${docType}`);
+      await api.post(`/api/cases/${caseId}/documents/${docType}?lang=${lang}`);
       loadDocs(); // refresh after success
     } catch (e: any) {
       // 400 carries the exact missing-fields message from the backend.
@@ -582,7 +607,7 @@ function Highlighted({ text, phrase }: { text: string; phrase?: string | null })
   );
 }
 
-function SectionsTab({ caseId, narrative }: { caseId: number; narrative: string }) {
+function SectionsTab({ caseId, narrative, lang }: { caseId: number; narrative: string; lang: string }) {
   const [sections, setSections] = useState<any[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [rejected, setRejected] = useState<any[]>([]);
@@ -600,7 +625,7 @@ function SectionsTab({ caseId, narrative }: { caseId: number; narrative: string 
     setLoading(true);
     setErr(null);
     try {
-      const r = await api.post(`/api/cases/${caseId}/analyze`);
+      const r = await api.post(`/api/cases/${caseId}/analyze?lang=${lang}`);
       setStatus(r.data.status);
       setRejected(r.data.rejected ?? []);
       // Refetch the authoritative list (new suggestions + any prior decisions).

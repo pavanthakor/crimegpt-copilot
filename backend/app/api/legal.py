@@ -13,6 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.ai import legal as ai_legal
+from app.ai.translate import translate
+from app import demo_cache
+from app.core.config import settings
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.db import get_db
@@ -75,18 +78,38 @@ def _build_narrative(case: Case, statements: list[Statement]) -> str:
 @router.post("/{case_id}/analyze", response_model=AnalyzeResult)
 def analyze_case(
     case_id: int,
+    lang: str = "en",
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     case = _get_visible_case(db, user, case_id)
-    statements = db.query(Statement).filter(Statement.case_id == case_id).all()
-    narrative = _build_narrative(case, statements)
-    if not narrative:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Case has no narrative or statements to analyze"
-        )
 
-    result = ai_legal.map_sections(narrative)
+    # DEMO_MODE: serve pre-generated analysis (already translated) and skip the LLM.
+    # On a cache miss, fall through to the live pipeline below rather than erroring.
+    payload = demo_cache.load_analysis(case_id, lang) if settings.DEMO_MODE else None
+    if payload is not None:
+        status_val = payload["status"]
+        sections_data = payload["sections"]
+        rejected = payload.get("rejected", [])
+    else:
+        statements = db.query(Statement).filter(Statement.case_id == case_id).all()
+        narrative = _build_narrative(case, statements)
+        if not narrative:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Case has no narrative or statements to analyze"
+            )
+        result = ai_legal.map_sections(narrative)
+        status_val = result["status"]
+        rejected = result["rejected"]
+        sections_data = []
+        for s in result["sections"]:
+            # Translate only the human-readable reason for display; section_code, title,
+            # citation and triggering_phrase stay in the original so highlighting still
+            # matches the narrative and legal identifiers remain canonical.
+            reason = s.get("reason")
+            if reason and lang.lower() != "en":
+                reason = translate(reason, target=lang)
+            sections_data.append({**s, "reason": reason})
 
     # Refresh suggestions: drop prior SUGGESTED rows, keep officer-decided ones so
     # a re-run never duplicates an already ACCEPTED/REJECTED section.
@@ -101,7 +124,7 @@ def analyze_case(
             db.delete(row)
 
     persisted: list[LegalSection] = []
-    for s in result["sections"]:
+    for s in sections_data:
         if (s["act"], str(s["section_code"])) in decided:
             continue  # already accepted/rejected — don't re-suggest
         try:
@@ -130,9 +153,9 @@ def analyze_case(
             action=AuditAction.CREATE,
             field_changes={
                 "action": "analyze",
-                "status": result["status"],
+                "status": status_val,
                 "suggested": len(persisted),
-                "rejected": len(result["rejected"]),
+                "rejected": len(rejected),
             },
             performed_by=user.id,
         )
@@ -152,9 +175,9 @@ def analyze_case(
         db.refresh(row)
 
     return AnalyzeResult(
-        status=result["status"],
+        status=status_val,
         sections=[LegalSectionOut.model_validate(r) for r in persisted],
-        rejected=[RejectedOut(**r) for r in result["rejected"]],
+        rejected=[RejectedOut(**r) for r in rejected],
     )
 
 

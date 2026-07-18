@@ -1,0 +1,59 @@
+{
+  "case_number": "I-CR-0142-2026",
+  "title": "House theft of gold ornaments and cash - Satellite, Ahmedabad",
+  "fir_number": "0142/2026",
+  "fir_date": "10/07/2026",
+  "police_station": "Satellite Police Station",
+  "district": "Ahmedabad",
+  "incident_location": "B/12 Shivalik Residency, Satellite, Ahmedabad",
+  "incident_datetime": "10/07/2026 at 02:30 hrs",
+  "complaint_narrative": "ગુજરાતી: તારીખ ૧૦/૦૭/૨૦૨૬ ના રોજ રાત્રે આશરે ૦૨:૩૦ કલાકે, હું અને મારો પરિવાર ઊંઘમાં હતા ત્યારે કોઈ અજાણ્યા ઈસમે મારા ઘરની પાછળની બારીનો લોખંડનો કઠેડો તોડી ઘરમાં પ્રવેશ કર્યો હતો. તેણે કબાટમાંથી સોનાનો ચેન તથા રોકડ રૂ. ૨૫,૦૦૦ ચોરી કરી નાસી ગયો હતો. પાડોશી તથા સોસાયટીના ચોકીદારે શંકાસ્પદ ઈસમને ભાગતો જોયો હતો.\n\nEnglish: On 10/07/2026 at about 02:30 hrs, while my family and I were asleep, an unknown person broke the iron grille of the rear window of my house and entered. He stole a gold chain and cash of Rs. 25,000 from the cupboard and fled. My neighbour and the society watchman saw the suspect running away.",
+  "io_name": "Inspector Rajesh Chauhan",
+  "accused_name": "Suresh Vaghela",
+  "accused_father": "Kanubhai Vaghela",
+  "accused_age": 27,
+  "accused_address": "Vasna labour quarters, Ahmedabad",
+  "seized_items": [
+    {
+      "description": "Gold chain, approx 18 grams, yellow metal",
+      "quantity": 1,
+      "estimated_value": 108000.0
+    },
+    {
+      "description": "Iron crowbar used to break the window grille",
+      "quantity": 1,
+      "estimated_value": 250.0
+    }
+  ],
+  "witnesses": [
+    {
+      "full_name": "Kiran Shah",
+      "father_name": "Dilipbhai Shah",
+      "address": "B/11 Shivalik Residency, Satellite, Ahmedabad"
+    },
+    {
+      "full_name": "Prakash Rana",
+      "father_name": "Govindbhai Rana",
+      "address": "Staff quarters, Shivalik Residency, Satellite"
+    }
+  ],
+  "sections_applied": [
+    {
+      "act": "BNS",
+      "section_code": "305",
+      "section_title": "Theft in a dwelling house, or means of transportation or place of worship, etc"
+    }
+  ],
+  "seizure_datetime": "12/07/2026 at 11:00 hrs",
+  "seizure_location": "Vasna, Ahmedabad",
+  "panchnama_date": "18/07/2026",
+  "panchnama_place": "B/12 Shivalik Residency, Satellite, Ahmedabad",
+  "proceedings_narrative": "In connection with case I-CR-0142-2026, the place and the articles connected with the offence were examined in the presence of the panch witnesses. On examination the article(s) described below were found and seized as per law.",
+  "investigation_done": "\"\"\"लेटिक हुई थी कार्रवाई फ़आरी संख्या I-CR-0142-2026 के माध्यम से 10/07/2026 को सैटलिट पुलिस स्टेशन पर। दावेदार सुरेश वागेला को अटकाया गया है। निवड़न के दौरान इस प्रकार के वस्तुओं की संपलें ली गई हैं: सोने की जॉली, लगभग 18 ग्राम, पिनक, इरons ट्राउथर जो खाड़ी का फ्यारा खोलने के लिए उपयोग किया गया था। 1 सब्जेक्ट/दर्शक की कथन की मुद्रण की गई है।\"\"\"",
+  "pending_investigation": "\"\"\"\"शेष मामले धारा की पत्रिका का पुनरायोजन, सम्भव दावेदारों की पूर्व घटनाओं की सत्यापन, किसी संबद्ध की पहचान और अधिक कथनों के लेखन अभी तक पूरा नहीं हुआ है।\"\"\"",
+  "grounds_for_custody": "\"\"\"\"सुरेश वागेला के प्रतिबंधित सवाल-जवाब की आवश्यकता है रहस्यमय धारा को पुनरावृत्ति करने के लिए, दोष संबंधी सह-दोषों की indentification करने के लिए और निवेदन की जांच पूरा करने के लिए। अगर उसे ग्रस्त रखने से नहीं लिया जाता, तो दावेदार ने औपचारिक भूमिका में सबूत को परिवर्तित करने या शक्तिवादी हस्तक्षेप करने की संभावना है।\"\"\"",
+  "hospital": "Civil Hospital, Ahmedabad",
+  "subject_name": "Suresh Vaghela",
+  "subject_role": "accused",
+  "examination_purpose": "Medical examination of the accused to record the physical condition and any injuries prior to production before the Hon'ble Court."
+}
