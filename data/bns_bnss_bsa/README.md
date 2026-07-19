@@ -41,6 +41,12 @@ rule lines were stripped.
 Coverage was verified against the official section counts: every section from 1 to
 the last in each Act is present, with no gaps.
 
+A small number of sections (58) lost their margin-note title where cropping was too
+aggressive, and three had a stray leading character bleed into the body text. These were
+repaired by `data/backfill_section_titles.py`: blank titles were backfilled with a short
+phrase derived from the first clause of the section text, and the leading-character bleeds
+(BNS 44, BNSS 279, BNSS 401) were removed. No `title` was blank after this pass.
+
 ## Use in CrimeGPT
 
 `all_sections.jsonl` is the retrieval corpus for the Legal Section Intelligence
