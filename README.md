@@ -42,3 +42,30 @@ $env:USE_TF = "0"
 `backend/app/ai/rag.py` sets this automatically at import time, so `python -m app.ai.rag`
 works out of the box. Export it yourself only if you import `sentence-transformers` /
 `transformers` directly in your own scripts.
+
+### Fonts — install Noto Sans Gujarati on the demo machine (required for Gujarati docs)
+
+The generated `.docx` documents pin **Noto Sans Gujarati** for all Gujarati/Devanagari
+text (see `templates/_build_templates.py`). If that font is **not installed** on the
+machine that opens the document, Word/LibreOffice substitutes the next face in the
+documented fallback chain (`Nirmala UI` → `Shruti` → `Arial Unicode MS`); on a machine
+that has none of these the Gujarati shows as box glyphs (□□□) even though the underlying
+text is correct Unicode. Install the bundled font so every machine renders it identically.
+
+The font (SIL Open Font License, see `fonts/OFL.txt`) is committed at
+`fonts/NotoSansGujarati-Regular.ttf` so it can be installed anywhere:
+
+```bash
+# Windows (PowerShell, per-user — no admin needed)
+Copy-Item fonts\NotoSansGujarati-Regular.ttf "$env:LOCALAPPDATA\Microsoft\Windows\Fonts\"
+# or double-click the .ttf and press "Install"
+
+# Linux
+mkdir -p ~/.local/share/fonts && cp fonts/NotoSansGujarati-Regular.ttf ~/.local/share/fonts/ && fc-cache -f
+
+# macOS
+cp fonts/NotoSansGujarati-Regular.ttf ~/Library/Fonts/
+```
+
+Regenerate the templates after any font/layout change with
+`python templates/_build_templates.py`.
