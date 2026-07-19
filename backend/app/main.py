@@ -7,6 +7,7 @@ from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
 from app.api.documents import router as documents_router
+from app.api.integrations import router as integrations_router
 from app.api.legal import router as legal_router
 from app.api.pool import router as pool_router
 from app.core.db import get_db
@@ -28,6 +29,7 @@ app.include_router(legal_router)
 app.include_router(documents_router)
 app.include_router(pool_router)
 app.include_router(audit_router)
+app.include_router(integrations_router)
 
 
 @app.get("/health")

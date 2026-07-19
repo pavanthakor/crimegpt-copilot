@@ -143,6 +143,15 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
 
     district = case.district or ""
     item_list = ", ".join(s.description for s in seized if s.description) or "nil"
+
+    # CCTNS Form IF4 (Property Seizure Memo) fields — derived from existing pool data.
+    _empty_witness = {"full_name": "", "father_name": "", "address": ""}
+    witness1 = witnesses_ctx[0] if len(witnesses_ctx) > 0 else _empty_witness
+    witness2 = witnesses_ctx[1] if len(witnesses_ctx) > 1 else _empty_witness
+    acts_sections_line = ", ".join(
+        f"{s['act']} {s['section_code']}" for s in sections_applied
+    )
+    fir_year = case.fir_date.year if case.fir_date else ""
     investigation_done = (
         f"The complaint was registered vide FIR No. {case.fir_number or '—'} "
         f"dated {_fmt_date(case.fir_date) or '—'} at {case.police_station or '—'}. "
@@ -163,8 +172,10 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
         "incident_location": case.incident_location,
         "incident_datetime": _fmt_dt(case.incident_datetime),
         "complaint_narrative": case.complaint_narrative,
-        # officer
+        # officer (IF4 signature block: rank + buckle/badge number)
         "io_name": user.full_name or user.username,
+        "io_rank": user.rank or "",
+        "io_badge_no": user.badge_no or "",
         # accused
         "accused_name": accused.full_name if accused else None,
         "accused_father": (accused.father_name if accused else None) or "",
@@ -204,6 +215,11 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
         "subject_name": subject.full_name if subject else None,
         "subject_role": subject_role,
         "examination_purpose": exam_purpose,
+        # CCTNS Form IF4 (Property Seizure Memo)
+        "fir_year": fir_year,
+        "acts_sections_line": acts_sections_line,
+        "witness1": witness1,
+        "witness2": witness2,
     }
 
 

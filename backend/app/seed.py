@@ -22,18 +22,24 @@ DEMO_USERS = [
         "password": "io123",
         "full_name": "Inspector Rajesh Chauhan",
         "role": UserRole.IO,
+        "rank": "Police Inspector",
+        "badge_no": "GJ-AMD-4471",
     },
     {
         "username": "sho",
         "password": "sho123",
         "full_name": "SHO Bhavna Desai",
         "role": UserRole.SHO,
+        "rank": "Police Inspector (SHO)",
+        "badge_no": "GJ-AMD-2210",
     },
     {
         "username": "legal",
         "password": "legal123",
         "full_name": "Adv. Nikhil Mehta",
         "role": UserRole.LEGAL_ADVISOR,
+        "rank": "Legal Advisor",
+        "badge_no": "GJ-BAR-1187",
     },
 ]
 
@@ -55,12 +61,17 @@ COMPLAINT_NARRATIVE = (
 def _get_or_create_user(db, data) -> tuple[User, bool]:
     user = db.query(User).filter(User.username == data["username"]).first()
     if user is not None:
+        # Backfill rank/badge_no on already-seeded users (existing data survives).
+        user.rank = data["rank"]
+        user.badge_no = data["badge_no"]
         return user, False
     user = User(
         username=data["username"],
         password_hash=hash_password(data["password"]),
         full_name=data["full_name"],
         role=data["role"],
+        rank=data["rank"],
+        badge_no=data["badge_no"],
     )
     db.add(user)
     db.flush()

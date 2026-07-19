@@ -267,7 +267,10 @@ diary
   POST /cases/{id}/diary                  manual entry (auto entries created by system)
 
 integrations
-  POST /cases/{id}/export/cctns           map to IIF format -> mock endpoint -> mock FIR id  # bonus
+  POST /cases/{id}/export/cctns           map case -> IIF (IIF-1 header + IIF-4 seizure block), POST to the
+                                          mock receiver -> mock FIR id; persist to audit_log + diary;
+                                          returns {cctns_fir_id, mock_response, iif_payload}   # bonus (implemented)
+  POST /integrations/cctns/mock           mock CCTNS ingest API (unauthenticated) -> mock FIR id  # bonus
   POST /cases/{id}/documents/lers         generate LERS request template                     # bonus
 
 audit
