@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
 from app.api.documents import router as documents_router
@@ -26,6 +27,7 @@ app.include_router(cases_router)
 app.include_router(legal_router)
 app.include_router(documents_router)
 app.include_router(pool_router)
+app.include_router(audit_router)
 
 
 @app.get("/health")

@@ -25,6 +25,7 @@ from app.models import (
     Case,
     CaseDiaryEntry,
     Document,
+    DocumentVersion,
     LegalSection,
     Person,
     SeizedItem,
@@ -206,6 +207,70 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
     }
 
 
+def _snapshot_version(db: Session, doc: Document, editor_id: int) -> None:
+    """Archive the document's current state into document_versions (history/traceability).
+
+    The snapshot carries the full document state (status/language/timestamps + the exact
+    generated_data) so the version-history endpoint can reconstruct each past version
+    without the live row. Called before a regeneration or a finalize supersedes it.
+    """
+    db.add(
+        DocumentVersion(
+            document_id=doc.id,
+            version=doc.version or 1,
+            snapshot={
+                "status": doc.status.value if doc.status else None,
+                "language": doc.language.value if doc.language else None,
+                "generated_at": doc.generated_at.isoformat() if doc.generated_at else None,
+                "generated_by": doc.generated_by,
+                "generated_data": doc.generated_data,
+            },
+            edited_by=editor_id,
+        )
+    )
+
+
+def finalize_document(db: Session, doc: Document, user: User) -> Document:
+    """DRAFT -> FINALIZED: archive the current state as a version, bump, audit + diary.
+
+    Raises ValueError if the document is already finalized.
+    """
+    if doc.status == DocStatus.FINALIZED:
+        raise ValueError("Document is already finalized")
+
+    old_version = doc.version or 1
+    old_status = doc.status.value if doc.status else None
+    _snapshot_version(db, doc, user.id)  # record the (draft) version being finalized
+    doc.status = DocStatus.FINALIZED
+    doc.version = old_version + 1
+
+    db.add(
+        AuditLog(
+            case_id=doc.case_id,
+            entity_type="document",
+            entity_id=doc.id,
+            action=AuditAction.UPDATE,
+            field_changes={
+                "status": {"old": old_status, "new": DocStatus.FINALIZED.value},
+                "version": {"old": old_version, "new": doc.version},
+            },
+            performed_by=user.id,
+        )
+    )
+    db.add(
+        CaseDiaryEntry(
+            case_id=doc.case_id,
+            activity_type=ActivityType.OTHER,
+            description=f"{doc.doc_type.value} finalized (v{doc.version}).",
+            auto_generated=True,
+            created_by=user.id,
+        )
+    )
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
 def _missing_required(context: dict, required: list[str]) -> list[str]:
     missing = []
     for field in required:
@@ -263,18 +328,37 @@ def generate_document(
             f"Cannot generate {entry['title']}: missing required field(s): {', '.join(missing)}"
         )
 
-    # Persist row first to get an id for a collision-free filename.
-    doc = Document(
-        case_id=case_id,
-        doc_type=doc_type,
-        version=1,
-        status=DocStatus.DRAFT,
-        generated_data=context,
-        language=doc_language,
-        generated_by=user.id,
+    # Regeneration is version-aware: if a document of this type already exists on the
+    # case, archive its current state and bump the SAME row to a new draft version rather
+    # than silently creating a duplicate (CLAUDE.md §5/§8 — "never overwrite silently").
+    existing = (
+        db.query(Document)
+        .filter(Document.case_id == case_id, Document.doc_type == doc_type)
+        .order_by(Document.id.desc())
+        .first()
     )
-    db.add(doc)
-    db.flush()
+    if existing is not None:
+        _snapshot_version(db, existing, user.id)
+        existing.version = (existing.version or 1) + 1
+        existing.generated_data = context
+        existing.language = doc_language
+        existing.status = DocStatus.DRAFT
+        existing.generated_by = user.id
+        existing.generated_at = datetime.now(timezone.utc)
+        doc = existing
+    else:
+        doc = Document(
+            case_id=case_id,
+            doc_type=doc_type,
+            version=1,
+            status=DocStatus.DRAFT,
+            generated_data=context,
+            language=doc_language,
+            generated_by=user.id,
+        )
+        db.add(doc)
+    db.flush()  # assign / confirm doc.id for a collision-free filename
+    new_version = doc.version or 1
 
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     out_path = STORAGE_DIR / f"{doc.id}_{doc_type.value}.docx"
@@ -288,16 +372,21 @@ def generate_document(
             case_id=case_id,
             entity_type="document",
             entity_id=doc.id,
-            action=AuditAction.CREATE,
-            field_changes={"doc_type": doc_type.value, "version": 1, "status": "DRAFT"},
+            action=AuditAction.CREATE if new_version == 1 else AuditAction.UPDATE,
+            field_changes={
+                "doc_type": doc_type.value,
+                "version": new_version,
+                "status": "DRAFT",
+            },
             performed_by=user.id,
         )
     )
+    verb = "generated" if new_version == 1 else f"regenerated (v{new_version})"
     db.add(
         CaseDiaryEntry(
             case_id=case_id,
             activity_type=ActivityType.DOC_GENERATED,
-            description=f"{entry['title']} generated (draft).",
+            description=f"{entry['title']} {verb} (draft).",
             auto_generated=True,
             created_by=user.id,
         )

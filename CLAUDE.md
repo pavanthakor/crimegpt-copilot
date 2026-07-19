@@ -238,7 +238,8 @@ cases
   GET  /cases                      list (filtered by role)
   GET  /cases/{id}                 full case (pool + docs + diary)
   PATCH /cases/{id}                update status / fields
-  GET  /cases/search?q=            keyword / case-number search        # Search req.
+  GET  /cases/search?q=            search case_number/title/narrative + person names + seized-item text
+                                   -> [SearchHit{case, matched_field, matched_value}], NOT [CaseOut]  # Search req.
 
 pool  (the shared data)
   POST/GET/PATCH/DELETE /cases/{id}/persons
@@ -254,10 +255,11 @@ legal  (AI)
   PATCH /cases/{id}/sections/{sid} accept/reject a suggested section
 
 documents
-  POST /cases/{id}/documents/{doc_type}   generate a document (docxtpl)
-  GET  /cases/{id}/documents              list + versions
+  POST /cases/{id}/documents/{doc_type}   generate a document (docxtpl); regen is version-aware (§8)
+  GET  /cases/{id}/documents              list generated documents (current state)
+  GET  /documents/{id}/versions           version history: per-version metadata + diff vs previous
   GET  /documents/{id}/download           .docx (and/or .pdf)
-  POST /documents/{id}/finalize           draft -> finalized (+ new version)
+  POST /documents/{id}/finalize           draft -> finalized (+ version snapshot); SHO only
   GET  /cases/{id}/consistency            cross-document consistency check  # differentiator (read-only, no side effects)
 
 diary
@@ -269,7 +271,8 @@ integrations
   POST /cases/{id}/documents/lers         generate LERS request template                     # bonus
 
 audit
-  GET  /cases/{id}/audit                   audit trail for a case
+  GET  /cases/{id}/audit                   audit trail for a case (paginated, newest first,
+                                           optional entity_type filter, performer name + role)
 ```
 
 ---
@@ -279,6 +282,7 @@ audit
 - Each doc type = one **Word template** in `/templates/` with `{{ jinja }}` placeholders (docxtpl).
 - A **template registry** maps `doc_type -> template file + required fields`. Adding a document = drop a template + register it. **No code change.** (This is a Golden Hour seam — a freeze letter is just another template.)
 - Generation flow: gather fields from the pool → build a context dict → render template → save file + `documents` row + `generated_data` JSONB + diary entry (`DOC_GENERATED`) + audit row.
+- **Regeneration is version-aware** (§5/§8 "never overwrite silently"): if a document of that `doc_type` already exists on the case, its current state is archived to `document_versions` (full snapshot: status/language/timestamps + `generated_data`) and the **same** `documents` row is bumped to the next `version` as a fresh `DRAFT` — it does **not** insert a duplicate row. `finalize` likewise snapshots the draft, then flips status to `FINALIZED` and bumps the version. `GET /documents/{id}/versions` reconstructs the timeline from these snapshots plus the live row and diffs each version's `generated_data` against the previous.
 - Free-text/narrative portions (e.g. panchnama description) are drafted via `call_llm()` then merged; officer edits before finalize.
 - Support GU/HI/EN output — template picks language variant or translates the merged narrative.
 

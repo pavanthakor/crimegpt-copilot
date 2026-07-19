@@ -8,6 +8,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -119,23 +120,104 @@ def list_cases(
     return query.order_by(Case.created_at.desc()).all()
 
 
-@router.get("/search", response_model=list[CaseOut])
+class SearchHit(BaseModel):
+    """A matched case plus which field matched, so the UI can show context."""
+
+    case: CaseOut
+    matched_field: str  # case_number | title | complaint_narrative | person_name | seized_item
+    matched_value: str | None = None
+
+
+# Which field wins when a case matches on several sources (lower index = stronger).
+_MATCH_PRIORITY = [
+    "case_number",
+    "title",
+    "complaint_narrative",
+    "person_name",
+    "seized_item",
+]
+
+
+def _snippet(text: str | None, q: str, width: int = 60) -> str | None:
+    """A short context window around the first match of `q` inside `text`."""
+    if not text:
+        return text
+    idx = text.lower().find(q.lower())
+    if idx < 0:
+        return text[:width]
+    start = max(0, idx - width // 3)
+    end = min(len(text), idx + len(q) + width // 2)
+    return ("…" if start > 0 else "") + text[start:end].strip() + ("…" if end < len(text) else "")
+
+
+@router.get("/search", response_model=list[SearchHit])
 def search_cases(
-    q: str = Query(..., min_length=1, description="case_number or keyword"),
+    q: str = Query(..., min_length=1, description="case_number, keyword, person or item"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Search cases by case_number/title/narrative, person names and seized-item text.
+
+    Returns one hit per case with the matched field + a context snippet. Respects IO
+    visibility (an IO only searches cases they created).
+    """
     like = f"%{q}%"
-    query = db.query(Case).filter(
+    ql = q.lower()
+    io_only = user.role == UserRole.IO
+    hits: dict[int, tuple[int, str, str | None, Case]] = {}
+
+    def consider(case: Case, field: str, value: str | None) -> None:
+        priority = _MATCH_PRIORITY.index(field)
+        current = hits.get(case.id)
+        if current is None or priority < current[0]:
+            hits[case.id] = (priority, field, value, case)
+
+    # 1. Direct case fields.
+    case_q = db.query(Case).filter(
         or_(
             Case.case_number.ilike(like),
             Case.title.ilike(like),
             Case.complaint_narrative.ilike(like),
         )
     )
-    if user.role == UserRole.IO:
-        query = query.filter(Case.created_by == user.id)
-    return query.order_by(Case.created_at.desc()).all()
+    if io_only:
+        case_q = case_q.filter(Case.created_by == user.id)
+    for c in case_q.all():
+        if c.case_number and ql in c.case_number.lower():
+            consider(c, "case_number", c.case_number)
+        elif c.title and ql in c.title.lower():
+            consider(c, "title", c.title)
+        elif c.complaint_narrative and ql in c.complaint_narrative.lower():
+            consider(c, "complaint_narrative", _snippet(c.complaint_narrative, q))
+
+    # 2. Person names (full_name / alias).
+    person_q = db.query(Person, Case).join(Case, Person.case_id == Case.id).filter(
+        or_(Person.full_name.ilike(like), Person.alias.ilike(like))
+    )
+    if io_only:
+        person_q = person_q.filter(Case.created_by == user.id)
+    for person, c in person_q.all():
+        name = person.full_name if (person.full_name and ql in person.full_name.lower()) else person.alias
+        consider(c, "person_name", f"{name} ({person.role.value.lower()})")
+
+    # 3. Seized-item descriptions.
+    item_q = db.query(SeizedItem, Case).join(Case, SeizedItem.case_id == Case.id).filter(
+        SeizedItem.description.ilike(like)
+    )
+    if io_only:
+        item_q = item_q.filter(Case.created_by == user.id)
+    for item, c in item_q.all():
+        consider(c, "seized_item", _snippet(item.description, q))
+
+    ordered = sorted(
+        hits.values(),
+        key=lambda t: t[3].created_at or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return [
+        SearchHit(case=CaseOut.model_validate(c), matched_field=field, matched_value=value)
+        for (_, field, value, c) in ordered
+    ]
 
 
 @router.get("/{case_id}", response_model=CaseDetailOut)

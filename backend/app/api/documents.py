@@ -18,11 +18,11 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.db import get_db
-from app.models import Document, User
+from app.models import Document, DocumentVersion, User
 from app.models.enums import DocType, UserRole
 from app.schemas.case import DocumentOut
 from app.services.consistency import check_consistency
-from app.services.documents import generate_document
+from app.services.documents import finalize_document, generate_document
 
 router = APIRouter(prefix="/api", tags=["documents"])
 
@@ -40,6 +40,50 @@ class ConsistencyResult(BaseModel):
     inconsistencies: list[InconsistencyOut]
     checked_documents: int
     status: str  # "ok" | "issues_found"
+
+
+class VersionDiff(BaseModel):
+    changed_fields: list[str]
+    changes: dict[str, dict[str, str | None]]  # field -> {"from": ..., "to": ...}
+
+
+class DocumentVersionOut(BaseModel):
+    version: int
+    status: str | None = None
+    language: str | None = None
+    generated_at: str | None = None  # ISO 8601
+    generated_by: int | None = None
+    diff_from_previous: VersionDiff | None = None  # None for the first version
+
+
+class VersionHistoryOut(BaseModel):
+    document_id: int
+    doc_type: str
+    current_version: int
+    versions: list[DocumentVersionOut]  # newest first
+
+
+def _short(value):
+    """Compact, JSON-safe rendering of a field value for a diff line."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return f"[{len(value)} item(s)]"
+    text = str(value)
+    return text if len(text) <= 80 else text[:77] + "..."
+
+
+def _version_diff(prev: dict | None, curr: dict | None) -> VersionDiff | None:
+    """Field-level diff of two generated_data snapshots (None if no previous version)."""
+    if prev is None:
+        return None
+    prev, curr = prev or {}, curr or {}
+    changes: dict[str, dict[str, str | None]] = {}
+    for field in sorted(set(prev) | set(curr)):
+        a, b = prev.get(field), curr.get(field)
+        if a != b:
+            changes[field] = {"from": _short(a), "to": _short(b)}
+    return VersionDiff(changed_fields=list(changes), changes=changes)
 
 
 @router.post("/cases/{case_id}/documents/{doc_type}", response_model=DocumentOut)
@@ -83,6 +127,91 @@ def case_consistency(
     """Pure comparison of a case's generated documents vs the pool and each other."""
     case = _get_visible_case(db, user, case_id)
     return check_consistency(db, case, user)
+
+
+@router.get("/documents/{doc_id}/versions", response_model=VersionHistoryOut)
+def document_versions(
+    doc_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Version history for a document: each version's metadata + a diff vs the previous."""
+    doc = db.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    _get_visible_case(db, user, doc.case_id)
+
+    history = (
+        db.query(DocumentVersion)
+        .filter(DocumentVersion.document_id == doc_id)
+        .order_by(DocumentVersion.version, DocumentVersion.id)
+        .all()
+    )
+
+    # Chronological timeline: archived snapshots, then the live document as the head.
+    timeline: list[dict] = []
+    for h in history:
+        snap = h.snapshot or {}
+        timeline.append(
+            {
+                "version": h.version,
+                "status": snap.get("status"),
+                "language": snap.get("language"),
+                "generated_at": snap.get("generated_at"),
+                "generated_by": snap.get("generated_by"),
+                "data": snap.get("generated_data") or {},
+            }
+        )
+    timeline.append(
+        {
+            "version": doc.version,
+            "status": doc.status.value if doc.status else None,
+            "language": doc.language.value if doc.language else None,
+            "generated_at": doc.generated_at.isoformat() if doc.generated_at else None,
+            "generated_by": doc.generated_by,
+            "data": doc.generated_data or {},
+        }
+    )
+
+    entries: list[DocumentVersionOut] = []
+    prev_data: dict | None = None
+    for t in timeline:
+        entries.append(
+            DocumentVersionOut(
+                version=t["version"],
+                status=t["status"],
+                language=t["language"],
+                generated_at=t["generated_at"],
+                generated_by=t["generated_by"],
+                diff_from_previous=_version_diff(prev_data, t["data"]),
+            )
+        )
+        prev_data = t["data"]
+    entries.reverse()  # newest first
+
+    return VersionHistoryOut(
+        document_id=doc.id,
+        doc_type=doc.doc_type.value,
+        current_version=doc.version or 1,
+        versions=entries,
+    )
+
+
+@router.post("/documents/{doc_id}/finalize", response_model=DocumentOut)
+def finalize(
+    doc_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(UserRole.SHO)),  # §9: finalize/approve is an SHO action
+):
+    """Transition a DRAFT document to FINALIZED (snapshots a version + audit + diary)."""
+    doc = db.get(Document, doc_id)
+    if doc is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
+    _get_visible_case(db, user, doc.case_id)
+    try:
+        return finalize_document(db, doc, user)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 
 
 @router.get("/documents/{doc_id}/download")
