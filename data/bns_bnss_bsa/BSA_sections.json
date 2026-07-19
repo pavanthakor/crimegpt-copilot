@@ -273,7 +273,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "31",
-    "title": "",
+    "title": "When the Court has to form an opinion as to the existence",
     "text": "31. When the Court has to form an opinion as to the existence of any fact of a public\nnature, any statement of it, made in a recital contained in any Central Act or State Act or in\na Central Government or State Government notification appearing in the respective Official\nGazette or in any printed paper or in electronic or digital form purporting to be such Gazette,\nis a relevant fact.",
     "char_len": 387,
     "citation": "BSA Section 31"
@@ -705,7 +705,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "79",
-    "title": "",
+    "title": "Whenever any document is produced before any Court",
     "text": "79. Whenever any document is produced before any Court, purporting to be a record\nor memorandum of the evidence, or of any part of the evidence, given by a witness in a\njudicial proceeding or before any officer authorised by law to take such evidence or to be a\nstatement or confession by any prisoner or accused person, taken in accordance with law,\nand purporting to be signed by any Judge or Magistrate, or by any such officer as aforesaid,\nthe Court shall presume that—\n(i) the document is genuine;\n(ii) any statements as to the circumstances under which it was taken, purporting\nto be made by the person signing it, are true; and\n(iii) such evidence, statement or confession was duly taken.",
     "char_len": 695,
     "citation": "BSA Section 79"
@@ -759,7 +759,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "85",
-    "title": "",
+    "title": "The Court shall presume that every electronic record purporting",
     "text": "85. The Court shall presume that every electronic record purporting to be an agreement\ncontaining the electronic or digital signature of the parties was so concluded by affixing the\nelectronic or digital signature of the parties.",
     "char_len": 229,
     "citation": "BSA Section 85"
@@ -768,7 +768,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "86",
-    "title": "",
+    "title": "In any proceeding involving a secure electronic record",
     "text": "86. (1) In any proceeding involving a secure electronic record, the Court shall presume\nunless contrary is proved, that the secure electronic record has not been altered since the\nspecific point of time to which the secure status relates.\n(2) In any proceeding, involving secure electronic signature, the Court shall presume\nunless the contrary is proved that—\n(a) the secure electronic signature is affixed by subscriber with the intention of\nsigning or approving the electronic record;\n(b) except in the case of a secure electronic record or a secure electronic signature,\nnothing in this section shall create any presumption, relating to authenticity and\nintegrity of the electronic record or any electronic signature.",
     "char_len": 721,
     "citation": "BSA Section 86"
@@ -831,7 +831,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "93",
-    "title": "",
+    "title": "Where any electronic record, purporting or proved to be five years old",
     "text": "93. Where any electronic record, purporting or proved to be five years old, is produced\nfrom any custody which the Court in the particular case considers proper, the Court may\npresume that the electronic signature which purports to be the electronic signature of any\nparticular person was so affixed by him or any person authorised by him in this behalf.\nExplanation.—The Explanation to section 81 shall also apply to this section.\nCHAPTER VI\nOF THE EXCLUSION OF ORAL EVIDENCE BY DOCUMENTARY EVIDENCE",
     "char_len": 500,
     "citation": "BSA Section 93"
