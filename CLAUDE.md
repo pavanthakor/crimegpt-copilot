@@ -291,6 +291,16 @@ audit
 
 **Field-mapping example (Seizure Receipt):** case_number, police_station, IO name (user), seized_items[] (description/qty/value/seized_from), accused person, seizure datetime/location, witnesses (persons role=WITNESS). All already in the pool.
 
+**Registered document types** (`templates/_registry.py` — the `doc_type` used in `POST /cases/{id}/documents/{doc_type}`):
+- `PANCHNAMA` — Accused Panchnama
+- `REMAND` — Remand Request Letter (police custody)
+- `SEIZURE_RECEIPT` — Property Seizure Receipt (CCTNS Form IF4 layout)
+- `MEDICAL_LETTER` — Medical Treatment / Examination Letter
+- `LERS_PRESERVATION_REQUEST` — LERS data-preservation request to a platform (Meta/WhatsApp/Instagram) — a compliant request template, **not** a live API integration
+- `LERS_RECORDS_REQUEST` — LERS records-disclosure request to a platform — a compliant request template, **not** a live API integration
+
+> Caveat to "no code change": because `doc_type` is a typed, native-enum column, adding a **new** document type needs a template + a registry entry **plus** one `DocType` enum value and a one-line `ALTER TYPE ... ADD VALUE` migration. The generation engine (`services/documents.py`), the endpoint, and the routers stay untouched.
+
 ---
 
 ## 9. AUTH & RBAC (JWT, 3 roles)

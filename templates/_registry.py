@@ -63,6 +63,26 @@ REGISTRY = {
             "examination_purpose",
         ],
     },
+    "LERS_PRESERVATION_REQUEST": {
+        "template_file": "lers_preservation_request.docx",
+        "title": "LERS Data Preservation Request",
+        "required_fields": [
+            "case_number",
+            "police_station",
+            "district",
+            "io_name",
+        ],
+    },
+    "LERS_RECORDS_REQUEST": {
+        "template_file": "lers_records_request.docx",
+        "title": "LERS Records Disclosure Request",
+        "required_fields": [
+            "case_number",
+            "police_station",
+            "district",
+            "io_name",
+        ],
+    },
 }
 
 
