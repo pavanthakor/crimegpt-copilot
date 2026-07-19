@@ -3,6 +3,7 @@
     POST /api/cases/{id}/documents/{doc_type}   generate a document (roles IO, SHO)
     GET  /api/cases/{id}/documents              list generated documents
     GET  /api/documents/{id}/download           download the .docx
+    GET  /api/cases/{id}/consistency            cross-document consistency check (all roles)
 
 Generation logic lives in app.services.documents; this module wires it to HTTP,
 role gates, and case visibility.
@@ -11,6 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user, require_role
@@ -19,11 +21,25 @@ from app.core.db import get_db
 from app.models import Document, User
 from app.models.enums import DocType, UserRole
 from app.schemas.case import DocumentOut
+from app.services.consistency import check_consistency
 from app.services.documents import generate_document
 
 router = APIRouter(prefix="/api", tags=["documents"])
 
 _DOCX_MEDIA = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+class InconsistencyOut(BaseModel):
+    field: str
+    severity: str  # "high" | "low"
+    values: dict[str, str | None]  # doc_type (or "current_pool") -> value shown
+    note: str
+
+
+class ConsistencyResult(BaseModel):
+    inconsistencies: list[InconsistencyOut]
+    checked_documents: int
+    status: str  # "ok" | "issues_found"
 
 
 @router.post("/cases/{case_id}/documents/{doc_type}", response_model=DocumentOut)
@@ -56,6 +72,17 @@ def list_documents(
         .order_by(Document.id)
         .all()
     )
+
+
+@router.get("/cases/{case_id}/consistency", response_model=ConsistencyResult)
+def case_consistency(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),  # JWT, all roles
+):
+    """Pure comparison of a case's generated documents vs the pool and each other."""
+    case = _get_visible_case(db, user, case_id)
+    return check_consistency(db, case, user)
 
 
 @router.get("/documents/{doc_id}/download")

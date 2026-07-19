@@ -258,7 +258,7 @@ documents
   GET  /cases/{id}/documents              list + versions
   GET  /documents/{id}/download           .docx (and/or .pdf)
   POST /documents/{id}/finalize           draft -> finalized (+ new version)
-  POST /cases/{id}/consistency            cross-document consistency check  # differentiator
+  GET  /cases/{id}/consistency            cross-document consistency check  # differentiator (read-only, no side effects)
 
 diary
   GET  /cases/{id}/diary                  chronological entries
