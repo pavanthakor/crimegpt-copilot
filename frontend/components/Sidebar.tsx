@@ -6,16 +6,19 @@ type NavItem = {
   label: string;
   href: string;
   icon: string; // Material Symbols ligature name
+  ready: boolean; // false → page not built yet, shown muted + non-clickable
 };
 
-// Dashboard · Cases · Evidence · Documents · AI Analysis · Audit
+// Dashboard · Cases · Evidence · Documents · AI Analysis · Audit.
+// Only pages that exist are enabled; the rest are muted so nothing 404s during a
+// demo. Flip `ready` to true as each page ships.
 const NAV: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
-  { label: "Cases", href: "/cases", icon: "folder_shared" },
-  { label: "Evidence", href: "/evidence", icon: "inventory_2" },
-  { label: "Documents", href: "/documents", icon: "description" },
-  { label: "AI Analysis", href: "/analysis", icon: "neurology" },
-  { label: "Audit", href: "/audit", icon: "verified_user" },
+  { label: "Dashboard", href: "/dashboard", icon: "dashboard", ready: false },
+  { label: "Cases", href: "/cases", icon: "folder_shared", ready: true },
+  { label: "Evidence", href: "/evidence", icon: "inventory_2", ready: false },
+  { label: "Documents", href: "/documents", icon: "description", ready: false },
+  { label: "AI Analysis", href: "/analysis", icon: "neurology", ready: false },
+  { label: "Audit", href: "/audit", icon: "verified_user", ready: false },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -46,6 +49,25 @@ export default function Sidebar() {
       <div className="px-4 space-y-1 flex-grow">
         {NAV.map((item) => {
           const active = isActive(pathname, item.href);
+
+          if (!item.ready) {
+            // Muted, non-interactive placeholder with a "Soon" tag.
+            return (
+              <div
+                key={item.href}
+                aria-disabled="true"
+                title="Coming soon"
+                className="flex items-center gap-4 px-4 py-3 rounded text-outline/60 cursor-not-allowed select-none"
+              >
+                <span className="material-symbols-outlined">{item.icon}</span>
+                <span className="font-body-md">{item.label}</span>
+                <span className="ml-auto font-label-caps text-[9px] text-outline/60 border border-outline-variant rounded px-1 py-0.5">
+                  Soon
+                </span>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.href}

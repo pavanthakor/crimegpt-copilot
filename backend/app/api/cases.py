@@ -117,7 +117,22 @@ def list_cases(
     query = db.query(Case)
     if user.role == UserRole.IO:
         query = query.filter(Case.created_by == user.id)
-    return query.order_by(Case.created_at.desc()).all()
+    cases = query.order_by(Case.created_at.desc()).all()
+
+    # Resolve creator names in one query so the SHO case list can show an Officer column
+    # (the row itself only carries created_by id).
+    creator_ids = {c.created_by for c in cases if c.created_by is not None}
+    names: dict[int, str | None] = {}
+    if creator_ids:
+        for u in db.query(User).filter(User.id.in_(creator_ids)).all():
+            names[u.id] = u.full_name
+
+    out: list[CaseOut] = []
+    for c in cases:
+        row = CaseOut.model_validate(c)
+        row.created_by_name = names.get(c.created_by)
+        out.append(row)
+    return out
 
 
 class SearchHit(BaseModel):

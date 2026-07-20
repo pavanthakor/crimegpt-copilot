@@ -68,6 +68,7 @@ class CaseOut(BaseModel):
     complaint_narrative: str | None = None
     complaint_language: Language | None = None
     created_by: int | None = None
+    created_by_name: str | None = None  # resolved officer name (populated by the list endpoint)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
