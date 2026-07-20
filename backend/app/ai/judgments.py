@@ -29,7 +29,12 @@ from pathlib import Path
 
 from app.ai import rag
 from app.ai.llm import call_llm
-from app.ai.prompts import JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA
+from app.ai.prompts import (
+    JUDGMENTS_PROMPT,
+    JUDGMENTS_SCHEMA,
+    RELEVANCE_CHECK_PROMPT,
+    RELEVANCE_CHECK_SCHEMA,
+)
 
 logger = logging.getLogger("crimegpt.judgments")
 
@@ -188,8 +193,19 @@ def _format_sections(accepted_sections: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 # Validation — the grounding gate
 # ---------------------------------------------------------------------------
+def neutral_reason(holding: str) -> str:
+    """The fallback shown when the model's own reasoning cannot be trusted.
+
+    States the authority's proposition and stops, rather than asserting a link to
+    the facts that we could not verify. Dull but never wrong.
+    """
+    return f"Relevant to: {holding}"
+
+
 def validate_judgments(
-    suggestions: list[dict], candidates: list[dict]
+    suggestions: list[dict],
+    candidates: list[dict],
+    verify_reason=None,
 ) -> tuple[list[dict], list[dict]]:
     """Split suggestions into (validated, rejected).
 
@@ -197,9 +213,15 @@ def validate_judgments(
     candidates (after normalisation). Surviving entries are rewritten from the
     CORPUS record — title, court, year, holding and source_url all come from our
     curated data, not from the model, so the officer never sees a model-authored
-    summary of a real case. Only `relevance_reason` is kept from the LLM.
+    summary of a real case.
 
-    Pure and side-effect free so it can be unit-tested against a mocked response.
+    `relevance_reason` is the one field still authored by the model, and citation
+    grounding says nothing about whether that reasoning is sound — a correctly
+    cited case can carry an inverted reading of its own holding. `verify_reason`
+    is an optional callable(reason, holding) -> bool; when it returns False the
+    reason is replaced by `neutral_reason(holding)` and the entry is marked
+    `reason_fallback`. Passing None skips the check, which keeps this function
+    pure and unit-testable against a mocked response.
     """
     by_cit = {normalise_citation(c["citation"]): c for c in candidates}
     validated: list[dict] = []
@@ -233,6 +255,19 @@ def validate_judgments(
         seen.add(key)
 
         cand = by_cit[key]
+        holding = cand["holding"]
+        reason = (sug.get("relevance_reason") or "").strip()
+        fallback = False
+
+        if not reason:
+            reason, fallback = neutral_reason(holding), True
+        elif verify_reason is not None and not verify_reason(reason, holding):
+            logger.warning(
+                "FALLBACK relevance_reason for %s — not entailed by the curated holding: %r",
+                cand["citation"], reason,
+            )
+            reason, fallback = neutral_reason(holding), True
+
         validated.append(
             {
                 "title": cand["case_title"],
@@ -240,8 +275,9 @@ def validate_judgments(
                 "court": cand["court"],
                 "year": cand["year"],
                 # Corpus holding is the authoritative paraphrase — never the model's.
-                "summary": cand["holding"],
-                "relevance_reason": (sug.get("relevance_reason") or "").strip(),
+                "summary": holding,
+                "relevance_reason": reason,
+                "reason_fallback": fallback,
                 "source_url": cand["source_url"],
                 "relevance_tags": cand.get("relevance_tags", []),
                 "score": cand.get("score"),
@@ -249,6 +285,43 @@ def validate_judgments(
         )
 
     return validated, rejected
+
+
+def make_reason_verifier(narrative: str):
+    """Build a callable(reason, holding) -> bool backed by a focused LLM check.
+
+    Deliberately fail-closed: any error, malformed response or ambiguity returns
+    False, which downgrades the reason to the neutral fallback. A dull-but-correct
+    line costs the demo nothing; an invented legal proposition in a remand
+    application costs a great deal.
+    """
+
+    def verify(reason: str, holding: str) -> bool:
+        prompt = RELEVANCE_CHECK_PROMPT.format(
+            holding=holding, narrative=narrative, reason=reason
+        )
+        try:
+            out = call_llm(
+                prompt,
+                system=(
+                    "You are a strict legal auditor. You answer only with the requested "
+                    "JSON. When in doubt you answer supported=false."
+                ),
+                json_schema=RELEVANCE_CHECK_SCHEMA,
+                temperature=0.0,
+            )
+        except Exception as exc:  # noqa: BLE001 — provider/JSON failure -> fail closed
+            logger.warning("relevance check failed (%s); falling back to neutral", exc)
+            return False
+        if not isinstance(out, dict):
+            return False
+        supported = out.get("supported")
+        if supported is not True:  # covers False, None, "false", missing
+            logger.info("relevance check rejected: %s", out.get("problem", "")[:160])
+            return False
+        return True
+
+    return verify
 
 
 # ---------------------------------------------------------------------------
@@ -288,10 +361,13 @@ def suggest_judgments(
     suggestions = llm_out.get("judgments", [])
     logger.info("LLM returned %d raw judgment(s)", len(suggestions))
 
-    validated, rejected = validate_judgments(suggestions, candidates)
+    validated, rejected = validate_judgments(
+        suggestions, candidates, verify_reason=make_reason_verifier(narrative)
+    )
+    n_fallback = sum(1 for v in validated if v.get("reason_fallback"))
     logger.info(
-        "validated %d, rejected %d of %d judgment(s)",
-        len(validated), len(rejected), len(suggestions),
+        "validated %d (%d reason(s) downgraded to neutral), rejected %d of %d judgment(s)",
+        len(validated), n_fallback, len(rejected), len(suggestions),
     )
     return {
         "judgments": validated,

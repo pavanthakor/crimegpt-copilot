@@ -92,8 +92,18 @@ correct and useful; a plausible-sounding but fabricated citation is a serious er
 For each selected judgment provide:
 - title, citation, court copied from the candidate entry.
 - summary: at most 2 sentences, paraphrased. Do not reproduce blocks of judgment text.
-- relevance_reason: concretely why it applies to THESE facts — refer to what the officer \
-did or must do (e.g. the recovery, the arrest, the seized electronic device).
+- relevance_reason: one sentence linking THE HOLDING TEXT SHOWN IN THE CANDIDATE ENTRY to \
+a specific fact of this case.
+
+RULES FOR relevance_reason — read carefully:
+- Use ONLY the legal proposition written in that candidate's holding above. Do NOT rely on \
+your own memory of what the case decided; the holding shown to you is authoritative.
+- Do not restate the holding's qualifiers as if they were facts of this case. If a holding \
+says a rule applies "even when X", that does NOT mean X happened here.
+- Do not add any legal proposition that is not in the holding.
+- Shape it as: <what the holding establishes> + <which fact of this case it bears on>.
+- If you cannot link the holding to a specific fact of this case, leave relevance_reason \
+empty rather than inventing a connection.
 
 NARRATIVE:
 \"\"\"{narrative}\"\"\"
@@ -103,6 +113,44 @@ ACCEPTED SECTIONS:
 
 CANDIDATE JUDGMENTS (choose citation from HERE):
 {candidates}
+"""
+
+# B2. Relevance entailment check — run per surviving judgment.
+#
+# Citation grounding proves the CASE is real; it says nothing about whether the
+# model's reasoning about that case is sound. Observed failure: for a holding
+# reading "temporary appropriation ... suffices", the model wrote that a completed
+# house theft "involves a temporary deprivation" — a legally inverted reading of a
+# correctly-cited authority. A focused yes/no check catches what free generation
+# gets wrong.
+RELEVANCE_CHECK_SCHEMA = {
+    "supported": "boolean — true only if the reason is fully carried by the holding",
+    "problem": "string — if false, the specific misreading; empty if true",
+}
+
+RELEVANCE_CHECK_PROMPT = """You are auditing one sentence written by another AI for legal soundness.
+
+AUTHORITATIVE HOLDING (the only legal proposition that may be relied on):
+\"\"\"{holding}\"\"\"
+
+FACTS OF THE CASE:
+\"\"\"{narrative}\"\"\"
+
+SENTENCE TO AUDIT (a claim about why the holding is relevant to these facts):
+\"\"\"{reason}\"\"\"
+
+Answer supported=false if ANY of these is true:
+- The sentence states a legal proposition that is not in the holding.
+- The sentence contradicts the holding.
+- The sentence treats one of the holding's qualifiers or edge-cases as if it were an \
+established fact of this case (for example, a holding saying a rule applies "even if the \
+taking was temporary" does NOT mean this case involved a temporary taking).
+- The sentence misdescribes the facts of the case.
+
+Answer supported=true ONLY if the sentence's legal content is fully carried by the holding \
+AND its factual claims match the facts above.
+
+If you are unsure, answer supported=false.
 """
 
 # ---------------------------------------------------------------------------
