@@ -123,6 +123,7 @@ class DocumentOut(BaseModel):
     language: Language | None = None
     status: DocStatus
     generated_by: int | None = None
+    generated_by_name: str | None = None  # resolved officer name (populated by the list endpoint)
     generated_at: datetime | None = None
 
 

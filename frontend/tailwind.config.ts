@@ -74,6 +74,11 @@ const config: Config = {
         // (used at ~22% opacity for the wash, full strength for the underline).
         accent: "#8a7c3f",
         "accent-strong": "#6f6330",
+        // Institutional green for a FINALIZED / success status (no green in the base set).
+        success: "#2e7d32",
+        "on-success": "#ffffff",
+        "success-container": "#d7ecd9",
+        "on-success-container": "#1b5e20",
       },
       fontFamily: {
         // Semantic families backed by next/font variables (see app/layout.tsx).

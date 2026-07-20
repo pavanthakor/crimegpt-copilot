@@ -53,7 +53,16 @@ class DocumentVersionOut(BaseModel):
     language: str | None = None
     generated_at: str | None = None  # ISO 8601
     generated_by: int | None = None
+    generated_by_name: str | None = None
     diff_from_previous: VersionDiff | None = None  # None for the first version
+
+
+def _officer_names(db: Session, ids) -> dict[int, str | None]:
+    """Resolve {user_id: full_name} for a set of ids (empty set -> empty map)."""
+    ids = {i for i in ids if i is not None}
+    if not ids:
+        return {}
+    return {u.id: u.full_name for u in db.query(User).filter(User.id.in_(ids)).all()}
 
 
 class VersionHistoryOut(BaseModel):
@@ -110,12 +119,23 @@ def list_documents(
     user: User = Depends(get_current_user),
 ):
     _get_visible_case(db, user, case_id)
-    return (
+    docs = (
         db.query(Document)
         .filter(Document.case_id == case_id)
         .order_by(Document.id)
         .all()
     )
+
+    # Resolve generating-officer names in one query (the row carries only generated_by id).
+    ids = {d.generated_by for d in docs if d.generated_by is not None}
+    names = _officer_names(db, ids)
+
+    out: list[DocumentOut] = []
+    for d in docs:
+        row = DocumentOut.model_validate(d)
+        row.generated_by_name = names.get(d.generated_by)
+        out.append(row)
+    return out
 
 
 @router.get("/cases/{case_id}/consistency", response_model=ConsistencyResult)
@@ -173,6 +193,7 @@ def document_versions(
         }
     )
 
+    names = _officer_names(db, {t["generated_by"] for t in timeline})
     entries: list[DocumentVersionOut] = []
     prev_data: dict | None = None
     for t in timeline:
@@ -183,6 +204,7 @@ def document_versions(
                 language=t["language"],
                 generated_at=t["generated_at"],
                 generated_by=t["generated_by"],
+                generated_by_name=names.get(t["generated_by"]),
                 diff_from_previous=_version_diff(prev_data, t["data"]),
             )
         )

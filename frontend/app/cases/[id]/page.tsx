@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { CASE_STATUSES, statusMeta } from "@/lib/cases";
 import CaseDetailsTab from "./CaseDetailsTab";
 import LegalSectionsTab from "./LegalSectionsTab";
+import DocumentsTab from "./DocumentsTab";
 
 type Person = {
   id: number;
@@ -223,6 +224,12 @@ export default function CaseWorkspacePage() {
             caseId={data.id}
             narrative={data.complaint_narrative}
             onSectionsChanged={() => load(true)}
+          />
+        ) : tab === "documents" ? (
+          <DocumentsTab
+            caseId={data.id}
+            role={user.role}
+            onDocsChanged={() => load(true)}
           />
         ) : (
           <TabPlaceholder label={TABS.find((t) => t.key === tab)!.label} />
