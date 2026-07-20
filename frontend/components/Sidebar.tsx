@@ -12,11 +12,16 @@ type NavItem = {
 // Dashboard · Cases · Evidence · Documents · AI Analysis · Audit.
 // Only pages that exist are enabled; the rest are muted so nothing 404s during a
 // demo. Flip `ready` to true as each page ships.
-const NAV: NavItem[] = [
+//
+// Evidence and Documents have no standalone page — they live as tabs inside a
+// case. `caseTab` deep-links them to the current case's tab when one is open,
+// otherwise they fall back to the case list (where an officer picks a case).
+type Item = NavItem & { caseTab?: string };
+const NAV: Item[] = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard", ready: false },
   { label: "Cases", href: "/cases", icon: "folder_shared", ready: true },
-  { label: "Evidence", href: "/evidence", icon: "inventory_2", ready: false },
-  { label: "Documents", href: "/documents", icon: "description", ready: false },
+  { label: "Evidence", href: "/cases", icon: "inventory_2", ready: true, caseTab: "evidence" },
+  { label: "Documents", href: "/cases", icon: "description", ready: true, caseTab: "documents" },
   { label: "AI Analysis", href: "/analysis", icon: "neurology", ready: false },
   { label: "Audit", href: "/audit", icon: "verified_user", ready: false },
 ];
@@ -26,8 +31,15 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+// A /cases/{id} pathname if we're inside a case workspace, else null.
+function currentCasePath(pathname: string): string | null {
+  const m = pathname.match(/^\/cases\/\d+/);
+  return m ? m[0] : null;
+}
+
 export default function Sidebar() {
   const pathname = usePathname() ?? "";
+  const casePath = currentCasePath(pathname);
 
   return (
     <nav className="fixed left-0 top-0 h-full w-[280px] flex flex-col py-stack-lg bg-surface border-r border-outline-variant z-50">
@@ -48,13 +60,20 @@ export default function Sidebar() {
 
       <div className="px-4 space-y-1 flex-grow">
         {NAV.map((item) => {
-          const active = isActive(pathname, item.href);
+          // Case-tab shortcuts deep-link into the open case (else to the case list);
+          // they are jump-links, so the active highlight stays on "Cases".
+          const href = item.caseTab
+            ? casePath
+              ? `${casePath}?tab=${item.caseTab}`
+              : "/cases"
+            : item.href;
+          const active = item.caseTab ? false : isActive(pathname, item.href);
 
           if (!item.ready) {
             // Muted, non-interactive placeholder with a "Soon" tag.
             return (
               <div
-                key={item.href}
+                key={item.label}
                 aria-disabled="true"
                 title="Coming soon"
                 className="flex items-center gap-4 px-4 py-3 rounded text-outline/60 cursor-not-allowed select-none"
@@ -70,8 +89,8 @@ export default function Sidebar() {
 
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.label}
+              href={href}
               className={
                 active
                   ? "flex items-center gap-4 px-4 py-3 bg-surface-container-high text-primary font-bold border-r-4 border-primary transition-all duration-100"

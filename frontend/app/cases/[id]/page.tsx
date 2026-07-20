@@ -8,6 +8,8 @@ import { CASE_STATUSES, statusMeta } from "@/lib/cases";
 import CaseDetailsTab from "./CaseDetailsTab";
 import LegalSectionsTab from "./LegalSectionsTab";
 import DocumentsTab from "./DocumentsTab";
+import EvidenceTab from "./EvidenceTab";
+import DiaryTab, { type DiaryEntry } from "./DiaryTab";
 
 type Person = {
   id: number;
@@ -230,6 +232,15 @@ export default function CaseWorkspacePage() {
             caseId={data.id}
             role={user.role}
             onDocsChanged={() => load(true)}
+          />
+        ) : tab === "evidence" ? (
+          <EvidenceTab caseId={data.id} onPoolChanged={() => load(true)} />
+        ) : tab === "diary" ? (
+          <DiaryTab
+            caseId={data.id}
+            entries={data.diary_entries as DiaryEntry[]}
+            persons={data.persons}
+            onDiaryChanged={() => load(true)}
           />
         ) : (
           <TabPlaceholder label={TABS.find((t) => t.key === tab)!.label} />

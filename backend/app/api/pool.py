@@ -28,10 +28,13 @@ from sqlalchemy.orm import Session
 from app import demo_cache
 from app.ai import transcribe as ai_transcribe
 from app.ai.transcribe import TranscriptionError
+from fastapi.responses import FileResponse
+
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.config import settings
 from app.core.db import get_db
+from app.schemas.case import DiaryEntryOut
 from app.models import (
     AuditLog,
     CaseDiaryEntry,
@@ -220,6 +223,7 @@ class EvidenceOut(BaseModel):
     tags: list | dict | None = None
     linked_person_id: int | None = None
     collected_by: int | None = None
+    collected_by_name: str | None = None  # resolved officer name (populated by the list endpoint)
     collected_at: datetime | None = None
     chain_of_custody: list | dict | None = None
 
@@ -451,7 +455,84 @@ async def upload_evidence(
 @router.get("/{case_id}/evidence", response_model=list[EvidenceOut])
 def list_evidence(case_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _get_visible_case(db, user, case_id)
-    return db.query(Evidence).filter(Evidence.case_id == case_id).order_by(Evidence.id).all()
+    rows = db.query(Evidence).filter(Evidence.case_id == case_id).order_by(Evidence.id).all()
+
+    # Resolve collecting-officer names in one query (the row carries only collected_by id).
+    ids = {e.collected_by for e in rows if e.collected_by is not None}
+    names: dict[int, str | None] = {}
+    if ids:
+        for u in db.query(User).filter(User.id.in_(ids)).all():
+            names[u.id] = u.full_name
+
+    out: list[EvidenceOut] = []
+    for e in rows:
+        row = EvidenceOut.model_validate(e)
+        row.collected_by_name = names.get(e.collected_by)
+        out.append(row)
+    return out
+
+
+@router.get("/{case_id}/evidence/{eid}/file")
+def get_evidence_file(
+    case_id: int,
+    eid: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Serve the stored evidence file (image thumbnails / previews).
+
+    Authenticated + case-visibility enforced, so the frontend fetches it as an
+    authenticated blob rather than exposing storage over a public URL.
+    """
+    ev = db.get(Evidence, eid)
+    if ev is None or ev.case_id != case_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Evidence not found")
+    _get_visible_case(db, user, case_id)
+    if not ev.file_path or not Path(ev.file_path).exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Evidence file missing on disk")
+    return FileResponse(ev.file_path)
+
+
+class DiaryEntryCreate(BaseModel):
+    activity_type: ActivityType = ActivityType.OTHER
+    description: str
+    entry_datetime: datetime | None = None
+    related_person_id: int | None = None
+    related_evidence_id: int | None = None
+
+
+@router.post("/{case_id}/diary", response_model=DiaryEntryOut, status_code=201)
+def add_diary_entry(
+    case_id: int,
+    body: DiaryEntryCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Manual case-diary entry an officer records themselves (auto_generated = False).
+
+    Auto entries are written by the system on key actions; this is the officer's own note.
+    """
+    _get_visible_case(db, user, case_id)
+    if not body.description or not body.description.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "A description is required")
+
+    entry = CaseDiaryEntry(
+        case_id=case_id,
+        entry_datetime=body.entry_datetime or datetime.now(timezone.utc),
+        activity_type=body.activity_type,
+        description=body.description.strip(),
+        related_person_id=body.related_person_id,
+        related_evidence_id=body.related_evidence_id,
+        auto_generated=False,
+        created_by=user.id,
+    )
+    db.add(entry)
+    db.flush()
+    _audit(db, case_id, "case_diary_entry", entry.id, AuditAction.CREATE,
+           {"activity_type": body.activity_type.value, "manual": True}, user)
+    db.commit()
+    db.refresh(entry)
+    return entry
 
 
 # ---------------------------------------------------------------------------
