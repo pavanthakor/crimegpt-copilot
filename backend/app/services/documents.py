@@ -276,6 +276,7 @@ def finalize_document(db: Session, doc: Document, user: User) -> Document:
     db.add(
         CaseDiaryEntry(
             case_id=doc.case_id,
+            entry_datetime=datetime.now(timezone.utc),  # finalisation happens now
             activity_type=ActivityType.OTHER,
             description=f"{doc.doc_type.value} finalized (v{doc.version}).",
             auto_generated=True,
@@ -401,6 +402,7 @@ def generate_document(
     db.add(
         CaseDiaryEntry(
             case_id=case_id,
+            entry_datetime=datetime.now(timezone.utc),  # generation happens now
             activity_type=ActivityType.DOC_GENERATED,
             description=f"{entry['title']} {verb} (draft).",
             auto_generated=True,

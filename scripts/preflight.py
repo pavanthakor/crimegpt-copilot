@@ -142,7 +142,7 @@ def check_alembic(fix: bool) -> bool:
 # ---------------------------------------------------------------------------
 def check_seed(fix: bool) -> bool:
     from app.core.db import SessionLocal
-    from app.models import Case, Person, SeizedItem, Statement, User
+    from app.models import Case, CaseDiaryEntry, Person, SeizedItem, Statement, User
     from app.seed import DEMO_CASES, DEMO_USERS, seed
 
     # Expected counts come from seed.py itself, so this never drifts from the seed.
@@ -152,6 +152,7 @@ def check_seed(fix: bool) -> bool:
         "persons": sum(len(c["persons"]) for c in DEMO_CASES),
         "seized_items": sum(len(c["seized_items"]) for c in DEMO_CASES),
         "statements": sum(len(c["statements"]) for c in DEMO_CASES),
+        "diary": sum(len(c.get("diary", [])) for c in DEMO_CASES),
     }
 
     def counts() -> dict[str, int]:
@@ -163,6 +164,7 @@ def check_seed(fix: bool) -> bool:
                 "persons": db.query(Person).count(),
                 "seized_items": db.query(SeizedItem).count(),
                 "statements": db.query(Statement).count(),
+                "diary": db.query(CaseDiaryEntry).count(),
             }
         finally:
             db.close()

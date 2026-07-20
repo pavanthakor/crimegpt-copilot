@@ -6,10 +6,12 @@ Deterministic by design: every value below is a literal — no now(), no random,
 faker. A fresh database + `alembic upgrade head` + `python -m app.seed` always
 produces byte-identical demo content, so the demo starts from a known state.
 
-The seed populates the *pool only* (users, cases, persons, seized items,
-statements). It deliberately creates NO legal_sections, documents, diary entries
-or audit rows: those are produced live by the demo flow itself (§15 steps 4-6),
-which is the whole point of showing them being generated on stage.
+The seed populates the pool (users, cases, persons, seized items, statements) plus
+the case-diary history that led to each case's current state, with literal
+timestamps. It deliberately creates NO legal_sections, documents or audit rows:
+those are produced live by the demo flow itself (§15 steps 4-5), which is the
+whole point of showing them being generated on stage. The demo's live actions
+append to the seeded diary rather than starting from an empty one.
 
 Two cases, owned by two different IOs so the RBAC visibility rule (§9) is
 demonstrable on the case list:
@@ -21,8 +23,9 @@ from datetime import date, datetime
 
 from app.core.db import SessionLocal
 from app.core.security import hash_password
-from app.models import Case, Person, SeizedItem, Statement, User
+from app.models import Case, CaseDiaryEntry, Person, SeizedItem, Statement, User
 from app.models.enums import (
+    ActivityType,
     CaseStatus,
     CaseType,
     Language,
@@ -89,8 +92,10 @@ NARRATIVE_VEHICLE_THEFT = (
 
 # Explicit timestamps keep the case list order stable across reseeds
 # (GET /cases sorts by created_at DESC, so the newer vehicle-theft case is on top).
+# Each is after its own incident_datetime — a case cannot be registered before the
+# offence it records.
 CREATED_AT_HOUSE_THEFT = datetime(2026, 7, 10, 9, 15)
-CREATED_AT_VEHICLE_THEFT = datetime(2026, 7, 15, 18, 40)
+CREATED_AT_VEHICLE_THEFT = datetime(2026, 7, 16, 9, 20)
 
 # Each case: the Case row, its people (keyed so items/statements can reference
 # them), its seized items and its statements. Keys are seed-local only.
@@ -186,6 +191,55 @@ DEMO_CASES = [
                 ),
             },
         ],
+        # Investigation history up to the case's current state. Literal timestamps,
+        # chronological, each matching the pool row it describes (the seizure entries
+        # share the seized items' 11:00 timestamp, which exercises the id tiebreak in
+        # the diary ordering).
+        "diary": [
+            {
+                "entry_datetime": datetime(2026, 7, 10, 9, 15),
+                "activity_type": ActivityType.COMPLAINT,
+                "description": (
+                    "Case I-CR-0142-2026 registered from FIR complaint No. 0142/2026 "
+                    "at Satellite Police Station."
+                ),
+            },
+            {
+                "entry_datetime": datetime(2026, 7, 10, 11, 40),
+                "activity_type": ActivityType.WITNESS_EXAM,
+                "description": (
+                    "Statement of society watchman Prakash Rana recorded under BNSS; "
+                    "he saw the suspect flee towards Vasna."
+                ),
+                "person": "witness_watchman",
+            },
+            {
+                "entry_datetime": datetime(2026, 7, 12, 10, 15),
+                "activity_type": ActivityType.ARREST,
+                "description": (
+                    "Accused Suresh Vaghela apprehended at the Vasna labour quarters."
+                ),
+                "person": "accused",
+            },
+            {
+                "entry_datetime": datetime(2026, 7, 12, 11, 0),
+                "activity_type": ActivityType.EVIDENCE_SEIZURE,
+                "description": (
+                    "Gold chain (approx 18 grams) seized from the accused at Vasna "
+                    "in the presence of panch witnesses."
+                ),
+                "person": "accused",
+            },
+            {
+                "entry_datetime": datetime(2026, 7, 12, 11, 0),
+                "activity_type": ActivityType.EVIDENCE_SEIZURE,
+                "description": (
+                    "Iron crowbar used to break the window grille seized from the "
+                    "accused at Vasna."
+                ),
+                "person": "accused",
+            },
+        ],
     },
     {
         "owner": "io2",
@@ -264,6 +318,35 @@ DEMO_CASES = [
                 ),
             },
         ],
+        # Deliberately shorter than case 1 — this case is still at COMPLAINT stage.
+        "diary": [
+            {
+                "entry_datetime": datetime(2026, 7, 16, 9, 20),
+                "activity_type": ActivityType.COMPLAINT,
+                "description": (
+                    "Case I-CR-0199-2026 registered from FIR complaint No. 0199/2026 "
+                    "at Ellisbridge Police Station."
+                ),
+            },
+            {
+                "entry_datetime": datetime(2026, 7, 16, 10, 5),
+                "activity_type": ActivityType.WITNESS_EXAM,
+                "description": (
+                    "Statement of parking attendant Dinesh Solanki recorded; he can "
+                    "identify the person who removed the scooter."
+                ),
+                "person": "witness_attendant",
+            },
+            {
+                "entry_datetime": datetime(2026, 7, 17, 16, 30),
+                "activity_type": ActivityType.EVIDENCE_SEIZURE,
+                "description": (
+                    "Honda Activa GJ-01-XX-1234 recovered and seized at Shahpur, "
+                    "Ahmedabad."
+                ),
+                "person": "accused",
+            },
+        ],
     },
 ]
 
@@ -328,6 +411,17 @@ def _seed_case(db, spec: dict, owner: User) -> tuple[Case, bool]:
             **fields,
         ))
 
+    for fields in spec.get("diary", []):
+        fields = dict(fields)
+        person_key = fields.pop("person", None)
+        db.add(CaseDiaryEntry(
+            case_id=case.id,
+            related_person_id=people[person_key].id if person_key else None,
+            auto_generated=True,
+            created_by=owner.id,
+            **fields,
+        ))
+
     return case, True
 
 
@@ -352,7 +446,8 @@ def seed() -> None:
                     f"{case.case_number} (id={case.id}, owner={spec['owner']}): created "
                     f"- {len(spec['persons'])} person(s), "
                     f"{len(spec['seized_items'])} seized item(s), "
-                    f"{len(spec['statements'])} statement(s)"
+                    f"{len(spec['statements'])} statement(s), "
+                    f"{len(spec.get('diary', []))} diary entry(ies)"
                 )
             else:
                 case_status.append(

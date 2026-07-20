@@ -77,11 +77,17 @@ def _audit(db, case_id, entity_type, entity_id, action, changes, user):
 
 
 def _diary(db, case_id, activity_type, description, user, related_person_id=None,
-           related_evidence_id=None):
+           related_evidence_id=None, event_time=None):
+    """Write an auto diary entry.
+
+    `event_time` is when the thing actually happened (seizure time, collection time),
+    which is what the diary should read chronologically by. It falls back to now for
+    events whose occurrence *is* the act of recording them (e.g. adding a person).
+    """
     db.add(
         CaseDiaryEntry(
             case_id=case_id,
-            entry_datetime=datetime.now(timezone.utc),
+            entry_datetime=event_time or datetime.now(timezone.utc),
             activity_type=activity_type,
             description=description,
             related_person_id=related_person_id,
@@ -294,7 +300,8 @@ def add_seized_item(
     db.flush()
     _audit(db, case_id, "seized_item", item.id, AuditAction.CREATE, body.model_dump(mode="json"), user)
     _diary(db, case_id, ActivityType.EVIDENCE_SEIZURE,
-           f"Seized item recorded: {body.description or 'item'}.", user)
+           f"Seized item recorded: {body.description or 'item'}.", user,
+           event_time=item.seizure_datetime)
     db.commit()
     db.refresh(item)
     return item
@@ -430,7 +437,7 @@ async def upload_evidence(
            {"type": _json_safe(type), "file_hash": file_hash, "description": description}, user)
     _diary(db, case_id, ActivityType.EVIDENCE_SEIZURE,
            f"Evidence collected: {description or safe_name} (sha256 {file_hash[:12]}…).",
-           user, related_evidence_id=ev.id)
+           user, related_evidence_id=ev.id, event_time=ev.collected_at)
     db.commit()
     db.refresh(ev)
     return ev

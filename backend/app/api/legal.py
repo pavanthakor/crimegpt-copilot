@@ -8,6 +8,8 @@ All routes require a valid JWT and enforce the same case visibility as `cases.py
 The heavy lifting (RAG retrieval + grounded LLM selection + hard validation) lives in
 `app.ai.legal`; this module only wires it to the DB, audit log, and case diary.
 """
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, ConfigDict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -163,6 +165,7 @@ def analyze_case(
     db.add(
         CaseDiaryEntry(
             case_id=case_id,
+            entry_datetime=datetime.now(timezone.utc),
             activity_type=ActivityType.OTHER,
             description="AI section analysis run",
             auto_generated=True,

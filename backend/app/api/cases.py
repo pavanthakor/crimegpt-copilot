@@ -232,10 +232,13 @@ def get_case(
     seized = db.query(SeizedItem).filter(SeizedItem.case_id == case_id).order_by(SeizedItem.id).all()
     statements = db.query(Statement).filter(Statement.case_id == case_id).order_by(Statement.id).all()
     documents = db.query(Document).filter(Document.case_id == case_id).order_by(Document.id).all()
+    # Newest first, with id as a deterministic tiebreak: several entries can share an
+    # entry_datetime (a document batch, or backfilled rows), and without the tiebreak
+    # their relative order is undefined and can differ between requests.
     diary = (
         db.query(CaseDiaryEntry)
         .filter(CaseDiaryEntry.case_id == case_id)
-        .order_by(CaseDiaryEntry.entry_datetime)
+        .order_by(CaseDiaryEntry.entry_datetime.desc(), CaseDiaryEntry.id.desc())
         .all()
     )
 

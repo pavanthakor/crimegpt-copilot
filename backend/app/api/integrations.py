@@ -8,6 +8,8 @@ The export handler does a real HTTP round-trip to the local mock endpoint so the
 show a deployment-ready path; swapping the mock URL for a live CCTNS endpoint is all that
 production needs.
 """
+from datetime import datetime, timezone
+
 import requests
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -69,6 +71,7 @@ def export_cctns(
     db.add(
         CaseDiaryEntry(
             case_id=case.id,
+            entry_datetime=datetime.now(timezone.utc),
             activity_type=ActivityType.OTHER,
             description=f"Exported to CCTNS (mock); FIR registered as {fir_id}.",
             auto_generated=True,
