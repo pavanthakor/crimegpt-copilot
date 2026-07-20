@@ -55,102 +55,61 @@ NARRATIVE:
 # ---------------------------------------------------------------------------
 # B. Judgment suggestion  (input: narrative + accepted sections + RAG candidates)
 #
-# GROUNDED: the model SELECTS from a retrieved candidate list, it does not recall
-# case law from memory. `app.ai.judgments.validate_judgments` then drops anything
-# whose citation is not in that list. A fabricated authority in a remand
-# application is worse than no authority, so the corpus is the only source of
-# truth — see app/ai/judgments.py.
+# GROUNDED TWICE OVER, both times mechanically:
+#   1. citation  must be one of the retrieved candidates  -> case is real
+#   2. holding_clause / case_fact must appear VERBATIM in the curated holding and
+#      in the narrative respectively                      -> reasoning is real
+#
+# The model never writes prose about the law. It only points at spans of text we
+# already trust, exactly as `triggering_phrase` works for section mapping in
+# prompt A. `app.ai.judgments` composes the sentence in code and re-extracts both
+# spans from the SOURCE, so what the officer reads is our curated text joined by
+# a fixed connective — not the model's transcription of it.
+#
+# This replaced an LLM entailment auditor, which caught real errors but was
+# non-deterministic and downgraded sound reasoning at roughly the same rate.
 # ---------------------------------------------------------------------------
 JUDGMENTS_SCHEMA = {
     "judgments": [
         {
-            "title": "string — copied from the candidate list",
             "citation": "string — copied EXACTLY from a candidate citation",
-            "court": "string — copied from the candidate list",
-            "summary": "string — <= 2 sentences, paraphrased, no copyrighted blocks",
-            "relevance_reason": "string — why it matters to THIS case",
+            "holding_clause": (
+                "string — a run of words copied character-for-character from THAT "
+                "candidate's holding text"
+            ),
+            "case_fact": (
+                "string — a run of words copied character-for-character from the NARRATIVE"
+            ),
         }
     ]
 }
 
 JUDGMENTS_PROMPT = """You are a legal research assistant for Indian police.
 
-Below are a crime narrative, the legal sections the officer has ACCEPTED, and a list of \
-CANDIDATE JUDGMENTS retrieved from a curated corpus of landmark Indian rulings.
+Below are a crime narrative, the legal sections the officer has ACCEPTED, and a list of CANDIDATE JUDGMENTS retrieved from a curated corpus of landmark Indian rulings.
 
-Select ONLY the candidate judgments that genuinely help this case — the ones an \
-investigating officer or prosecutor would actually cite in a remand application, \
-panchnama or charge sheet for these facts. Selecting three or four strong authorities \
-is better than listing everything.
+Select ONLY the candidate judgments that genuinely help this case — the ones an investigating officer or prosecutor would actually cite in a remand application, panchnama or charge sheet for these facts. Two or three strong authorities beat a long list.
 
-STRICT RULES:
-- You MUST NOT invent a case or a citation. Choose only from the CANDIDATE JUDGMENTS below.
-- Copy the citation string EXACTLY as it appears in the candidate list.
-- If none of the candidates genuinely apply, return an empty list. An empty answer is \
-correct and useful; a plausible-sounding but fabricated citation is a serious error.
+You do NOT write any explanation in your own words. For each judgment you select you QUOTE two spans of existing text, and nothing else:
 
-For each selected judgment provide:
-- title, citation, court copied from the candidate entry.
-- summary: at most 2 sentences, paraphrased. Do not reproduce blocks of judgment text.
-- relevance_reason: one sentence linking THE HOLDING TEXT SHOWN IN THE CANDIDATE ENTRY to \
-a specific fact of this case.
+- citation: the value on that candidate's `citation:` line, copied EXACTLY and on its own. Do not append the case name, court or year.
+- holding_clause: a run of words copied character-for-character from that candidate's `holding:` line. Choose the clause stating the legal proposition you are relying on. Do not paraphrase, do not join words that are not adjacent, do not add words.
+- case_fact: a run of words copied character-for-character FROM THE NARRATIVE below. Choose the specific fact the holding bears on. Do not paraphrase or invent.
 
-RULES FOR relevance_reason — read carefully:
-- Use ONLY the legal proposition written in that candidate's holding above. Do NOT rely on \
-your own memory of what the case decided; the holding shown to you is authoritative.
-- Do not restate the holding's qualifiers as if they were facts of this case. If a holding \
-says a rule applies "even when X", that does NOT mean X happened here.
-- Do not add any legal proposition that is not in the holding.
-- Shape it as: <what the holding establishes> + <which fact of this case it bears on>.
-- If you cannot link the holding to a specific fact of this case, leave relevance_reason \
-empty rather than inventing a connection.
+Both spans are checked against their sources and the judgment is downgraded if either does not match exactly, so copy carefully.
 
-NARRATIVE:
+Do not choose a holding_clause that is a qualifier or exception unless that qualifier is actually established by the narrative. If a holding says a rule applies "even if the taking was temporary", do NOT quote that clause unless this case really involved a temporary taking.
+
+If you cannot find a genuine pairing for a judgment, omit that judgment entirely. Returning an empty list is correct and useful; a forced or fabricated link is a serious error.
+
+NARRATIVE (quote case_fact from HERE):
 \"\"\"{narrative}\"\"\"
 
 ACCEPTED SECTIONS:
 {sections}
 
-CANDIDATE JUDGMENTS (choose citation from HERE):
+CANDIDATE JUDGMENTS (quote citation and holding_clause from HERE):
 {candidates}
-"""
-
-# B2. Relevance entailment check — run per surviving judgment.
-#
-# Citation grounding proves the CASE is real; it says nothing about whether the
-# model's reasoning about that case is sound. Observed failure: for a holding
-# reading "temporary appropriation ... suffices", the model wrote that a completed
-# house theft "involves a temporary deprivation" — a legally inverted reading of a
-# correctly-cited authority. A focused yes/no check catches what free generation
-# gets wrong.
-RELEVANCE_CHECK_SCHEMA = {
-    "supported": "boolean — true only if the reason is fully carried by the holding",
-    "problem": "string — if false, the specific misreading; empty if true",
-}
-
-RELEVANCE_CHECK_PROMPT = """You are auditing one sentence written by another AI for legal soundness.
-
-AUTHORITATIVE HOLDING (the only legal proposition that may be relied on):
-\"\"\"{holding}\"\"\"
-
-FACTS OF THE CASE:
-\"\"\"{narrative}\"\"\"
-
-SENTENCE TO AUDIT (a claim about why the holding is relevant to these facts):
-\"\"\"{reason}\"\"\"
-
-Answer supported=false if ANY of these is true:
-- The sentence states a legal proposition that is not in the holding.
-- The sentence contradicts the holding.
-- The sentence treats one of the holding's qualifiers or edge-cases as if it were an \
-established fact of this case (for example, a holding saying a rule applies "even if the \
-taking was temporary" does NOT mean this case involved a temporary taking).
-- The sentence misdescribes the facts of the case.
-
-Answer supported=true ONLY if the sentence's legal content is fully carried by the holding \
-AND its factual claims match the facts above.
-
-If you are unsure, answer supported=false.
 """
 
 # ---------------------------------------------------------------------------

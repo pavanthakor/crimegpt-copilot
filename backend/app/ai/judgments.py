@@ -3,9 +3,16 @@
 Same shape as `app.ai.legal`, applied to case law instead of bare-act sections:
 
     1. RAG-retrieve the k most relevant judgments from the curated corpus.
-    2. Ask the LLM to SELECT from those candidates only — never invent a case.
-    3. HARD-VALIDATE: drop any judgment whose citation is not in the retrieved
-       candidate set. Every rejection is logged and returned.
+    2. Ask the LLM to SELECT from those candidates only — never invent a case —
+       and to QUOTE two spans rather than write prose: `holding_clause` from the
+       curated holding and `case_fact` from the narrative.
+    3. HARD-VALIDATE, mechanically: drop any judgment whose citation is not in the
+       retrieved candidate set, and downgrade any whose quoted spans do not appear
+       verbatim in their sources. Every rejection is logged and returned.
+
+The relevance sentence is then composed in code from the two re-extracted spans,
+so the model never authors a legal proposition — it only points at text we already
+trust. This mirrors `triggering_phrase` in section mapping (app.ai.legal).
 
 This matters more for case law than for sections: an LLM asked for "landmark
 judgments" will happily produce a plausible-sounding case name with an invented
@@ -29,12 +36,7 @@ from pathlib import Path
 
 from app.ai import rag
 from app.ai.llm import call_llm
-from app.ai.prompts import (
-    JUDGMENTS_PROMPT,
-    JUDGMENTS_SCHEMA,
-    RELEVANCE_CHECK_PROMPT,
-    RELEVANCE_CHECK_SCHEMA,
-)
+from app.ai.prompts import JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA
 
 logger = logging.getLogger("crimegpt.judgments")
 
@@ -172,13 +174,21 @@ def search(query: str, k: int = 8) -> list[dict]:
 
 
 def _format_candidates(candidates: list[dict]) -> str:
-    lines = []
-    for c in candidates:
-        lines.append(
-            f"- citation={c['citation']} | {c['case_title']} ({c['court']}, {c['year']})\n"
-            f"    {c['holding']}"
+    """One block per candidate, each field on its own labelled line.
+
+    The citation gets a line to itself: an earlier single-line format
+    ("citation=X | Title (Court, Year)") led the model to copy the whole line as
+    the citation, which then failed the grounding gate.
+    """
+    blocks = []
+    for i, c in enumerate(candidates, 1):
+        blocks.append(
+            f"[{i}]\n"
+            f"citation: {c['citation']}\n"
+            f"case: {c['case_title']} ({c['court']}, {c['year']})\n"
+            f"holding: {c['holding']}"
         )
-    return "\n".join(lines)
+    return "\n\n".join(blocks)
 
 
 def _format_sections(accepted_sections: list[dict]) -> str:
@@ -193,47 +203,126 @@ def _format_sections(accepted_sections: list[dict]) -> str:
 # ---------------------------------------------------------------------------
 # Validation — the grounding gate
 # ---------------------------------------------------------------------------
-def neutral_reason(holding: str) -> str:
-    """The fallback shown when the model's own reasoning cannot be trusted.
+def first_clause(text: str) -> str:
+    """The leading clause of a holding — up to the first comma, semicolon or period."""
+    text = (text or "").strip()
+    cut = len(text)
+    for sep in (", ", "; ", ". "):
+        i = text.find(sep)
+        if i != -1:
+            cut = min(cut, i)
+    return text[:cut].rstrip(" ,;.")
 
-    States the authority's proposition and stops, rather than asserting a link to
-    the facts that we could not verify. Dull but never wrong.
+
+def neutral_reason(holding: str) -> str:
+    """The fallback shown when a quoted span could not be verified.
+
+    States the authority's leading proposition and stops, rather than asserting a
+    link to the facts that we could not check. Dull but never wrong.
     """
-    return f"Relevant to: {holding}"
+    return f"Relevant to: {first_clause(holding)}."
+
+
+def _norm_with_map(text: str) -> tuple[str, list[int]]:
+    """Casefold and collapse whitespace, keeping a map back to original offsets.
+
+    Lets us match a model-quoted span tolerantly (it may reflow whitespace or change
+    case) while still re-extracting the ORIGINAL characters from the source, so the
+    officer reads our curated text rather than the model's transcription of it.
+    """
+    out: list[str] = []
+    idx: list[int] = []
+    prev_space = False
+    for i, ch in enumerate(text):
+        if ch.isspace():
+            if prev_space:
+                continue
+            out.append(" ")
+            idx.append(i)
+            prev_space = True
+        else:
+            out.append(ch.lower())
+            idx.append(i)
+            prev_space = False
+    return "".join(out), idx
+
+
+def extract_verbatim(span: str, source: str) -> str | None:
+    """Return the ORIGINAL text of `span` as it appears in `source`, or None.
+
+    Matching ignores case and whitespace runs; everything else must match exactly,
+    so a paraphrase, an added word or a stitched-together phrase all fail.
+    """
+    span = (span or "").strip()
+    if not span or not source:
+        return None
+    needle, _ = _norm_with_map(span)
+    needle = needle.strip()
+    if not needle:
+        return None
+    hay, hay_idx = _norm_with_map(source)
+    pos = hay.find(needle)
+    if pos == -1:
+        return None
+    start = hay_idx[pos]
+    end = hay_idx[pos + len(needle) - 1] + 1
+    return source[start:end]
+
+
+def compose_reason(holding_clause: str, case_fact: str) -> str:
+    """Join the two verified spans with a fixed connective. No model prose."""
+    hc = holding_clause.strip().rstrip(" ,;.")
+    cf = case_fact.strip().rstrip(" ,;.")
+    return f"{hc} — here, {cf}."
 
 
 def validate_judgments(
-    suggestions: list[dict],
-    candidates: list[dict],
-    verify_reason=None,
+    suggestions: list[dict], candidates: list[dict], narrative: str = ""
 ) -> tuple[list[dict], list[dict]]:
-    """Split suggestions into (validated, rejected).
+    """Split suggestions into (validated, rejected). Pure — no LLM, no I/O.
 
-    A suggestion survives only if its citation matches one of the retrieved
-    candidates (after normalisation). Surviving entries are rewritten from the
-    CORPUS record — title, court, year, holding and source_url all come from our
-    curated data, not from the model, so the officer never sees a model-authored
-    summary of a real case.
+    Two mechanical gates, both cheap and deterministic:
 
-    `relevance_reason` is the one field still authored by the model, and citation
-    grounding says nothing about whether that reasoning is sound — a correctly
-    cited case can carry an inverted reading of its own holding. `verify_reason`
-    is an optional callable(reason, holding) -> bool; when it returns False the
-    reason is replaced by `neutral_reason(holding)` and the entry is marked
-    `reason_fallback`. Passing None skips the check, which keeps this function
-    pure and unit-testable against a mocked response.
+    1. `citation` must match one of the retrieved candidates (normalised) — else the
+       judgment is rejected outright as possibly fabricated.
+    2. `holding_clause` must appear verbatim in that candidate's curated holding and
+       `case_fact` verbatim in the narrative. Both spans are re-extracted from their
+       SOURCES and joined in code by `compose_reason`. If either fails to match, the
+       reason degrades to `neutral_reason(holding)` and the entry is flagged
+       `reason_fallback` — the judgment is still shown, just without an unverified
+       link to the facts.
+
+    Everything an officer reads is therefore either curated corpus text or narrative
+    text they wrote themselves. The model only chooses which spans to point at.
     """
     by_cit = {normalise_citation(c["citation"]): c for c in candidates}
     validated: list[dict] = []
     rejected: list[dict] = []
     seen: set[str] = set()
 
+    def resolve(raw: str) -> str | None:
+        """Normalised key of the candidate this citation refers to, or None.
+
+        Falls back to a prefix match so a model that appends the case name to the
+        citation still resolves — the citation itself is still one we retrieved, so
+        the grounding guarantee is unchanged.
+        """
+        norm = normalise_citation(raw)
+        if not norm:
+            return None
+        if norm in by_cit:
+            return norm
+        for cand_key in by_cit:
+            if cand_key and norm.startswith(cand_key):
+                return cand_key
+        return None
+
     for sug in suggestions:
         citation = (sug.get("citation") or "").strip()
         title = (sug.get("title") or sug.get("case_title") or "").strip()
-        key = normalise_citation(citation)
+        key = resolve(citation)
 
-        if not key or key not in by_cit:
+        if key is None:
             logger.warning(
                 "REJECT ungrounded judgment %r (%s) — citation not in retrieved candidate set",
                 title, citation or "no citation",
@@ -256,15 +345,21 @@ def validate_judgments(
 
         cand = by_cit[key]
         holding = cand["holding"]
-        reason = (sug.get("relevance_reason") or "").strip()
-        fallback = False
 
-        if not reason:
-            reason, fallback = neutral_reason(holding), True
-        elif verify_reason is not None and not verify_reason(reason, holding):
+        # Gate 2: both quoted spans must exist verbatim in their sources.
+        clause = extract_verbatim(sug.get("holding_clause", ""), holding)
+        fact = extract_verbatim(sug.get("case_fact", ""), narrative)
+
+        if clause and fact:
+            reason, fallback = compose_reason(clause, fact), False
+        else:
+            missing = []
+            if not clause:
+                missing.append(f"holding_clause {sug.get('holding_clause', '')!r} not in holding")
+            if not fact:
+                missing.append(f"case_fact {sug.get('case_fact', '')!r} not in narrative")
             logger.warning(
-                "FALLBACK relevance_reason for %s — not entailed by the curated holding: %r",
-                cand["citation"], reason,
+                "FALLBACK relevance for %s — %s", cand["citation"], "; ".join(missing)
             )
             reason, fallback = neutral_reason(holding), True
 
@@ -285,43 +380,6 @@ def validate_judgments(
         )
 
     return validated, rejected
-
-
-def make_reason_verifier(narrative: str):
-    """Build a callable(reason, holding) -> bool backed by a focused LLM check.
-
-    Deliberately fail-closed: any error, malformed response or ambiguity returns
-    False, which downgrades the reason to the neutral fallback. A dull-but-correct
-    line costs the demo nothing; an invented legal proposition in a remand
-    application costs a great deal.
-    """
-
-    def verify(reason: str, holding: str) -> bool:
-        prompt = RELEVANCE_CHECK_PROMPT.format(
-            holding=holding, narrative=narrative, reason=reason
-        )
-        try:
-            out = call_llm(
-                prompt,
-                system=(
-                    "You are a strict legal auditor. You answer only with the requested "
-                    "JSON. When in doubt you answer supported=false."
-                ),
-                json_schema=RELEVANCE_CHECK_SCHEMA,
-                temperature=0.0,
-            )
-        except Exception as exc:  # noqa: BLE001 — provider/JSON failure -> fail closed
-            logger.warning("relevance check failed (%s); falling back to neutral", exc)
-            return False
-        if not isinstance(out, dict):
-            return False
-        supported = out.get("supported")
-        if supported is not True:  # covers False, None, "false", missing
-            logger.info("relevance check rejected: %s", out.get("problem", "")[:160])
-            return False
-        return True
-
-    return verify
 
 
 # ---------------------------------------------------------------------------
@@ -361,9 +419,7 @@ def suggest_judgments(
     suggestions = llm_out.get("judgments", [])
     logger.info("LLM returned %d raw judgment(s)", len(suggestions))
 
-    validated, rejected = validate_judgments(
-        suggestions, candidates, verify_reason=make_reason_verifier(narrative)
-    )
+    validated, rejected = validate_judgments(suggestions, candidates, narrative)
     n_fallback = sum(1 for v in validated if v.get("reason_fallback"))
     logger.info(
         "validated %d (%d reason(s) downgraded to neutral), rejected %d of %d judgment(s)",
