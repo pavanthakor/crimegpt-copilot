@@ -1,50 +1,142 @@
-* {
-  box-sizing: border-box;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * CrimeGPT base styles + typography utilities.
+ * Font families are injected as CSS variables by next/font in app/layout.tsx:
+ *   --font-noto-serif  --font-noto-sans  --font-jetbrains-mono
+ *   --font-noto-gujarati  --font-noto-devanagari
+ * The combined typography classes below (.font-headline-md …) mirror the reference
+ * screens: one class sets family + size + weight + line-height, so components read
+ * exactly like the Stitch markup.
+ */
+
+:root {
+  --color-background: #f8f9fa;
+  --color-on-background: #191c1d;
+  --color-primary: #000000;
+  --color-outline-variant: #c6c6cd;
 }
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  margin: 0;
-  color: #111;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    /* Noto Sans first, with Gujarati + Devanagari in the stack so Indic strings
+       always resolve to a real glyph instead of tofu boxes. */
+    font-family: var(--font-noto-sans), var(--font-noto-gujarati),
+      var(--font-noto-devanagari), system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
-table {
-  border-collapse: collapse;
-  width: 100%;
+
+@layer components {
+  /*
+   * Typography scale (mirrors reference font-* classes). Every stack ENDS with the
+   * Indic fonts (--font-noto-gujarati, --font-noto-devanagari) so a Gujarati or Hindi
+   * string resolves to a real glyph in any typography class — this machine has no
+   * system-wide Indic font, so without these fallbacks Indic text renders as tofu.
+   */
+  .font-display-case {
+    font-family: var(--font-noto-serif), "Noto Serif", var(--font-noto-gujarati),
+      var(--font-noto-devanagari), serif;
+    font-size: 40px;
+    line-height: 48px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+  .font-headline-lg {
+    font-family: var(--font-noto-serif), "Noto Serif", var(--font-noto-gujarati),
+      var(--font-noto-devanagari), serif;
+    font-size: 30px;
+    line-height: 36px;
+    font-weight: 700;
+  }
+  .font-headline-md {
+    font-family: var(--font-noto-serif), "Noto Serif", var(--font-noto-gujarati),
+      var(--font-noto-devanagari), serif;
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+  }
+  .font-body-lg {
+    font-family: var(--font-noto-sans), var(--font-noto-gujarati),
+      var(--font-noto-devanagari), system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+  }
+  .font-body-md {
+    font-family: var(--font-noto-sans), var(--font-noto-gujarati),
+      var(--font-noto-devanagari), system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+  .font-label-caps {
+    font-family: var(--font-noto-sans), var(--font-noto-gujarati),
+      var(--font-noto-devanagari), system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .font-mono-data {
+    font-family: var(--font-jetbrains-mono), "JetBrains Mono", var(--font-noto-gujarati),
+      var(--font-noto-devanagari), monospace;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+  }
+  .font-mono-sm {
+    font-family: var(--font-jetbrains-mono), "JetBrains Mono", var(--font-noto-gujarati),
+      var(--font-noto-devanagari), monospace;
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 400;
+  }
+
+  /* Explicit Indic-script helpers, for when a string must use the Indic font
+     regardless of the surrounding stack. */
+  .font-gujarati {
+    font-family: var(--font-noto-gujarati), "Noto Sans Gujarati", sans-serif;
+  }
+  .font-devanagari {
+    font-family: var(--font-noto-devanagari), "Noto Sans Devanagari", sans-serif;
+  }
 }
-th,
-td {
-  border: 1px solid #ccc;
-  padding: 6px 8px;
-  text-align: left;
-  font-size: 14px;
-  vertical-align: top;
+
+/* Material Symbols Outlined (loaded via <link> in layout.tsx). */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+  user-select: none;
 }
-th {
-  background: #f3f3f3;
+.material-symbols-outlined.filled {
+  font-variation-settings: "FILL" 1, "wght" 300, "GRAD" 0, "opsz" 24;
 }
-tbody tr:hover {
-  background: #f9f9f9;
+
+/* Thin scrollbar to match the reference. */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
 }
-button {
-  cursor: pointer;
-  padding: 6px 10px;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
-input,
-textarea,
-select {
-  padding: 6px;
-  width: 100%;
-  max-width: 520px;
-  font-size: 14px;
-}
-label {
-  display: block;
-  margin-top: 10px;
-  font-size: 13px;
-  font-weight: 600;
-}
-h1 {
-  font-size: 22px;
-}
-a {
-  color: #1155cc;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
 }
