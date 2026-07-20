@@ -88,12 +88,16 @@ JUDGMENTS_PROMPT = """You are a legal research assistant for Indian police.
 
 Below are a crime narrative, the legal sections the officer has ACCEPTED, and a list of CANDIDATE JUDGMENTS retrieved from a curated corpus of landmark Indian rulings.
 
-Select ONLY the candidate judgments that genuinely help this case — the ones an investigating officer or prosecutor would actually cite in a remand application, panchnama or charge sheet for these facts. Two or three strong authorities beat a long list.
+Select 2 to 3 judgments — the ones an investigating officer or prosecutor would actually cite in a remand application, panchnama or charge sheet for these facts. Selecting only one is too few: an officer needs the offence, the evidence and the procedure covered.
+
+Rank your choices by FACTUAL SIMILARITY to this case and put the most similar first. A judgment about the same kind of act, the same kind of property, or the same investigative step (the recovery, the arrest, the seizure) is more useful than one that merely states general principle. Prefer candidates that speak to what actually happened here.
 
 You do NOT write any explanation in your own words. For each judgment you select you QUOTE two spans of existing text, and nothing else:
 
 - citation: the value on that candidate's `citation:` line, copied EXACTLY and on its own. Do not append the case name, court or year.
-- holding_clause: a run of words copied character-for-character from that candidate's `holding:` line. Choose the clause stating the legal proposition you are relying on. Do not paraphrase, do not join words that are not adjacent, do not add words.
+- holding_clause: a run of words copied character-for-character from that candidate's `holding:` line. ONE CLAUSE ONLY — at most one sentence, and shorter is better. Never quote the whole holding, and never quote two sentences.
+  Choose the clause that most directly applies to THESE facts, which is often NOT the opening clause. Read the whole holding, decide which part actually bears on what happened here, and quote only that part. Stop at the comma or full stop that ends it.
+  Do not paraphrase, do not join words that are not adjacent, do not add words.
 - case_fact: a run of words copied character-for-character FROM THE NARRATIVE below. Choose the specific fact the holding bears on. Do not paraphrase or invent.
 
 Both spans are checked against their sources and the judgment is downgraded if either does not match exactly, so copy carefully.
