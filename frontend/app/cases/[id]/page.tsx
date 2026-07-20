@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { CASE_STATUSES, statusMeta } from "@/lib/cases";
 import CaseDetailsTab from "./CaseDetailsTab";
+import LegalSectionsTab from "./LegalSectionsTab";
 
 type Person = {
   id: number;
@@ -216,6 +217,12 @@ export default function CaseWorkspacePage() {
             persons={data.persons}
             statements={data.statements}
             onPoolChanged={() => load(true)}
+          />
+        ) : tab === "sections" ? (
+          <LegalSectionsTab
+            caseId={data.id}
+            narrative={data.complaint_narrative}
+            onSectionsChanged={() => load(true)}
           />
         ) : (
           <TabPlaceholder label={TABS.find((t) => t.key === tab)!.label} />

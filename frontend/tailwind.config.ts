@@ -70,6 +70,10 @@ const config: Config = {
         "on-secondary-container": "#57657b",
         "on-error-container": "#93000a",
         "primary-container": "#131b2e",
+        // Khaki accent — the legal-highlight marker drawn across the narrative
+        // (used at ~22% opacity for the wash, full strength for the underline).
+        accent: "#8a7c3f",
+        "accent-strong": "#6f6330",
       },
       fontFamily: {
         // Semantic families backed by next/font variables (see app/layout.tsx).
