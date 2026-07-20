@@ -9,6 +9,8 @@
   "incident_datetime": "10/07/2026 at 02:30 hrs",
   "complaint_narrative": "ગુજરાતી: તારીખ ૧૦/૦૭/૨૦૨૬ ના રોજ રાત્રે આશરે ૦૨:૩૦ કલાકે, હું અને મારો પરિવાર ઊંઘમાં હતા ત્યારે કોઈ અજાણ્યા ઈસમે મારા ઘરની પાછળની બારીનો લોખંડનો કઠેડો તોડી ઘરમાં પ્રવેશ કર્યો હતો. તેણે કબાટમાંથી સોનાનો ચેન તથા રોકડ રૂ. ૨૫,૦૦૦ ચોરી કરી નાસી ગયો હતો. પાડોશી તથા સોસાયટીના ચોકીદારે શંકાસ્પદ ઈસમને ભાગતો જોયો હતો.\n\nEnglish: On 10/07/2026 at about 02:30 hrs, while my family and I were asleep, an unknown person broke the iron grille of the rear window of my house and entered. He stole a gold chain and cash of Rs. 25,000 from the cupboard and fled. My neighbour and the society watchman saw the suspect running away.",
   "io_name": "Inspector Rajesh Chauhan",
+  "io_rank": "Police Inspector",
+  "io_badge_no": "GJ-AMD-4471",
   "accused_name": "Suresh Vaghela",
   "accused_father": "Kanubhai Vaghela",
   "accused_age": 27,
@@ -46,7 +48,7 @@
   ],
   "seizure_datetime": "12/07/2026 at 11:00 hrs",
   "seizure_location": "Vasna, Ahmedabad",
-  "panchnama_date": "18/07/2026",
+  "panchnama_date": "20/07/2026",
   "panchnama_place": "B/12 Shivalik Residency, Satellite, Ahmedabad",
   "proceedings_narrative": "In connection with case I-CR-0142-2026, the place and the articles connected with the offence were examined in the presence of the panch witnesses. On examination the article(s) described below were found and seized as per law.",
   "investigation_done": "The complaint was registered vide FIR No. 0142/2026 dated 10/07/2026 at Satellite Police Station. The accused Suresh Vaghela has been arrested. The following article(s) have been seized during investigation: Gold chain, approx 18 grams, yellow metal, Iron crowbar used to break the window grille. Statement(s) of 1 witness(es)/person(s) have been recorded.",
@@ -55,5 +57,17 @@
   "hospital": "Civil Hospital, Ahmedabad",
   "subject_name": "Suresh Vaghela",
   "subject_role": "accused",
-  "examination_purpose": "\"\"\"सुपरिवासी की चिकित्सा परीक्षण करने के लिए उसका शरीरी अवस्था और किसी भी घातकता पहचानने के लिए, आगामी हॉन'बल कोर्ट से उपहार देने से पहले.\"\"\""
+  "examination_purpose": "\"\"\"सुरक्षित नियमों के अनुसार — नीचे दिए गए वाक्यांश को मूल रूप से बहस न करके और उन्हें अनुवाद या अनुयायी लिखने से बचा रखें:\n- विधि खंड कोड और कानून के प्रतिक्रिया नाम (जैसे BNS, BNSS, BSA, IPC, CrPC, \"द शेक्शन 305\")\n- संदेहास्पद उल्लेख और कार्यक्रम संख्या (जैसे I-CR-0142-2026, FIR No. 0142/2026)\n- व्यक्तिगत नाम और स्थान के नाम\n- संख्याएँ, मूल्य और तारीख (जैसे 25,000, 10/07/2026)\n\nकेवल पारिस्थितिक लेख को अनुवादित करें। इसमें केवल नीचे दिए गए वाक्यांश का अनुवाद है: \"\"\"\n\n\"\"\"कार्रवाई की चिकित्सा परीक्षण करने के लिए और न्यायालय से उपस्थिति से पहले दंडित की शरीरी अवस्था और किसी भी घावों की रिकॉर्ड.\"\"\"",
+  "fir_year": 2026,
+  "acts_sections_line": "BNS 305",
+  "witness1": {
+    "full_name": "Kiran Shah",
+    "father_name": "Dilipbhai Shah",
+    "address": "B/11 Shivalik Residency, Satellite, Ahmedabad"
+  },
+  "witness2": {
+    "full_name": "Prakash Rana",
+    "father_name": "Govindbhai Rana",
+    "address": "Staff quarters, Shivalik Residency, Satellite"
+  }
 }
