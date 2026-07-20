@@ -117,37 +117,62 @@ CANDIDATE JUDGMENTS (quote citation and holding_clause from HERE):
 """
 
 # ---------------------------------------------------------------------------
-# C. Weak-charge alert  (input: narrative + accepted sections)
+# C. Weak-charge alert  (input: ONE accepted section's statutory text + case material)
+#
+# GROUNDED, same discipline as section mapping (prompt A). The model does not
+# recall the law: it is handed the section's real statutory text and the case
+# material, and it may only QUOTE spans of each. `app.ai.weak_charge` then checks
+# every quote appears verbatim in its source — an ingredient not found in the
+# statute, or a supporting quote not found in the material, is rejected. So the
+# officer never sees an invented "ingredient" or an invented piece of evidence.
+#
+# Called once PER accepted section (its statutory text is section-specific), not
+# once for the whole case.
 # ---------------------------------------------------------------------------
 WEAK_CHARGE_SCHEMA = {
-    "alerts": [
+    "ingredients": [
         {
-            "section_code": "string",
-            "missing_ingredients": ["string — legal ingredient not yet supported by facts"],
-            "explanation": "string — why the charge is currently weak",
-            "suggestion": "string — what evidence/statement would strengthen it",
+            "ingredient": (
+                "string — a run of words copied character-for-character from the "
+                "STATUTORY TEXT naming one element that must be proven"
+            ),
+            "supported": "boolean — is this element established by the case material?",
+            "evidence_quote": (
+                "string — if supported, a run of words copied character-for-character "
+                "from the CASE MATERIAL that establishes it; empty if not supported"
+            ),
         }
-    ]
+    ],
+    "suggestion": "string — what evidence or statement would establish the missing element(s)",
 }
 
-WEAK_CHARGE_PROMPT = """You are a critical legal reviewer for Indian police charge sheets.
+WEAK_CHARGE_PROMPT = """You are a critical legal reviewer for an Indian police charge sheet.
 
-Given the crime narrative and the ACCEPTED legal sections, check each section against its legal ingredients \
-(the elements that must be proven). Flag any section where the narrative does NOT yet establish all ingredients.
+You are reviewing ONE accepted charge against the material actually on the case file. \
+Your job is to decide, element by element, whether the offence is made out.
 
-For each weak/at-risk section:
-- section_code.
-- missing_ingredients: the specific elements not yet supported by the facts.
-- explanation: why the charge is currently weak.
-- suggestion: what additional evidence or statement would strengthen it.
+You do NOT write the law in your own words. You QUOTE spans of the two texts below:
 
-If every section is well-supported, return an empty "alerts" list.
+- ingredient: identify each distinct element the offence requires, and for each one quote \
+a run of words copied character-for-character FROM THE STATUTORY TEXT. Do not paraphrase, \
+do not invent an element, do not add words. Only elements written in the statutory text count.
+- supported: true only if the CASE MATERIAL actually establishes that element.
+- evidence_quote: if supported, quote a run of words copied character-for-character FROM THE \
+CASE MATERIAL that establishes the element. If not supported, leave it empty. Do not quote \
+the statute here — quote the case material.
 
-NARRATIVE:
-\"\"\"{narrative}\"\"\"
+Both kinds of quote are checked against their sources, so copy carefully. An element you \
+cannot quote from the statutory text will be discarded; a supporting quote you cannot find \
+in the case material will be treated as unsupported.
 
-ACCEPTED SECTIONS:
-{sections}
+Then give one suggestion: what additional evidence or statement would establish whichever \
+element(s) are not yet supported. If every element is supported, the suggestion may be empty.
+
+STATUTORY TEXT of {act} section {section_code} — {title} (quote ingredient from HERE):
+\"\"\"{statute}\"\"\"
+
+CASE MATERIAL on file (quote evidence_quote from HERE):
+\"\"\"{material}\"\"\"
 """
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import judgments as ai_judgments
 from app.ai import legal as ai_legal
+from app.ai import weak_charge as ai_weak_charge
 from app.ai.translate import translate
 from app import demo_cache
 from app.core.config import settings
@@ -98,6 +99,33 @@ class JudgmentResult(BaseModel):
     status: str  # "ok" | "no_grounded_match"
     judgments: list[JudgmentOut]
     rejected: list[RejectedJudgmentOut]
+
+
+class SupportedIngredientOut(BaseModel):
+    ingredient: str
+    evidence_quote: str
+
+
+class WeakChargeAlertOut(BaseModel):
+    section_code: str | None = None
+    citation: str | None = None
+    missing_ingredients: list[str] = []
+    supported_ingredients: list[SupportedIngredientOut] = []
+    severity: str  # "high" | "low"
+    suggestion: str | None = None
+    note: str | None = None
+
+
+class RejectedIngredientOut(BaseModel):
+    section_code: str | None = None
+    ingredient: str | None = None
+    rejection_reason: str | None = None
+
+
+class WeakChargeResult(BaseModel):
+    status: str  # "ok" | "no_issues"
+    alerts: list[WeakChargeAlertOut]
+    rejected: list[RejectedIngredientOut]
 
 
 # ---------- Helpers ----------
@@ -403,3 +431,30 @@ def list_case_judgments(
         .all()
     )
     return [JudgmentOut.model_validate(r) for r in rows]
+
+
+@router.get("/{case_id}/weak-charges", response_model=WeakChargeResult)
+def weak_charges(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_role(UserRole.IO, UserRole.SHO, UserRole.LEGAL_ADVISOR)
+    ),
+):
+    """Flag ACCEPTED charges whose offence ingredients are not established by the file.
+
+    For each accepted section the real statutory text is compared against the case
+    material; the model may only quote ingredient spans from the statute and supporting
+    spans from the material, and anything not found verbatim is rejected (CLAUDE.md
+    §6-C). Read-only: nothing is persisted, no diary entry is written.
+    """
+    case = _get_visible_case(db, user, case_id)
+    try:
+        result = ai_weak_charge.check_weak_charges(db, case)
+    except RuntimeError as exc:  # empty corpus -> actionable 503, not a 500
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    return WeakChargeResult(
+        status=result["status"],
+        alerts=[WeakChargeAlertOut(**a) for a in result["alerts"]],
+        rejected=[RejectedIngredientOut(**r) for r in result["rejected"]],
+    )

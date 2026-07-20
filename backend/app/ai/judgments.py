@@ -247,13 +247,20 @@ def _norm_with_map(text: str) -> tuple[str, list[int]]:
     return "".join(out), idx
 
 
+# Quote characters a model tends to wrap a copied span in — straight and smart,
+# single and double. Stripped from the ENDS of a span (never the source) so
+# '"in any building"' still matches `in any building` in the statute.
+_EDGE_QUOTES = "\"'‘’“”«»`"
+
+
 def extract_verbatim(span: str, source: str) -> str | None:
     """Return the ORIGINAL text of `span` as it appears in `source`, or None.
 
-    Matching ignores case and whitespace runs; everything else must match exactly,
-    so a paraphrase, an added word or a stitched-together phrase all fail.
+    Matching ignores case, whitespace runs, and quote characters the model may have
+    wrapped around the span; everything else must match exactly, so a paraphrase, an
+    added word or a stitched-together phrase all fail.
     """
-    span = (span or "").strip()
+    span = (span or "").strip().strip(_EDGE_QUOTES).strip()
     if not span or not source:
         return None
     needle, _ = _norm_with_map(span)

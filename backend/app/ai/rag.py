@@ -182,6 +182,28 @@ def search(query: str, k: int = 8, act: str | None = None) -> list[dict]:
     return out
 
 
+def get_section(act: str, section_code: str) -> dict | None:
+    """Fetch one section's exact corpus record by (act, section_code), or None.
+
+    Direct id lookup (id == "ACT:CODE") — NOT a similarity search — so callers that
+    already know the section (e.g. weak-charge review of an ACCEPTED charge) get its
+    authoritative statutory text rather than the nearest embedding.
+    Returns {citation, act, section_code, title, text} on hit.
+    """
+    res = _collection().get(ids=[f"{act}:{section_code}"], include=["metadatas"])
+    metas = res.get("metadatas") or []
+    if not metas:
+        return None
+    m = metas[0]
+    return {
+        "citation": m.get("citation", ""),
+        "act": m.get("act", act),
+        "section_code": m.get("section_code", section_code),
+        "title": m.get("title", ""),
+        "text": m.get("text", ""),
+    }
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Ingest BNS/BNSS/BSA sections into ChromaDB.")
