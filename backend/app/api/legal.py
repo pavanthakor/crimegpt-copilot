@@ -3,10 +3,13 @@
     POST  /api/cases/{id}/analyze          run grounded section mapping, persist suggestions
     GET   /api/cases/{id}/sections         list persisted sections for a case
     PATCH /api/cases/{id}/sections/{sid}   accept / reject a suggested section
+    POST  /api/cases/{id}/judgments        suggest landmark judgments, persist them
+    GET   /api/cases/{id}/judgments        list judgments attached to a case
 
 All routes require a valid JWT and enforce the same case visibility as `cases.py`.
 The heavy lifting (RAG retrieval + grounded LLM selection + hard validation) lives in
-`app.ai.legal`; this module only wires it to the DB, audit log, and case diary.
+`app.ai.legal` and `app.ai.judgments`; this module only wires it to the DB, audit log,
+and case diary.
 """
 from datetime import datetime, timezone
 
@@ -14,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.ai import judgments as ai_judgments
 from app.ai import legal as ai_legal
 from app.ai.translate import translate
 from app import demo_cache
@@ -21,7 +25,15 @@ from app.core.config import settings
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.db import get_db
-from app.models import AuditLog, Case, CaseDiaryEntry, LegalSection, Statement, User
+from app.models import (
+    AuditLog,
+    Case,
+    CaseDiaryEntry,
+    Judgment,
+    LegalSection,
+    Statement,
+    User,
+)
 from app.models.enums import (
     ActivityType,
     AuditAction,
@@ -62,6 +74,30 @@ class AnalyzeResult(BaseModel):
 
 class SectionStatusUpdate(BaseModel):
     status: SectionStatus  # only ACCEPTED or REJECTED are allowed (checked in handler)
+
+
+class JudgmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str | None = None
+    citation: str | None = None
+    court: str | None = None
+    summary: str | None = None
+    relevance_reason: str | None = None
+    source_url: str | None = None
+
+
+class RejectedJudgmentOut(BaseModel):
+    title: str | None = None
+    citation: str | None = None
+    rejection_reason: str | None = None
+
+
+class JudgmentResult(BaseModel):
+    status: str  # "ok" | "no_grounded_match"
+    judgments: list[JudgmentOut]
+    rejected: list[RejectedJudgmentOut]
 
 
 # ---------- Helpers ----------
@@ -236,3 +272,134 @@ def update_section_status(
     db.commit()
     db.refresh(section)
     return section
+
+
+@router.post("/{case_id}/judgments", response_model=JudgmentResult)
+def suggest_case_judgments(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_role(UserRole.IO, UserRole.SHO, UserRole.LEGAL_ADVISOR)
+    ),
+):
+    """Suggest landmark judgments for the case, grounded in the curated corpus.
+
+    Retrieval is steered by the narrative plus the officer's ACCEPTED sections, so the
+    authorities returned match the charges actually being pursued. Anything the model
+    returns whose citation is not in the retrieved candidate set is dropped and reported
+    in `rejected` rather than silently swallowed (CLAUDE.md §6-B).
+    """
+    case = _get_visible_case(db, user, case_id)
+
+    statements = db.query(Statement).filter(Statement.case_id == case_id).all()
+    narrative = _build_narrative(case, statements)
+    if not narrative:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Case has no narrative or statements to analyze"
+        )
+
+    accepted = (
+        db.query(LegalSection)
+        .filter(
+            LegalSection.case_id == case_id,
+            LegalSection.status == SectionStatus.ACCEPTED,
+        )
+        .order_by(LegalSection.id)
+        .all()
+    )
+    accepted_ctx = [
+        {
+            "act": s.act.value,
+            "section_code": s.section_code,
+            "section_title": s.section_title,
+        }
+        for s in accepted
+    ]
+
+    try:
+        result = ai_judgments.suggest_judgments(narrative, accepted_ctx)
+    except RuntimeError as exc:  # empty collection -> actionable 503, not a 500
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+
+    # Re-running replaces the previous suggestions rather than accumulating duplicates.
+    existing = db.query(Judgment).filter(Judgment.case_id == case_id).all()
+    already = {(j.citation or "").strip() for j in existing}
+
+    persisted: list[Judgment] = []
+    for j in result["judgments"]:
+        if j["citation"] in already:
+            continue
+        row = Judgment(
+            case_id=case_id,
+            title=j["title"],
+            citation=j["citation"],
+            court=j["court"],
+            summary=j["summary"],
+            relevance_reason=j["relevance_reason"],
+            source_url=j["source_url"],
+            added_by=user.id,
+        )
+        db.add(row)
+        persisted.append(row)
+
+    db.add(
+        AuditLog(
+            case_id=case_id,
+            entity_type="case",
+            entity_id=case_id,
+            action=AuditAction.CREATE,
+            field_changes={
+                "action": "suggest_judgments",
+                "status": result["status"],
+                "suggested": len(persisted),
+                "rejected": len(result["rejected"]),
+            },
+            performed_by=user.id,
+        )
+    )
+    db.add(
+        CaseDiaryEntry(
+            case_id=case_id,
+            entry_datetime=datetime.now(timezone.utc),
+            activity_type=ActivityType.OTHER,
+            description=(
+                f"Landmark judgment research run; {len(persisted)} authority(ies) added."
+            ),
+            auto_generated=True,
+            created_by=user.id,
+        )
+    )
+
+    db.commit()
+    for row in persisted:
+        db.refresh(row)
+
+    # Return everything on the case (newly persisted + previously kept), newest first.
+    all_rows = (
+        db.query(Judgment)
+        .filter(Judgment.case_id == case_id)
+        .order_by(Judgment.id.desc())
+        .all()
+    )
+    return JudgmentResult(
+        status=result["status"],
+        judgments=[JudgmentOut.model_validate(r) for r in all_rows],
+        rejected=[RejectedJudgmentOut(**r) for r in result["rejected"]],
+    )
+
+
+@router.get("/{case_id}/judgments", response_model=list[JudgmentOut])
+def list_case_judgments(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List the judgments already attached to this case, newest first."""
+    _get_visible_case(db, user, case_id)  # visibility (also 404s unknown case)
+    rows = (
+        db.query(Judgment)
+        .filter(Judgment.case_id == case_id)
+        .order_by(Judgment.id.desc())
+        .all()
+    )
+    return [JudgmentOut.model_validate(r) for r in rows]

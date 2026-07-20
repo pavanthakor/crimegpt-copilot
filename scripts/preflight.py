@@ -40,6 +40,7 @@ for stream in (sys.stdout, sys.stderr):
         pass
 
 EXPECTED_CHROMA_DOCS = 1059
+EXPECTED_JUDGMENT_DOCS = 41
 FONT_FILE = REPO_ROOT / "fonts" / "NotoSansGujarati-Regular.ttf"
 DEMO_CASE_ID = 1
 REQUIRED_LANGS = ["en", "gu"]
@@ -202,10 +203,32 @@ def check_chroma() -> bool:
         return False
 
     if n == EXPECTED_CHROMA_DOCS:
-        return bool(record(f"Chroma collection = {EXPECTED_CHROMA_DOCS}", PASS,
-                           f"{COLLECTION_NAME}={n} docs"))
-    record(f"Chroma collection = {EXPECTED_CHROMA_DOCS}", FAIL,
-           f"{COLLECTION_NAME}={n} docs — run: python -m app.ai.ingest_corpus")
+        record(f"Chroma collection = {EXPECTED_CHROMA_DOCS}", PASS,
+               f"{COLLECTION_NAME}={n} docs")
+    else:
+        record(f"Chroma collection = {EXPECTED_CHROMA_DOCS}", FAIL,
+               f"{COLLECTION_NAME}={n} docs — run: python -m app.ai.ingest_corpus")
+        return False
+    return check_judgments_collection()
+
+
+def check_judgments_collection() -> bool:
+    """The judgments corpus is a separate collection — /judgments 503s without it."""
+    try:
+        from app.ai.judgments import COLLECTION_NAME as JCOLL
+        from app.ai.judgments import _collection as jcoll
+
+        n = jcoll().count()
+    except Exception as exc:  # noqa: BLE001 — missing store / import failure
+        record(f"Judgments collection = {EXPECTED_JUDGMENT_DOCS}", FAIL,
+               str(exc).splitlines()[0][:120])
+        return False
+
+    if n == EXPECTED_JUDGMENT_DOCS:
+        return bool(record(f"Judgments collection = {EXPECTED_JUDGMENT_DOCS}", PASS,
+                           f"{JCOLL}={n} docs"))
+    record(f"Judgments collection = {EXPECTED_JUDGMENT_DOCS}", FAIL,
+           f"{JCOLL}={n} docs — run: python -m app.ai.judgments")
     return False
 
 

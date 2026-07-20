@@ -53,37 +53,56 @@ NARRATIVE:
 """
 
 # ---------------------------------------------------------------------------
-# B. Judgment suggestion  (input: narrative + accepted sections)
+# B. Judgment suggestion  (input: narrative + accepted sections + RAG candidates)
+#
+# GROUNDED: the model SELECTS from a retrieved candidate list, it does not recall
+# case law from memory. `app.ai.judgments.validate_judgments` then drops anything
+# whose citation is not in that list. A fabricated authority in a remand
+# application is worse than no authority, so the corpus is the only source of
+# truth — see app/ai/judgments.py.
 # ---------------------------------------------------------------------------
 JUDGMENTS_SCHEMA = {
     "judgments": [
         {
-            "title": "string",
-            "citation": "string",
-            "court": "string",
+            "title": "string — copied from the candidate list",
+            "citation": "string — copied EXACTLY from a candidate citation",
+            "court": "string — copied from the candidate list",
             "summary": "string — <= 2 sentences, paraphrased, no copyrighted blocks",
-            "relevance_reason": "string — why it matters to this case",
+            "relevance_reason": "string — why it matters to THIS case",
         }
     ]
 }
 
 JUDGMENTS_PROMPT = """You are a legal research assistant for Indian police.
 
-Given the crime narrative and the legal sections the officer has ACCEPTED, suggest relevant Indian court judgments \
-(Supreme Court / High Court) that an investigating officer or prosecutor would cite.
+Below are a crime narrative, the legal sections the officer has ACCEPTED, and a list of \
+CANDIDATE JUDGMENTS retrieved from a curated corpus of landmark Indian rulings.
 
-For each judgment:
-- title, citation, court.
-- A summary of at most 2 sentences, PARAPHRASED in your own words. Do not reproduce large blocks of the judgment text.
-- relevance_reason: why it applies to this case.
+Select ONLY the candidate judgments that genuinely help this case — the ones an \
+investigating officer or prosecutor would actually cite in a remand application, \
+panchnama or charge sheet for these facts. Selecting three or four strong authorities \
+is better than listing everything.
 
-Only suggest judgments you are reasonably confident are real. Keep citations canonical.
+STRICT RULES:
+- You MUST NOT invent a case or a citation. Choose only from the CANDIDATE JUDGMENTS below.
+- Copy the citation string EXACTLY as it appears in the candidate list.
+- If none of the candidates genuinely apply, return an empty list. An empty answer is \
+correct and useful; a plausible-sounding but fabricated citation is a serious error.
+
+For each selected judgment provide:
+- title, citation, court copied from the candidate entry.
+- summary: at most 2 sentences, paraphrased. Do not reproduce blocks of judgment text.
+- relevance_reason: concretely why it applies to THESE facts — refer to what the officer \
+did or must do (e.g. the recovery, the arrest, the seized electronic device).
 
 NARRATIVE:
 \"\"\"{narrative}\"\"\"
 
 ACCEPTED SECTIONS:
 {sections}
+
+CANDIDATE JUDGMENTS (choose citation from HERE):
+{candidates}
 """
 
 # ---------------------------------------------------------------------------
