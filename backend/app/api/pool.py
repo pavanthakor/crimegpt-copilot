@@ -28,7 +28,6 @@ from sqlalchemy.orm import Session
 from app import demo_cache
 from app.ai import transcribe as ai_transcribe
 from app.ai.transcribe import TranscriptionError
-from app.ai.translate import translate
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.config import settings
@@ -459,11 +458,13 @@ def list_evidence(case_id: int, db: Session = Depends(get_db), user: User = Depe
 # Voice input — dictate the complaint in Gujarati/Hindi/English (CLAUDE.md §4)
 # ---------------------------------------------------------------------------
 class TranscribeResult(BaseModel):
-    transcript: str          # verbatim in the spoken language
-    language: str            # gu | hi | en
-    translation: str | None  # English translation (None when language == en)
+    transcript: str          # display text, in the `task` output (source script by default)
+    language: str            # gu | hi | en (source)
+    task: str                # transcribe | translate — how `transcript` was produced
+    translation: str | None  # English narrative (None when source is en or task==translate)
     duration: float | None   # seconds of audio
     confidence: float | None # 0-1 proxy from segment log-probs
+    model: str | None        # the WHISPER_MODEL used
     audio_id: str            # sha256 of the stored audio
 
 
@@ -472,16 +473,18 @@ async def transcribe_audio(
     case_id: int,
     file: UploadFile = File(...),
     language: str = Form("gu"),
+    task: str = Form("transcribe"),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*_WRITE_ROLES)),
 ):
     """Transcribe a dictated complaint and translate it to English.
 
     Saves the audio under storage/audio/ with a sha256 (same treatment as evidence),
-    transcribes on CPU via faster-whisper, and — when the spoken language is not
-    English — produces an English translation with identifiers preserved verbatim.
-    The result is RETURNED for officer review; it does NOT overwrite the case
-    narrative. Writes an audit row and a diary entry.
+    then runs faster-whisper on CPU. By default (task="transcribe") it does BOTH:
+    a transcript in the spoken script for display, AND — when the source is not
+    English — an English narrative via Whisper's own translate task. task="translate"
+    returns only the direct English. The result is RETURNED for officer review; it
+    does NOT overwrite the case narrative. Writes an audit row and a diary entry.
     """
     case = _get_visible_case(db, user, case_id)
 
@@ -490,6 +493,12 @@ async def transcribe_audio(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             f"Unsupported language {lang!r}; expected one of {ai_transcribe.SUPPORTED_LANGS}",
+        )
+    task = (task or "transcribe").lower()
+    if task not in ai_transcribe.TASKS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Unsupported task {task!r}; expected one of {ai_transcribe.TASKS}",
         )
 
     data = await file.read()
@@ -503,6 +512,7 @@ async def transcribe_audio(
     out_path = _STORAGE_AUDIO / f"{audio_hash}{suffix}"
     out_path.write_bytes(data)
 
+    model_used = settings.WHISPER_MODEL
     # DEMO_MODE: serve a pre-generated transcript keyed by the audio filename so a
     # slow/stalled model never breaks the demo. Miss -> fall through to live.
     cached = demo_cache.load_transcript(safe_name) if settings.DEMO_MODE else None
@@ -512,26 +522,35 @@ async def transcribe_audio(
         translation = cached.get("translation")
         duration = cached.get("duration")
         confidence = cached.get("confidence")
+        model_used = cached.get("model", model_used)
     else:
         try:
-            result = ai_transcribe.transcribe(str(out_path), language=lang)
+            display = ai_transcribe.transcribe(str(out_path), language=lang, task=task)
+            transcript = display["text"]
+            detected = display["language"]
+            duration = display["duration"]
+            confidence = display["confidence"]
+            model_used = display["model"]
+            # English narrative: only when we displayed the source script and it is
+            # not already English. Uses Whisper's own translate task.
+            if task == "transcribe" and detected != "en":
+                translation = ai_transcribe.transcribe(
+                    str(out_path), language=lang, task="translate"
+                )["text"]
+            else:
+                translation = None
         except TranscriptionError as exc:
             # Clear, non-silent failure — the officer must know to re-record.
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
         except ValueError as exc:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
-        transcript = result["text"]
-        detected = result["language"]
-        duration = result["duration"]
-        confidence = result["confidence"]
-        translation = (
-            translate(transcript, target="en") if detected != "en" else None
-        )
 
     _audit(db, case_id, "audio", None, AuditAction.CREATE, {
         "action": "transcribe",
         "audio_sha256": audio_hash,
         "language": detected,
+        "task": task,
+        "model": model_used,
         "duration": duration,
         "chars": len(transcript),
     }, user)
@@ -541,8 +560,10 @@ async def transcribe_audio(
     return TranscribeResult(
         transcript=transcript,
         language=detected,
+        task=task,
         translation=translation,
         duration=duration,
         confidence=confidence,
+        model=model_used,
         audio_id=audio_hash,
     )

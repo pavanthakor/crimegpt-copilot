@@ -23,5 +23,11 @@ class Settings(BaseSettings):
     FORCE_API: bool = False
     FALLBACK_API_KEY: str = ""
 
+    # Voice input (CLAUDE.md §4). A faster-whisper model NAME ("small", "medium",
+    # "large-v3") downloaded from the Systran hub, OR a path to a local CTranslate2
+    # model directory (e.g. a converted Gujarati-tuned checkpoint). Switching this
+    # is the only change needed to swap models — see app/ai/transcribe.py.
+    WHISPER_MODEL: str = "small"
+
 
 settings = Settings()

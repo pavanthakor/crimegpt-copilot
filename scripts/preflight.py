@@ -289,15 +289,15 @@ def check_font() -> bool:
 # 6b. Whisper (voice input)
 # ---------------------------------------------------------------------------
 def check_whisper() -> bool:
-    """faster-whisper importable AND the small model weights present on disk (CPU only)."""
+    """faster-whisper importable AND the configured model's weights present (CPU only)."""
     try:
-        from app.ai.transcribe import MODEL_SIZE, model_present
+        from app.ai.transcribe import _model_spec, model_present
     except Exception as exc:  # noqa: BLE001 — import failure
         record("Whisper voice model", FAIL, str(exc).splitlines()[0][:120])
         return False
 
     present, detail = model_present()
-    record(f"Whisper voice model ({MODEL_SIZE}, CPU)", PASS if present else FAIL, detail)
+    record(f"Whisper voice model ({_model_spec()}, CPU)", PASS if present else FAIL, detail)
     return present
 
 
