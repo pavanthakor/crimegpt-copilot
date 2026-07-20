@@ -25,8 +25,13 @@ from fastapi import (
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from app import demo_cache
+from app.ai import transcribe as ai_transcribe
+from app.ai.transcribe import TranscriptionError
+from app.ai.translate import translate
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
+from app.core.config import settings
 from app.core.db import get_db
 from app.models import (
     AuditLog,
@@ -50,6 +55,7 @@ from app.models.enums import (
 router = APIRouter(prefix="/api/cases", tags=["pool"])
 
 _STORAGE_EVIDENCE = Path(__file__).resolve().parents[1] / "storage" / "evidence"
+_STORAGE_AUDIO = Path(__file__).resolve().parents[1] / "storage" / "audio"
 _WRITE_ROLES = (UserRole.IO, UserRole.SHO)
 
 
@@ -447,3 +453,96 @@ async def upload_evidence(
 def list_evidence(case_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _get_visible_case(db, user, case_id)
     return db.query(Evidence).filter(Evidence.case_id == case_id).order_by(Evidence.id).all()
+
+
+# ---------------------------------------------------------------------------
+# Voice input — dictate the complaint in Gujarati/Hindi/English (CLAUDE.md §4)
+# ---------------------------------------------------------------------------
+class TranscribeResult(BaseModel):
+    transcript: str          # verbatim in the spoken language
+    language: str            # gu | hi | en
+    translation: str | None  # English translation (None when language == en)
+    duration: float | None   # seconds of audio
+    confidence: float | None # 0-1 proxy from segment log-probs
+    audio_id: str            # sha256 of the stored audio
+
+
+@router.post("/{case_id}/transcribe", response_model=TranscribeResult, status_code=201)
+async def transcribe_audio(
+    case_id: int,
+    file: UploadFile = File(...),
+    language: str = Form("gu"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    """Transcribe a dictated complaint and translate it to English.
+
+    Saves the audio under storage/audio/ with a sha256 (same treatment as evidence),
+    transcribes on CPU via faster-whisper, and — when the spoken language is not
+    English — produces an English translation with identifiers preserved verbatim.
+    The result is RETURNED for officer review; it does NOT overwrite the case
+    narrative. Writes an audit row and a diary entry.
+    """
+    case = _get_visible_case(db, user, case_id)
+
+    lang = (language or "gu").lower()
+    if lang not in ai_transcribe.SUPPORTED_LANGS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Unsupported language {lang!r}; expected one of {ai_transcribe.SUPPORTED_LANGS}",
+        )
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Empty audio upload")
+    audio_hash = hashlib.sha256(data).hexdigest()
+
+    _STORAGE_AUDIO.mkdir(parents=True, exist_ok=True)
+    safe_name = Path(file.filename or "audio").name
+    suffix = Path(safe_name).suffix or ".wav"
+    out_path = _STORAGE_AUDIO / f"{audio_hash}{suffix}"
+    out_path.write_bytes(data)
+
+    # DEMO_MODE: serve a pre-generated transcript keyed by the audio filename so a
+    # slow/stalled model never breaks the demo. Miss -> fall through to live.
+    cached = demo_cache.load_transcript(safe_name) if settings.DEMO_MODE else None
+    if cached is not None:
+        transcript = cached.get("transcript", "")
+        detected = cached.get("language", lang)
+        translation = cached.get("translation")
+        duration = cached.get("duration")
+        confidence = cached.get("confidence")
+    else:
+        try:
+            result = ai_transcribe.transcribe(str(out_path), language=lang)
+        except TranscriptionError as exc:
+            # Clear, non-silent failure — the officer must know to re-record.
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        transcript = result["text"]
+        detected = result["language"]
+        duration = result["duration"]
+        confidence = result["confidence"]
+        translation = (
+            translate(transcript, target="en") if detected != "en" else None
+        )
+
+    _audit(db, case_id, "audio", None, AuditAction.CREATE, {
+        "action": "transcribe",
+        "audio_sha256": audio_hash,
+        "language": detected,
+        "duration": duration,
+        "chars": len(transcript),
+    }, user)
+    _diary(db, case_id, ActivityType.OTHER, "Voice statement recorded", user)
+
+    db.commit()
+    return TranscribeResult(
+        transcript=transcript,
+        language=detected,
+        translation=translation,
+        duration=duration,
+        confidence=confidence,
+        audio_id=audio_hash,
+    )

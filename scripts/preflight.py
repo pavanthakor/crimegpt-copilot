@@ -14,6 +14,7 @@ Checks, in dependency order:
     4. Chroma collection = 1059    the BNS/BNSS/BSA corpus is ingested
     5. Ollama + qwen2.5:7b         the model the LLM layer will actually request
     6. Noto Sans Gujarati          the bundled font for Gujarati rendering
+    6b. Whisper voice model        faster-whisper importable + `small` weights on disk (CPU)
     7. Demo cache populated        every doc type x EN/GU, reviewed strings intact
 
 Exit code 0 if all required checks pass, 1 otherwise.
@@ -285,6 +286,22 @@ def check_font() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# 6b. Whisper (voice input)
+# ---------------------------------------------------------------------------
+def check_whisper() -> bool:
+    """faster-whisper importable AND the small model weights present on disk (CPU only)."""
+    try:
+        from app.ai.transcribe import MODEL_SIZE, model_present
+    except Exception as exc:  # noqa: BLE001 — import failure
+        record("Whisper voice model", FAIL, str(exc).splitlines()[0][:120])
+        return False
+
+    present, detail = model_present()
+    record(f"Whisper voice model ({MODEL_SIZE}, CPU)", PASS if present else FAIL, detail)
+    return present
+
+
+# ---------------------------------------------------------------------------
 # 7. Demo cache
 # ---------------------------------------------------------------------------
 def check_demo_cache() -> bool:
@@ -341,6 +358,7 @@ def main() -> int:
     check_chroma()
     check_ollama()
     check_font()
+    check_whisper()
     check_demo_cache()
     elapsed = time.perf_counter() - t0
 

@@ -12,5 +12,6 @@ docxtpl
 python-docx
 chromadb
 sentence-transformers
+faster-whisper
 pillow
 requests

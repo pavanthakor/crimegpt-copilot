@@ -21,6 +21,7 @@ logger = logging.getLogger("crimegpt.demo_cache")
 DEMO_CACHE_DIR = Path(__file__).resolve().parents[1] / "demo_cache"
 _DOC_DIR = DEMO_CACHE_DIR / "documents"
 _ANALYSIS_DIR = DEMO_CACHE_DIR / "analysis"
+_TRANSCRIPT_DIR = DEMO_CACHE_DIR / "transcripts"
 
 
 def _norm(lang: str | None) -> str:
@@ -84,5 +85,30 @@ def load_analysis(case_id: int, lang: str) -> dict | None:
 
 def save_analysis(case_id: int, lang: str, payload: dict) -> Path:
     path = _analysis_path(case_id, lang)
+    _write(path, payload)
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Transcripts — keyed by the uploaded audio's filename, so the demo has a
+# sub-second fallback when the GPU/CPU is busy or Whisper is slow on stage.
+# ---------------------------------------------------------------------------
+def _transcript_path(audio_filename: str) -> Path:
+    # Key on the basename only, so the same clip resolves regardless of upload path.
+    return _TRANSCRIPT_DIR / f"{Path(audio_filename).name}.json"
+
+
+def load_transcript(audio_filename: str) -> dict | None:
+    """Return the cached {transcript, language, translation, duration, confidence}, or None."""
+    data = _read(_transcript_path(audio_filename))
+    logger.info(
+        "demo_cache transcript %s: file=%s",
+        "HIT" if data is not None else "MISS", Path(audio_filename).name,
+    )
+    return data
+
+
+def save_transcript(audio_filename: str, payload: dict) -> Path:
+    path = _transcript_path(audio_filename)
     _write(path, payload)
     return path
