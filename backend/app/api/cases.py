@@ -257,8 +257,15 @@ def get_case(
         .all()
     )
 
+    base = CaseOut.model_validate(case).model_dump()
+    if case.created_by is not None:
+        # Resolve the assigned officer's name for the workspace header (the row itself
+        # only carries created_by id). Mirrors the list endpoint.
+        creator = db.get(User, case.created_by)
+        base["created_by_name"] = creator.full_name if creator else None
+
     return CaseDetailOut(
-        **CaseOut.model_validate(case).model_dump(),
+        **base,
         persons=[PersonOut.model_validate(p) for p in persons],
         seized_items=[SeizedItemOut.model_validate(s) for s in seized],
         statements=[StatementOut.model_validate(s) for s in statements],

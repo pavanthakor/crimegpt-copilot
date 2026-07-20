@@ -47,3 +47,17 @@ export function formatUpdated(iso: string | null | undefined): string {
   });
   return `${date} · ${time}`;
 }
+
+// Person roles, in the display order the Case-details panel groups them.
+export const PERSON_ROLES = ["COMPLAINANT", "ACCUSED", "WITNESS", "VICTIM"] as const;
+export type PersonRole = (typeof PERSON_ROLES)[number];
+
+export const PERSON_ROLE_LABEL: Record<string, { singular: string; plural: string }> = {
+  COMPLAINANT: { singular: "Complainant", plural: "Complainants" },
+  ACCUSED: { singular: "Accused", plural: "Accused" },
+  WITNESS: { singular: "Witness", plural: "Witnesses" },
+  VICTIM: { singular: "Victim", plural: "Victims" },
+};
+
+export const STATEMENT_TYPES = ["WITNESS", "ACCUSED", "VICTIM"] as const;
+export const COMPLAINT_LANGS = ["EN", "HI", "GU"] as const;

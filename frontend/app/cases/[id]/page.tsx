@@ -1,29 +1,117 @@
 "use client";
-import { useEffect, useState, type CSSProperties } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
+import { CASE_STATUSES, statusMeta } from "@/lib/cases";
+import CaseDetailsTab from "./CaseDetailsTab";
 
-const TABS = [
-  "Persons",
-  "Seized Items",
-  "Statements",
-  "Evidence",
-  "Sections",
-  "Documents",
-  "Diary",
-] as const;
-type Tab = (typeof TABS)[number];
+type Person = {
+  id: number;
+  role: string;
+  full_name: string | null;
+  alias: string | null;
+  father_name: string | null;
+  age: number | null;
+  gender: string | null;
+  address: string | null;
+  phone: string | null;
+  occupation: string | null;
+};
+type Statement = {
+  id: number;
+  person_id: number | null;
+  statement_type: string;
+  statement_text: string | null;
+  language: string | null;
+  recorded_at: string | null;
+};
+type CaseDetail = {
+  id: number;
+  case_number: string;
+  title: string | null;
+  status: string;
+  case_type: string;
+  fir_number: string | null;
+  fir_date: string | null;
+  police_station: string | null;
+  district: string | null;
+  incident_datetime: string | null;
+  incident_location: string | null;
+  complaint_narrative: string | null;
+  complaint_language: string | null;
+  created_by_name: string | null;
+  persons: Person[];
+  seized_items: unknown[];
+  statements: Statement[];
+  documents: unknown[];
+  diary_entries: unknown[];
+};
 
-export default function CaseDetailPage() {
+type TabKey = "details" | "evidence" | "sections" | "documents" | "diary";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "details", label: "Case details" },
+  { key: "evidence", label: "Evidence" },
+  { key: "sections", label: "Legal sections" },
+  { key: "documents", label: "Documents" },
+  { key: "diary", label: "Case diary" },
+];
+const TAB_KEYS = TABS.map((t) => t.key);
+
+export default function CaseWorkspacePage() {
   const { user, ready } = useAuth();
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const [data, setData] = useState<any | null>(null);
+  const searchParams = useSearchParams();
+
+  const [data, setData] = useState<CaseDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("Persons");
-  const [lang, setLang] = useState("en"); // drives analyze + document generation
+  const [loading, setLoading] = useState(true);
+  // Counts not carried by the case detail payload (fetched alongside).
+  const [evidenceCount, setEvidenceCount] = useState(0);
+  const [sectionsCount, setSectionsCount] = useState(0);
+
+  // Active tab lives in the URL (?tab=) so a reload keeps position.
+  const rawTab = searchParams.get("tab");
+  const tab: TabKey = (TAB_KEYS as string[]).includes(rawTab ?? "")
+    ? (rawTab as TabKey)
+    : "details";
+
+  const setTab = useCallback(
+    (key: TabKey) => {
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("tab", key);
+      router.replace(`/cases/${params.id}?${p.toString()}`, { scroll: false });
+    },
+    [router, params.id, searchParams]
+  );
+
+  // `silent` reloads after a mutation without flashing the skeleton, so the persons
+  // list / stat strip / tab badges refresh in place.
+  const load = useCallback(
+    (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(null);
+      Promise.all([
+        api.get<CaseDetail>(`/api/cases/${params.id}`),
+        api.get<unknown[]>(`/api/cases/${params.id}/evidence`).catch(() => ({ data: [] })),
+        api.get<unknown[]>(`/api/cases/${params.id}/sections`).catch(() => ({ data: [] })),
+      ])
+        .then(([c, ev, sec]) => {
+          setData(c.data);
+          setEvidenceCount((ev.data as unknown[]).length);
+          setSectionsCount((sec.data as unknown[]).length);
+        })
+        .catch((e) =>
+          setError(e?.response?.data?.detail ?? "The case could not be loaded.")
+        )
+        .finally(() => {
+          if (!silent) setLoading(false);
+        });
+    },
+    [params.id]
+  );
 
   useEffect(() => {
     if (!ready) return;
@@ -31,721 +119,288 @@ export default function CaseDetailPage() {
       router.replace("/login");
       return;
     }
-    api
-      .get(`/api/cases/${params.id}`)
-      .then((r) => setData(r.data))
-      .catch((e) => setError(e?.response?.data?.detail ?? "Failed to load case"));
-  }, [ready, user, params.id, router]);
+    load();
+  }, [ready, user, router, load]);
 
-  if (!ready || !user) return <p>Loading…</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
-  if (!data) return <p>Loading…</p>;
+  if (!ready || !user) return null;
+  if (loading) return <WorkspaceSkeleton />;
+  if (error || !data) return <WorkspaceError message={error} onRetry={load} />;
+
+  const witnesses = data.persons.filter((p) => p.role === "WITNESS").length;
+  const evidenceTotal = evidenceCount + data.seized_items.length;
+
+  const stats = [
+    { label: "Evidence", value: evidenceTotal, sub: `${data.seized_items.length} seized` },
+    { label: "Documents", value: data.documents.length, sub: "generated" },
+    { label: "Witnesses", value: witnesses, sub: `${data.statements.length} statements` },
+    { label: "AI findings", value: sectionsCount, sub: "sections", accent: true },
+  ];
+
+  const tabCounts: Partial<Record<TabKey, number>> = {
+    evidence: evidenceTotal,
+    sections: sectionsCount,
+    documents: data.documents.length,
+    diary: data.diary_entries.length,
+  };
 
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <button onClick={() => router.push("/cases")}>← Back to cases</button>
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "#666" }}>Output language:</span>
-          {[
-            { k: "en", label: "EN" },
-            { k: "hi", label: "हिं" },
-            { k: "gu", label: "ગુ" },
-          ].map((o) => (
-            <button
-              key={o.k}
-              onClick={() => setLang(o.k)}
-              style={{
-                fontWeight: lang === o.k ? 700 : 400,
-                background: lang === o.k ? "#1677ff" : "white",
-                color: lang === o.k ? "white" : "black",
-                border: "1px solid #1677ff",
-                padding: "2px 10px",
-              }}
-            >
-              {o.label}
-            </button>
+    <div className="-mx-edge-margin -my-stack-lg">
+      {/* A status change also appends a diary entry server-side; a silent reload keeps
+          the status, diary badge and stat strip honest without a skeleton flash. */}
+      <Header data={data} onStatusChanged={() => load(true)} />
+
+      {/* Stat strip */}
+      <div className="px-edge-margin py-6 bg-surface border-b border-outline-variant">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-outline-variant border border-outline-variant">
+          {stats.map((s) => (
+            <div key={s.label} className="bg-surface-container-lowest p-5">
+              <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">
+                {s.label}
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`font-display-case text-3xl ${s.accent ? "text-primary" : "text-on-surface"}`}
+                >
+                  {String(s.value).padStart(2, "0")}
+                </span>
+                <span className="font-mono-sm text-on-surface-variant">{s.sub}</span>
+              </div>
+            </div>
           ))}
         </div>
       </div>
-      <h1>
-        {data.case_number} — {data.title}
-      </h1>
 
-      <table style={{ maxWidth: 720, marginBottom: 16 }}>
-        <tbody>
-          <tr><th>Status</th><td>{data.status}</td></tr>
-          <tr><th>Type</th><td>{data.case_type}</td></tr>
-          <tr><th>FIR</th><td>{data.fir_number} ({data.fir_date ?? "-"})</td></tr>
-          <tr><th>Police station</th><td>{data.police_station}</td></tr>
-          <tr><th>District</th><td>{data.district}</td></tr>
-          <tr><th>Incident</th><td>{data.incident_location} ({data.incident_datetime ?? "-"})</td></tr>
-          <tr><th>Language</th><td>{data.complaint_language}</td></tr>
-          <tr><th>Narrative</th><td style={{ whiteSpace: "pre-wrap" }}>{data.complaint_narrative}</td></tr>
-        </tbody>
-      </table>
-
-      <div style={{ display: "flex", gap: 4, borderBottom: "2px solid #ccc" }}>
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              fontWeight: tab === t ? 700 : 400,
-              background: tab === t ? "#eee" : "white",
-              border: "1px solid #ccc",
-              borderBottom: "none",
-            }}
-          >
-            {t}
-          </button>
-        ))}
+      {/* Tabs */}
+      <div className="px-edge-margin bg-surface-bright border-b border-outline-variant flex overflow-x-auto">
+        {TABS.map((t) => {
+          const active = t.key === tab;
+          const count = tabCounts[t.key];
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={
+                "px-5 py-4 font-body-md whitespace-nowrap border-b-2 transition-colors flex items-center gap-2 " +
+                (active
+                  ? "border-primary text-primary font-bold"
+                  : "border-transparent text-on-surface-variant hover:text-primary")
+              }
+              aria-current={active ? "page" : undefined}
+            >
+              {t.label}
+              {count ? (
+                <span
+                  className={
+                    "font-mono-sm px-1.5 py-0.5 rounded-full " +
+                    (active
+                      ? "bg-primary text-on-primary"
+                      : "bg-surface-container-high text-on-surface-variant")
+                  }
+                >
+                  {count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
-      <div style={{ padding: 12, border: "1px solid #ccc", borderTop: "none" }}>
-        {tab === "Persons" && <PersonsTab caseId={data.id} />}
-        {tab === "Seized Items" && <SeizedTab caseId={data.id} />}
-        {tab === "Statements" && <StatementsTab caseId={data.id} />}
-        {tab === "Documents" && <DocumentsTab caseId={data.id} lang={lang} />}
-        {tab === "Diary" && <DiaryTab rows={data.diary_entries} />}
-        {tab === "Evidence" && <EvidenceTab caseId={data.id} />}
-        {tab === "Sections" && (
-          <SectionsTab caseId={data.id} narrative={data.complaint_narrative ?? ""} lang={lang} />
+      {/* Tab content */}
+      <div className="px-edge-margin py-8">
+        {tab === "details" ? (
+          <CaseDetailsTab
+            caseId={data.id}
+            narrative={data.complaint_narrative}
+            language={data.complaint_language}
+            persons={data.persons}
+            statements={data.statements}
+            onPoolChanged={() => load(true)}
+          />
+        ) : (
+          <TabPlaceholder label={TABS.find((t) => t.key === tab)!.label} />
         )}
       </div>
     </div>
   );
 }
 
-function Placeholder({ name }: { name: string }) {
-  return <p style={{ color: "#888" }}>{name}: not implemented yet (later slice).</p>;
-}
-
-function useErr() {
+function Header({
+  data,
+  onStatusChanged,
+}: {
+  data: CaseDetail;
+  onStatusChanged: (status: string) => void;
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const node = err ? (
-    <div style={{ background: "#fff1f0", border: "1px solid #ffa39e", color: "#a8071a", padding: 8, margin: "8px 0" }}>
-      {err}
-    </div>
-  ) : null;
-  return { err, setErr, node };
-}
+  // Optimistic select value, kept in sync when the parent reloads.
+  const [selected, setSelected] = useState(data.status);
+  useEffect(() => setSelected(data.status), [data.status]);
+  const meta = statusMeta(selected);
 
-const inp: CSSProperties = { padding: 4, margin: "2px 4px 2px 0", minWidth: 90 };
-const PERSON_ROLES = ["VICTIM", "ACCUSED", "WITNESS", "COMPLAINANT"];
-const STMT_TYPES = ["WITNESS", "ACCUSED", "VICTIM"];
-const LANGS = ["GU", "HI", "EN"];
-const EV_TYPES = ["IMAGE", "DOCUMENT", "PHYSICAL"];
-
-const EMPTY_PERSON = {
-  role: "WITNESS", full_name: "", alias: "", father_name: "",
-  age: "", gender: "", phone: "", address: "", occupation: "",
-};
-
-function PersonsTab({ caseId }: { caseId: number }) {
-  const [rows, setRows] = useState<any[]>([]);
-  const [f, setF] = useState<any>({ ...EMPTY_PERSON });
-  const [editId, setEditId] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-  const { setErr, node } = useErr();
-
-  const load = () => api.get(`/api/cases/${caseId}/persons`).then((r) => setRows(r.data));
-  useEffect(() => { load(); }, [caseId]);
-
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-  const reset = () => { setF({ ...EMPTY_PERSON }); setEditId(null); };
-
-  async function save() {
-    setBusy(true); setErr(null);
-    const body: any = { ...f, age: f.age === "" ? null : Number(f.age) };
-    try {
-      if (editId) await api.patch(`/api/cases/${caseId}/persons/${editId}`, body);
-      else await api.post(`/api/cases/${caseId}/persons`, body);
-      reset(); await load();
-    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Save failed"); }
-    finally { setBusy(false); }
-  }
-  async function del(id: number) {
+  async function changeStatus(next: string) {
+    if (next === selected || saving) return;
+    setSaving(true);
     setErr(null);
-    try { await api.delete(`/api/cases/${caseId}/persons/${id}`); await load(); }
-    catch (e: any) { setErr(e?.response?.data?.detail ?? "Delete failed"); }
-  }
-  function edit(p: any) {
-    setEditId(p.id);
-    setF({ role: p.role, full_name: p.full_name ?? "", alias: p.alias ?? "", father_name: p.father_name ?? "",
-      age: p.age ?? "", gender: p.gender ?? "", phone: p.phone ?? "", address: p.address ?? "", occupation: p.occupation ?? "" });
-  }
-
-  return (
-    <div>
-      <div style={{ marginBottom: 8 }}>
-        <b>{editId ? "Edit person" : "Add person"}</b><br />
-        <select style={inp} value={f.role} onChange={(e) => set("role", e.target.value)}>
-          {PERSON_ROLES.map((r) => <option key={r}>{r}</option>)}
-        </select>
-        <input style={inp} placeholder="Full name" value={f.full_name} onChange={(e) => set("full_name", e.target.value)} />
-        <input style={inp} placeholder="Alias" value={f.alias} onChange={(e) => set("alias", e.target.value)} />
-        <input style={inp} placeholder="Father's name" value={f.father_name} onChange={(e) => set("father_name", e.target.value)} />
-        <input style={{ ...inp, minWidth: 50 }} placeholder="Age" value={f.age} onChange={(e) => set("age", e.target.value)} />
-        <input style={{ ...inp, minWidth: 50 }} placeholder="Gender" value={f.gender} onChange={(e) => set("gender", e.target.value)} />
-        <input style={inp} placeholder="Phone" value={f.phone} onChange={(e) => set("phone", e.target.value)} />
-        <input style={inp} placeholder="Occupation" value={f.occupation} onChange={(e) => set("occupation", e.target.value)} />
-        <input style={{ ...inp, minWidth: 160 }} placeholder="Address" value={f.address} onChange={(e) => set("address", e.target.value)} />
-        <button onClick={save} disabled={busy}>{editId ? "Update" : "Add person"}</button>
-        {editId && <button onClick={reset}>Cancel</button>}
-      </div>
-      {node}
-      {!rows.length ? <p>No persons.</p> : (
-        <table>
-          <thead><tr><th>Role</th><th>Name</th><th>Alias</th><th>Age</th><th>Gender</th><th>Phone</th><th>Occupation</th><th></th></tr></thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr key={p.id}>
-                <td>{p.role}</td><td>{p.full_name}</td><td>{p.alias}</td><td>{p.age}</td>
-                <td>{p.gender}</td><td>{p.phone}</td><td>{p.occupation}</td>
-                <td><button onClick={() => edit(p)}>Edit</button> <button onClick={() => del(p.id)}>Delete</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-const EMPTY_ITEM = { description: "", quantity: "", estimated_value: "", seizure_location: "", seizure_datetime: "" };
-
-function SeizedTab({ caseId }: { caseId: number }) {
-  const [rows, setRows] = useState<any[]>([]);
-  const [f, setF] = useState<any>({ ...EMPTY_ITEM });
-  const [editId, setEditId] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-  const { setErr, node } = useErr();
-
-  const load = () => api.get(`/api/cases/${caseId}/seized-items`).then((r) => setRows(r.data));
-  useEffect(() => { load(); }, [caseId]);
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-  const reset = () => { setF({ ...EMPTY_ITEM }); setEditId(null); };
-
-  async function save() {
-    setBusy(true); setErr(null);
-    const body: any = {
-      description: f.description,
-      quantity: f.quantity === "" ? null : Number(f.quantity),
-      estimated_value: f.estimated_value === "" ? null : Number(f.estimated_value),
-      seizure_location: f.seizure_location || null,
-      seizure_datetime: f.seizure_datetime ? new Date(f.seizure_datetime).toISOString() : null,
-    };
+    setSelected(next); // optimistic — avoids a revert flicker
     try {
-      if (editId) await api.patch(`/api/cases/${caseId}/seized-items/${editId}`, body);
-      else await api.post(`/api/cases/${caseId}/seized-items`, body);
-      reset(); await load();
-    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Save failed"); }
-    finally { setBusy(false); }
-  }
-  async function del(id: number) {
-    setErr(null);
-    try { await api.delete(`/api/cases/${caseId}/seized-items/${id}`); await load(); }
-    catch (e: any) { setErr(e?.response?.data?.detail ?? "Delete failed"); }
-  }
-  function edit(s: any) {
-    setEditId(s.id);
-    setF({ description: s.description ?? "", quantity: s.quantity ?? "", estimated_value: s.estimated_value ?? "",
-      seizure_location: s.seizure_location ?? "", seizure_datetime: "" });
-  }
-
-  return (
-    <div>
-      <div style={{ marginBottom: 8 }}>
-        <b>{editId ? "Edit seized item" : "Add seized item"}</b><br />
-        <input style={{ ...inp, minWidth: 220 }} placeholder="Description" value={f.description} onChange={(e) => set("description", e.target.value)} />
-        <input style={{ ...inp, minWidth: 50 }} placeholder="Qty" value={f.quantity} onChange={(e) => set("quantity", e.target.value)} />
-        <input style={inp} placeholder="Est. value (Rs.)" value={f.estimated_value} onChange={(e) => set("estimated_value", e.target.value)} />
-        <input style={inp} placeholder="Seizure location" value={f.seizure_location} onChange={(e) => set("seizure_location", e.target.value)} />
-        <input style={inp} type="datetime-local" value={f.seizure_datetime} onChange={(e) => set("seizure_datetime", e.target.value)} />
-        <button onClick={save} disabled={busy}>{editId ? "Update" : "Add item"}</button>
-        {editId && <button onClick={reset}>Cancel</button>}
-      </div>
-      {node}
-      {!rows.length ? <p>No seized items.</p> : (
-        <table>
-          <thead><tr><th>Description</th><th>Qty</th><th>Est. value</th><th>From (pid)</th><th>Location</th><th></th></tr></thead>
-          <tbody>
-            {rows.map((s) => (
-              <tr key={s.id}>
-                <td>{s.description}</td><td>{s.quantity}</td><td>{s.estimated_value}</td>
-                <td>{s.seized_from}</td><td>{s.seizure_location}</td>
-                <td><button onClick={() => edit(s)}>Edit</button> <button onClick={() => del(s.id)}>Delete</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-function StatementsTab({ caseId }: { caseId: number }) {
-  const [rows, setRows] = useState<any[]>([]);
-  const [persons, setPersons] = useState<any[]>([]);
-  const [f, setF] = useState<any>({ person_id: "", statement_type: "WITNESS", language: "EN", statement_text: "" });
-  const [busy, setBusy] = useState(false);
-  const { setErr, node } = useErr();
-
-  const load = () => api.get(`/api/cases/${caseId}/statements`).then((r) => setRows(r.data));
-  useEffect(() => {
-    load();
-    api.get(`/api/cases/${caseId}/persons`).then((r) => setPersons(r.data));
-  }, [caseId]);
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-
-  async function add() {
-    if (!f.person_id) { setErr("Select a person"); return; }
-    setBusy(true); setErr(null);
-    try {
-      await api.post(`/api/cases/${caseId}/statements`, { ...f, person_id: Number(f.person_id) });
-      setF({ person_id: "", statement_type: "WITNESS", language: "EN", statement_text: "" });
-      await load();
-    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Save failed"); }
-    finally { setBusy(false); }
-  }
-
-  return (
-    <div>
-      <div style={{ marginBottom: 8 }}>
-        <b>Add statement</b><br />
-        <select style={inp} value={f.person_id} onChange={(e) => set("person_id", e.target.value)}>
-          <option value="">— person —</option>
-          {persons.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
-        </select>
-        <select style={inp} value={f.statement_type} onChange={(e) => set("statement_type", e.target.value)}>
-          {STMT_TYPES.map((t) => <option key={t}>{t}</option>)}
-        </select>
-        <select style={inp} value={f.language} onChange={(e) => set("language", e.target.value)}>
-          {LANGS.map((l) => <option key={l}>{l}</option>)}
-        </select>
-        <br />
-        <textarea style={{ ...inp, width: 480, height: 60 }} placeholder="Statement text"
-          value={f.statement_text} onChange={(e) => set("statement_text", e.target.value)} />
-        <br />
-        <button onClick={add} disabled={busy}>Add statement</button>
-      </div>
-      {node}
-      {!rows.length ? <p>No statements.</p> : (
-        <ul>
-          {rows.map((s) => (
-            <li key={s.id}><b>{s.statement_type}</b> (person {s.person_id}, {s.language}): {s.statement_text}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function EvidenceTab({ caseId }: { caseId: number }) {
-  const [rows, setRows] = useState<any[]>([]);
-  const [persons, setPersons] = useState<any[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [f, setF] = useState<any>({ type: "IMAGE", description: "", tags: "", linked_person_id: "" });
-  const [busy, setBusy] = useState(false);
-  const { setErr, node } = useErr();
-
-  const load = () => api.get(`/api/cases/${caseId}/evidence`).then((r) => setRows(r.data));
-  useEffect(() => {
-    load();
-    api.get(`/api/cases/${caseId}/persons`).then((r) => setPersons(r.data));
-  }, [caseId]);
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-
-  async function upload() {
-    if (!file) { setErr("Choose a file first"); return; }
-    setBusy(true); setErr(null);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("type", f.type);
-    if (f.description) fd.append("description", f.description);
-    if (f.tags) fd.append("tags", f.tags);
-    if (f.linked_person_id) fd.append("linked_person_id", f.linked_person_id);
-    try {
-      await api.post(`/api/cases/${caseId}/evidence`, fd);
-      setFile(null);
-      setF({ type: "IMAGE", description: "", tags: "", linked_person_id: "" });
-      await load();
-    } catch (e: any) { setErr(e?.response?.data?.detail ?? "Upload failed"); }
-    finally { setBusy(false); }
-  }
-
-  return (
-    <div>
-      <div style={{ marginBottom: 8 }}>
-        <b>Upload evidence</b><br />
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <select style={inp} value={f.type} onChange={(e) => set("type", e.target.value)}>
-          {EV_TYPES.map((t) => <option key={t}>{t}</option>)}
-        </select>
-        <input style={{ ...inp, minWidth: 180 }} placeholder="Description" value={f.description} onChange={(e) => set("description", e.target.value)} />
-        <input style={inp} placeholder="Tags (comma-separated)" value={f.tags} onChange={(e) => set("tags", e.target.value)} />
-        <select style={inp} value={f.linked_person_id} onChange={(e) => set("linked_person_id", e.target.value)}>
-          <option value="">— link person —</option>
-          {persons.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
-        </select>
-        <button onClick={upload} disabled={busy}>{busy ? "Uploading…" : "Upload"}</button>
-      </div>
-      {node}
-      {!rows.length ? <p>No evidence uploaded.</p> : (
-        <table>
-          <thead><tr><th>Type</th><th>Description</th><th>Tags</th><th>SHA-256</th><th>Collected by</th><th>Collected at</th></tr></thead>
-          <tbody>
-            {rows.map((ev) => (
-              <tr key={ev.id}>
-                <td>{ev.type}</td>
-                <td>{ev.description}</td>
-                <td>{Array.isArray(ev.tags) ? ev.tags.join(", ") : ""}</td>
-                <td style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all", maxWidth: 260 }}>{ev.file_hash}</td>
-                <td>{ev.collected_by}</td>
-                <td>{ev.collected_at ? new Date(ev.collected_at).toLocaleString() : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-const DOC_TYPES: { key: string; label: string }[] = [
-  { key: "SEIZURE_RECEIPT", label: "Seizure Receipt" },
-  { key: "PANCHNAMA", label: "Panchnama" },
-  { key: "REMAND", label: "Remand Request" },
-  { key: "MEDICAL_LETTER", label: "Medical Letter" },
-];
-
-function DocumentsTab({ caseId, lang }: { caseId: number; lang: string }) {
-  const [docs, setDocs] = useState<any[]>([]);
-  const [busy, setBusy] = useState<string | null>(null); // doc_type currently generating
-  const [err, setErr] = useState<string | null>(null);
-
-  function loadDocs() {
-    api
-      .get(`/api/cases/${caseId}/documents`)
-      .then((r) => setDocs(r.data))
-      .catch((e) => setErr(e?.response?.data?.detail ?? "Failed to load documents"));
-  }
-
-  useEffect(loadDocs, [caseId]);
-
-  async function generate(docType: string) {
-    setBusy(docType);
-    setErr(null);
-    try {
-      await api.post(`/api/cases/${caseId}/documents/${docType}?lang=${lang}`);
-      loadDocs(); // refresh after success
+      await api.patch(`/api/cases/${data.id}`, { status: next });
+      onStatusChanged(next);
+      setToast(`Status set to ${statusMeta(next).label} — added to the case diary.`);
+      window.setTimeout(() => setToast(null), 4000);
     } catch (e: any) {
-      // 400 carries the exact missing-fields message from the backend.
-      setErr(e?.response?.data?.detail ?? "Document generation failed");
+      setSelected(data.status); // revert
+      setErr(e?.response?.data?.detail ?? "Could not update status.");
     } finally {
-      setBusy(null);
+      setSaving(false);
     }
   }
 
-  async function download(doc: any) {
-    setErr(null);
-    try {
-      const res = await api.get(`/api/documents/${doc.id}/download`, {
-        responseType: "blob",
-      });
-      // Filename from Content-Disposition, else construct one.
-      const cd: string = res.headers["content-disposition"] ?? "";
-      const m = cd.match(/filename="?([^"]+)"?/);
-      const filename = m ? m[1] : `${doc.doc_type}_${caseId}.docx`;
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Download failed");
-    }
-  }
+  const metaLine = [
+    data.fir_number ? `FIR ${data.fir_number}` : null,
+    data.police_station,
+    data.created_by_name ? `IO ${data.created_by_name}` : null,
+  ].filter(Boolean);
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        {DOC_TYPES.map((dt) => (
-          <button key={dt.key} onClick={() => generate(dt.key)} disabled={busy !== null}>
-            {busy === dt.key ? `Generating ${dt.label}…` : `Generate ${dt.label}`}
-          </button>
-        ))}
-      </div>
+    <section className="px-edge-margin py-8 bg-surface border-b border-outline-variant">
+      <button
+        type="button"
+        onClick={() => router.push("/cases")}
+        className="flex items-center gap-1 font-body-md text-on-surface-variant hover:text-primary transition-colors mb-4"
+      >
+        <span className="material-symbols-outlined text-lg">arrow_back</span>
+        Back to cases
+      </button>
 
-      {err && (
-        <div
-          style={{
-            background: "#fff1f0",
-            border: "1px solid #ffa39e",
-            color: "#a8071a",
-            padding: 10,
-            marginBottom: 12,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {err}
-        </div>
-      )}
-
-      {!docs.length ? (
-        <p style={{ color: "#888" }}>
-          No documents yet. Use the buttons above to generate a draft.
-        </p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Document</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Generated</th>
-              <th>By (user id)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {docs.map((d) => (
-              <tr key={d.id}>
-                <td>{DOC_LABELS[d.doc_type] ?? d.doc_type}</td>
-                <td>v{d.version}</td>
-                <td>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      padding: "1px 8px",
-                      borderRadius: 10,
-                      background: d.status === "FINALIZED" ? "#52c41a" : "#faad14",
-                      color: "white",
-                    }}
-                  >
-                    {d.status}
-                  </span>
-                </td>
-                <td>{d.generated_at ? new Date(d.generated_at).toLocaleString() : "—"}</td>
-                <td>{d.generated_by ?? "—"}</td>
-                <td>
-                  <button onClick={() => download(d)}>Download</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-const DOC_LABELS: Record<string, string> = Object.fromEntries(
-  DOC_TYPES.map((d) => [d.key, d.label])
-);
-
-function DiaryTab({ rows }: { rows: any[] }) {
-  if (!rows?.length) return <p>No diary entries.</p>;
-  return (
-    <ul>
-      {rows.map((e) => (
-        <li key={e.id}>
-          <b>{e.activity_type}</b> {e.auto_generated ? "(auto)" : ""} — {e.description}{" "}
-          <i>[{e.entry_datetime}]</i>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-// ---------------- Sections (Legal Intelligence) ----------------
-const STATUS_STYLE: Record<string, CSSProperties> = {
-  SUGGESTED: { background: "#fffbe6", border: "1px solid #ffe58f" },
-  ACCEPTED: { background: "#f6ffed", border: "2px solid #52c41a" },
-  REJECTED: { background: "#fafafa", border: "1px solid #d9d9d9", opacity: 0.65 },
-};
-
-function Highlighted({ text, phrase }: { text: string; phrase?: string | null }) {
-  if (!text) return null;
-  const base: CSSProperties = {
-    whiteSpace: "pre-wrap",
-    display: "block",
-    maxHeight: 160,
-    overflow: "auto",
-    background: "#fff",
-    border: "1px solid #eee",
-    padding: 8,
-    fontSize: 13,
-  };
-  if (!phrase) return <span style={base}>{text}</span>;
-  const idx = text.toLowerCase().indexOf(phrase.toLowerCase());
-  if (idx === -1) {
-    // Phrase was validated against the analyzed narrative but isn't in the complaint
-    // text shown here (e.g. it came from a statement). Never render blank — show it.
-    return (
-      <div>
-        <span style={base}>{text}</span>
-        <p style={{ color: "#a00", margin: "4px 0 0" }}>
-          Triggering phrase: “{phrase}” (not located in the complaint text above)
-        </p>
-      </div>
-    );
-  }
-  return (
-    <span style={base}>
-      {text.slice(0, idx)}
-      <mark style={{ background: "#ffe58f", fontWeight: 700 }}>
-        {text.slice(idx, idx + phrase.length)}
-      </mark>
-      {text.slice(idx + phrase.length)}
-    </span>
-  );
-}
-
-function SectionsTab({ caseId, narrative, lang }: { caseId: number; narrative: string; lang: string }) {
-  const [sections, setSections] = useState<any[]>([]);
-  const [status, setStatus] = useState<string | null>(null);
-  const [rejected, setRejected] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .get(`/api/cases/${caseId}/sections`)
-      .then((r) => setSections(r.data))
-      .catch((e) => setErr(e?.response?.data?.detail ?? "Failed to load sections"));
-  }, [caseId]);
-
-  async function analyze() {
-    setLoading(true);
-    setErr(null);
-    try {
-      const r = await api.post(`/api/cases/${caseId}/analyze?lang=${lang}`);
-      setStatus(r.data.status);
-      setRejected(r.data.rejected ?? []);
-      // Refetch the authoritative list (new suggestions + any prior decisions).
-      const list = await api.get(`/api/cases/${caseId}/sections`);
-      setSections(list.data);
-    } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Analysis failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function decide(sid: number, decision: "ACCEPTED" | "REJECTED") {
-    try {
-      const r = await api.patch(`/api/cases/${caseId}/sections/${sid}`, {
-        status: decision,
-      });
-      setSections((prev) => prev.map((s) => (s.id === sid ? r.data : s)));
-    } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Update failed");
-    }
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <button onClick={analyze} disabled={loading}>
-          {loading ? "Analyzing… (~5s)" : "Analyze with AI"}
-        </button>
-        {loading && <span style={{ color: "#888" }}>Running grounded section mapping…</span>}
-      </div>
-
-      {err && <p style={{ color: "red" }}>{err}</p>}
-
-      {status === "no_grounded_match" && (
-        <div
-          style={{
-            background: "#fff7e6",
-            border: "1px solid #ffd591",
-            padding: 12,
-            marginBottom: 12,
-          }}
-        >
-          No confidently grounded section found — please review manually.
-        </div>
-      )}
-
-      {!sections.length && !loading && status !== "no_grounded_match" && (
-        <p style={{ color: "#888" }}>
-          No sections yet. Click <b>Analyze with AI</b> to suggest legal sections from the
-          case narrative.
-        </p>
-      )}
-
-      {sections.map((s) => (
-        <div
-          key={s.id}
-          style={{
-            ...STATUS_STYLE[s.status],
-            padding: 12,
-            marginBottom: 12,
-            borderRadius: 4,
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <b
-              style={{
-                textDecoration: s.status === "REJECTED" ? "line-through" : "none",
-              }}
-            >
-              {s.act} Section {s.section_code} — {s.section_title}
-            </b>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: 10,
-                background:
-                  s.status === "ACCEPTED"
-                    ? "#52c41a"
-                    : s.status === "REJECTED"
-                    ? "#bbb"
-                    : "#faad14",
-                color: "white",
-              }}
-            >
-              {s.status}
-            </span>
-          </div>
-
-          <p style={{ margin: "6px 0", fontSize: 13 }}>
-            Confidence:{" "}
-            <b>{s.confidence != null ? `${Math.round(s.confidence * 100)}%` : "—"}</b>
-            {s.reason ? <> · {s.reason}</> : null}
+      <div className="flex flex-wrap justify-between items-start gap-4">
+        <div className="min-w-0">
+          {/* Case number is the largest element, in JetBrains Mono */}
+          <p className="font-mono-data text-3xl md:text-4xl text-primary tracking-tight">
+            {data.case_number}
           </p>
-
-          <Highlighted text={narrative} phrase={s.triggering_phrase} />
-
-          {s.status === "SUGGESTED" && (
-            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-              <button onClick={() => decide(s.id, "ACCEPTED")}>Accept</button>
-              <button onClick={() => decide(s.id, "REJECTED")}>Reject</button>
-            </div>
+          <h1 className="font-headline-md text-primary mt-2">
+            {data.title ?? "Untitled case"}
+          </h1>
+          {metaLine.length > 0 && (
+            <p className="font-body-md text-on-surface-variant mt-2">
+              {metaLine.join("  ·  ")}
+            </p>
           )}
         </div>
-      ))}
 
-      {rejected.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <h4 style={{ margin: "0 0 6px" }}>Rejected by grounding check ({rejected.length})</h4>
-          <ul style={{ fontSize: 12, color: "#a00" }}>
-            {rejected.map((r, i) => (
-              <li key={i}>
-                {r.act} {r.section_code}: {r.rejection_reason}
-              </li>
-            ))}
-          </ul>
+        {/* Status control */}
+        <div className="flex flex-col items-end gap-2">
+          <span className="font-label-caps text-[10px] text-on-surface-variant">Status</span>
+          <div className="flex items-center gap-2 border border-outline-variant rounded px-3 py-2 bg-surface-container-lowest">
+            <span className={`inline-block w-2 h-2 rounded-full ${meta.dot}`} />
+            <select
+              value={selected}
+              disabled={saving}
+              onChange={(e) => changeStatus(e.target.value)}
+              className="bg-transparent font-body-md text-on-surface focus:outline-none disabled:opacity-60"
+              aria-label="Case status"
+            >
+              {CASE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {statusMeta(s).label}
+                </option>
+              ))}
+            </select>
+            {saving && (
+              <span className="material-symbols-outlined animate-spin text-lg text-on-surface-variant">
+                progress_activity
+              </span>
+            )}
+          </div>
+          {toast && (
+            <p
+              role="status"
+              className="flex items-center gap-1.5 font-body-md text-on-secondary-container bg-secondary-container px-3 py-1.5 rounded"
+            >
+              <span className="material-symbols-outlined text-base">check_circle</span>
+              {toast}
+            </p>
+          )}
+          {err && (
+            <p role="alert" className="flex items-center gap-1.5 font-body-md text-error">
+              <span className="material-symbols-outlined text-base">error</span>
+              {err}
+            </p>
+          )}
         </div>
-      )}
+      </div>
+    </section>
+  );
+}
+
+function TabPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-20 flex flex-col items-center gap-2 text-center">
+      <span className="material-symbols-outlined text-4xl text-outline">construction</span>
+      <p className="font-headline-md text-primary">{label}</p>
+      <p className="font-body-md text-on-surface-variant">Coming in the next slice.</p>
+    </div>
+  );
+}
+
+function WorkspaceSkeleton() {
+  return (
+    <div className="-mx-edge-margin -my-stack-lg animate-pulse">
+      <div className="px-edge-margin py-8 bg-surface border-b border-outline-variant space-y-3">
+        <div className="h-4 w-24 bg-surface-container-high rounded" />
+        <div className="h-10 w-72 bg-surface-container-high rounded" />
+        <div className="h-5 w-96 bg-surface-container-high rounded" />
+      </div>
+      <div className="px-edge-margin py-6 bg-surface border-b border-outline-variant">
+        <div className="grid grid-cols-4 gap-px">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 bg-surface-container-high rounded" />
+          ))}
+        </div>
+      </div>
+      <div className="px-edge-margin py-8 space-y-4">
+        <div className="h-64 bg-surface-container-high rounded" />
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceError({
+  message,
+  onRetry,
+}: {
+  message: string | null;
+  onRetry: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <div className="py-20 flex flex-col items-center gap-3 text-center">
+      <span className="material-symbols-outlined text-4xl text-error">error</span>
+      <p className="font-headline-md text-primary">Could not load this case</p>
+      <p className="font-body-md text-on-surface-variant">
+        {message ?? "The server could not be reached."}
+      </p>
+      <div className="flex gap-3 mt-2">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="flex items-center gap-2 border border-outline-variant px-4 py-2 rounded font-body-md text-on-surface hover:bg-surface-container-low transition-colors"
+        >
+          <span className="material-symbols-outlined text-lg">refresh</span>
+          Retry
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/cases")}
+          className="px-4 py-2 rounded font-body-md text-on-surface-variant hover:bg-surface-container-low transition-colors"
+        >
+          Back to cases
+        </button>
+      </div>
     </div>
   );
 }
