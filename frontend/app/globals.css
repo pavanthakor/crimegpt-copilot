@@ -119,8 +119,30 @@
   }
 }
 
-/* Material Symbols Outlined (loaded via <link> in layout.tsx). */
+/*
+ * Material Symbols Outlined — self-hosted (public/fonts/), NOT the Google CDN, so
+ * icons never fall back to raw ligature text ("folder_shared") when the network is
+ * slow or offline. `font-display: block` hides the glyph until the (local, instant)
+ * font is ready rather than flashing the ligature name.
+ */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
+}
 .material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
   font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
   vertical-align: middle;
   user-select: none;

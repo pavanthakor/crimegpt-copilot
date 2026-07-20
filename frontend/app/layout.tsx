@@ -61,13 +61,8 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={fontVars}>
-      <head>
-        {/* Material Symbols Outlined — icon font used across the shell. */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+      {/* Material Symbols is self-hosted via @font-face in globals.css — no runtime
+          Google Fonts link, so the app has no network font dependency at all. */}
       <body>
         <AuthProvider>
           <AppShell>{children}</AppShell>
