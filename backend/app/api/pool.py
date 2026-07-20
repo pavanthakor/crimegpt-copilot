@@ -513,6 +513,7 @@ async def transcribe_audio(
     out_path.write_bytes(data)
 
     model_used = settings.WHISPER_MODEL
+    translation_model = None
     # DEMO_MODE: serve a pre-generated transcript keyed by the audio filename so a
     # slow/stalled model never breaks the demo. Miss -> fall through to live.
     cached = demo_cache.load_transcript(safe_name) if settings.DEMO_MODE else None
@@ -525,18 +526,31 @@ async def transcribe_audio(
         model_used = cached.get("model", model_used)
     else:
         try:
-            display = ai_transcribe.transcribe(str(out_path), language=lang, task=task)
+            # Dual-model path: the Gujarati DISPLAY transcript comes from the
+            # Gujarati-specialised model (with prompt + guards, applied inside
+            # transcribe()); the English NARRATIVE comes from the general model's
+            # translate task. Both on CPU. If no Gujarati model is configured/present,
+            # display_model is None and the general model handles both.
+            display_model = None
+            if task == "transcribe" and lang == "gu":
+                display_model = ai_transcribe.gu_model_spec()
+            display = ai_transcribe.transcribe(
+                str(out_path), language=lang, task=task, model=display_model
+            )
             transcript = display["text"]
             detected = display["language"]
             duration = display["duration"]
             confidence = display["confidence"]
             model_used = display["model"]
             # English narrative: only when we displayed the source script and it is
-            # not already English. Uses Whisper's own translate task.
+            # not already English. Uses the GENERAL model's translate task.
+            translation_model = None
             if task == "transcribe" and detected != "en":
-                translation = ai_transcribe.transcribe(
-                    str(out_path), language=lang, task="translate"
-                )["text"]
+                english = ai_transcribe.transcribe(
+                    str(out_path), language=lang, task="translate", model=None
+                )
+                translation = english["text"]
+                translation_model = english["model"]
             else:
                 translation = None
         except TranscriptionError as exc:
@@ -551,6 +565,7 @@ async def transcribe_audio(
         "language": detected,
         "task": task,
         "model": model_used,
+        "translation_model": translation_model,
         "duration": duration,
         "chars": len(transcript),
     }, user)

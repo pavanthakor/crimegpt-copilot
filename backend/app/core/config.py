@@ -23,11 +23,16 @@ class Settings(BaseSettings):
     FORCE_API: bool = False
     FALLBACK_API_KEY: str = ""
 
-    # Voice input (CLAUDE.md §4). A faster-whisper model NAME ("small", "medium",
-    # "large-v3") downloaded from the Systran hub, OR a path to a local CTranslate2
-    # model directory (e.g. a converted Gujarati-tuned checkpoint). Switching this
-    # is the only change needed to swap models — see app/ai/transcribe.py.
+    # Voice input (CLAUDE.md §4). WHISPER_MODEL is the general model — a faster-whisper
+    # size/hub name ("small", "medium") or a local CTranslate2 path — used for the
+    # English narrative (translate task) and for non-Gujarati transcription.
     WHISPER_MODEL: str = "small"
+    # Optional Gujarati-specialised model for the Gujarati DISPLAY transcript only: a
+    # local CT2 path, or a name resolved under storage/whisper/. When present the
+    # transcribe endpoint runs a dual-model path (Gujarati transcript from this model,
+    # English narrative from WHISPER_MODEL). Empty or missing -> falls back to
+    # WHISPER_MODEL for Gujarati too. See app/ai/transcribe.py.
+    WHISPER_MODEL_GU: str = "gujarati-medium-ct2"
 
 
 settings = Settings()

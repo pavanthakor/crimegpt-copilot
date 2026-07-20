@@ -54,8 +54,30 @@ class TranscriptionError(RuntimeError):
 
 
 def _model_spec() -> str:
-    """The configured model reference (a size/hub name or a local CT2 path)."""
+    """The configured general model reference (a size/hub name or a local CT2 path)."""
     return settings.WHISPER_MODEL or "small"
+
+
+def gu_model_spec() -> str | None:
+    """Resolved Gujarati-specialised model, or None to fall back to the general model.
+
+    settings.WHISPER_MODEL_GU may be an existing path, or a bare name resolved under
+    storage/whisper/. Missing (e.g. the checkpoint was never converted on this machine)
+    -> None, so the endpoint degrades to a single-model path instead of erroring.
+    """
+    raw = (settings.WHISPER_MODEL_GU or "").strip()
+    if not raw:
+        return None
+    if Path(raw).exists():
+        return raw
+    candidate = MODEL_DIR / raw
+    if candidate.exists():
+        return str(candidate)
+    logger.warning(
+        "WHISPER_MODEL_GU %r not found (also tried %s); Gujarati will use %r",
+        raw, candidate, _model_spec(),
+    )
+    return None
 
 
 def _is_local_path(spec: str) -> bool:
@@ -159,7 +181,10 @@ def _confidence(segments: list) -> float | None:
     return round(min(max(weighted / total, 0.0), 1.0), 3)
 
 
-def transcribe(audio_path: str, language: str = "gu", task: str = "transcribe") -> dict:
+def transcribe(
+    audio_path: str, language: str = "gu", task: str = "transcribe",
+    model: str | None = None,
+) -> dict:
     """Transcribe (or directly translate) an audio file.
 
     Args:
@@ -168,6 +193,9 @@ def transcribe(audio_path: str, language: str = "gu", task: str = "transcribe") 
             never auto-detected.
         task: 'transcribe' -> text in the source script; 'translate' -> Whisper's own
             speech-to-English (only meaningful for non-English source).
+        model: model spec override (size/hub name or local CT2 path). None -> the
+            general WHISPER_MODEL. Lets the caller run the dual-model path (a Gujarati
+            model for transcribe, the general model for translate).
 
     Returns:
         {text, language, task, duration, confidence, model}
@@ -190,23 +218,29 @@ def transcribe(audio_path: str, language: str = "gu", task: str = "transcribe") 
     if not path.exists():
         raise ValueError(f"Audio file not found: {audio_path}")
 
-    # Bias the decoder toward the source script (only for transcribe; a Gujarati prompt
-    # would not help an English translation target).
-    initial_prompt = _INITIAL_PROMPT.get(language) if task == "transcribe" else None
+    spec = model or _model_spec()
+
+    # Script biasing + anti-runaway guards belong to the GUJARATI TRANSCRIBE path only.
+    # The English translate target must stay plain: a Gujarati prompt would not help it,
+    # and the guards exist specifically to tame the repetition loop the prompt can
+    # trigger on poor audio (observed: 48s+ of "છે છે છે…").
+    gu_biasing = task == "transcribe" and language == "gu"
+    extra: dict = {}
+    if gu_biasing:
+        extra = dict(
+            initial_prompt=GUJARATI_PROMPT,
+            no_repeat_ngram_size=3,
+            condition_on_previous_text=False,
+        )
 
     try:
-        segments_gen, info = _model().transcribe(
+        segments_gen, info = _load(spec).transcribe(
             str(path),
             language=language,        # PINNED, no auto-detect
             task=task,
-            initial_prompt=initial_prompt,
             beam_size=5,
             vad_filter=True,          # drop leading/trailing silence -> steadier confidence
-            # Anti-runaway guards. An initial_prompt on poor audio can send the decoder
-            # into a repetition loop (observed: 48s+ of "છે છે છે…"). These bound it
-            # without changing behaviour on clean audio.
-            no_repeat_ngram_size=3,
-            condition_on_previous_text=False,
+            **extra,
         )
         segments = list(segments_gen)  # generator -> materialise (also surfaces decode errors)
     except TranscriptionError:
@@ -227,5 +261,5 @@ def transcribe(audio_path: str, language: str = "gu", task: str = "transcribe") 
         "task": task,
         "duration": round(float(getattr(info, "duration", 0.0) or 0.0), 2),
         "confidence": _confidence(segments),
-        "model": _model_spec(),
+        "model": spec,
     }
