@@ -220,16 +220,21 @@ def transcribe(
 
     spec = model or _model_spec()
 
-    # Script biasing + anti-runaway guards belong to the GUJARATI TRANSCRIBE path only.
-    # The English translate target must stay plain: a Gujarati prompt would not help it,
-    # and the guards exist specifically to tame the repetition loop the prompt can
-    # trigger on poor audio (observed: 48s+ of "છે છે છે…").
+    # Script biasing belongs to the GUJARATI TRANSCRIBE path only. The English translate
+    # target must stay plain: a Gujarati prompt would not help it.
+    #
+    # NB: an earlier `no_repeat_ngram_size=3` guard was REMOVED here. It was added to tame
+    # a repetition loop seen on *synthetic* gTTS audio (48s+ of "છે છે છે…"), but on real
+    # human recordings it truncated the transcript to the first few words — natural
+    # Gujarati repeats common 3-grams (છે / અને / ને …), which the guard read as a loop
+    # and terminated on. faster-whisper's built-in compression_ratio_threshold (2.4) plus
+    # condition_on_previous_text=False already guard genuine runaway repetition without
+    # strangling real speech.
     gu_biasing = task == "transcribe" and language == "gu"
     extra: dict = {}
     if gu_biasing:
         extra = dict(
             initial_prompt=GUJARATI_PROMPT,
-            no_repeat_ngram_size=3,
             condition_on_previous_text=False,
         )
 
@@ -250,6 +255,9 @@ def transcribe(
         raise TranscriptionError(f"Could not transcribe {path.name}: {exc}") from exc
 
     text = " ".join(s.text.strip() for s in segments if s.text and s.text.strip()).strip()
+    # This Gujarati CT2 checkpoint occasionally ends on a partial token that decodes to
+    # U+FFFD (the replacement char); drop it so the UI never shows a stray "�".
+    text = text.rstrip("�").strip()
     if not text:
         raise TranscriptionError(
             f"No speech recognised in {path.name}. Re-record with clearer audio."

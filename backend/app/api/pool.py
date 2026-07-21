@@ -9,6 +9,7 @@ from __future__ import annotations
 import enum
 import hashlib
 import json
+import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -28,6 +29,7 @@ from sqlalchemy.orm import Session
 from app import demo_cache
 from app.ai import transcribe as ai_transcribe
 from app.ai.transcribe import TranscriptionError
+from app.ai.translate import translate as ai_translate
 from fastapi.responses import FileResponse
 
 from app.api.auth import get_current_user, require_role
@@ -55,6 +57,7 @@ from app.models.enums import (
 )
 
 router = APIRouter(prefix="/api/cases", tags=["pool"])
+logger = logging.getLogger("crimegpt.pool")
 
 _STORAGE_EVIDENCE = Path(__file__).resolve().parents[1] / "storage" / "evidence"
 _STORAGE_AUDIO = Path(__file__).resolve().parents[1] / "storage" / "audio"
@@ -623,17 +626,26 @@ async def transcribe_audio(
             duration = display["duration"]
             confidence = display["confidence"]
             model_used = display["model"]
-            # English narrative: only when we displayed the source script and it is
-            # not already English. Uses the GENERAL model's translate task.
+            # English narrative: only when we displayed the source script and it is not
+            # already English. PREFERRED path = LLM-translate the (clean, complete)
+            # Gujarati transcript via Qwen (app.ai.translate). Whisper's own speech->English
+            # translate task is the weak link — repetitive/garbled on real audio — so it is
+            # kept only as a FALLBACK for when the LLM call fails or returns nothing.
+            translation = None
             translation_model = None
-            if task == "transcribe" and detected != "en":
-                english = ai_transcribe.transcribe(
-                    str(out_path), language=lang, task="translate", model=None
-                )
-                translation = english["text"]
-                translation_model = english["model"]
-            else:
-                translation = None
+            if task == "transcribe" and detected != "en" and transcript.strip():
+                try:
+                    translation = ai_translate(transcript, target="en", source=detected)
+                    translation_model = f"llm:{settings.LLM_MODEL}"
+                except Exception:  # noqa: BLE001 — LLM/Ollama down must not fail the request
+                    logger.exception("LLM narrative translation failed; using Whisper translate")
+                    translation = None
+                if not translation or not translation.strip():
+                    english = ai_transcribe.transcribe(
+                        str(out_path), language=lang, task="translate", model=None
+                    )
+                    translation = english["text"]
+                    translation_model = english["model"]
         except TranscriptionError as exc:
             # Clear, non-silent failure — the officer must know to re-record.
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
