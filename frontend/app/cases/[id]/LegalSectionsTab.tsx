@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { reasonRestatesTitle } from "@/lib/cases";
+import { useI18n, type TKey } from "@/lib/i18n";
 
 type Section = {
   id: number;
@@ -39,12 +40,12 @@ type WeakAlert = {
   note: string | null;
 };
 
-const STAGES = [
-  "Searching 1,059 sections of BNS, BNSS and BSA…",
-  "Candidates retrieved",
-  "Matching against the complaint…",
-  "Verifying against the statute…",
-];
+const STAGE_KEYS = [
+  "legal.stage.searching",
+  "legal.stage.retrieved",
+  "legal.stage.matching",
+  "legal.stage.verifying",
+] as const;
 
 export default function LegalSectionsTab({
   caseId,
@@ -55,6 +56,7 @@ export default function LegalSectionsTab({
   narrative: string | null;
   onSectionsChanged: () => void;
 }) {
+  const { t, apiLang } = useI18n();
   const [sections, setSections] = useState<Section[]>([]);
   const [rejected, setRejected] = useState<RejectedSection[]>([]);
   const [analyzeStatus, setAnalyzeStatus] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export default function LegalSectionsTab({
     api
       .get<Section[]>(`/api/cases/${caseId}/sections`)
       .then((r) => setSections(r.data))
-      .catch(() => setError("Could not load existing sections."))
+      .catch(() => setError(t("legal.loadError")))
       .finally(() => setLoadedOnce(true));
   }, [caseId]);
 
@@ -85,7 +87,7 @@ export default function LegalSectionsTab({
     ];
     const started = Date.now();
     try {
-      const r = await api.post(`/api/cases/${caseId}/analyze?lang=en`);
+      const r = await api.post(`/api/cases/${caseId}/analyze?lang=${apiLang}`);
       // Let the staged sequence play out even if the response is fast (demo cache).
       const MIN = 5200;
       const elapsed = Date.now() - started;
@@ -98,12 +100,12 @@ export default function LegalSectionsTab({
       setAnalyzeStatus(r.data.status);
       onSectionsChanged();
     } catch (e: any) {
-      setError(e?.response?.data?.detail ?? "Analysis failed. Please try again.");
+      setError(e?.response?.data?.detail ?? t("legal.analyzeFailed"));
     } finally {
       timers.forEach(clearTimeout);
       setRunning(false);
     }
-  }, [caseId, onSectionsChanged]);
+  }, [caseId, onSectionsChanged, apiLang, t]);
 
   async function decide(sid: number, decision: "ACCEPTED" | "REJECTED") {
     setError(null);
@@ -114,7 +116,7 @@ export default function LegalSectionsTab({
       setSections((prev) => prev.map((s) => (s.id === sid ? r.data : s)));
       onSectionsChanged();
     } catch (e: any) {
-      setError(e?.response?.data?.detail ?? "Could not update the section.");
+      setError(e?.response?.data?.detail ?? t("legal.updateError"));
     }
   }
 
@@ -139,12 +141,11 @@ export default function LegalSectionsTab({
     return (
       <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-16 flex flex-col items-center gap-3 text-center">
         <span className="material-symbols-outlined text-4xl text-outline">neurology</span>
-        <p className="font-headline-md text-primary">No sections analysed yet</p>
+        <p className="font-headline-md text-primary">{t("legal.empty.title")}</p>
         <p className="font-body-md text-on-surface-variant max-w-md">
-          Run grounded AI analysis to suggest BNS / BNSS / BSA sections from the
-          complaint, each tied to the exact phrase that triggered it.
+          {t("legal.empty.hint")}
         </p>
-        <AnalyzeButton onClick={analyze} />
+        <AnalyzeButton onClick={analyze} label={t("legal.analyze")} />
         {error && <ErrorLine message={error} />}
       </div>
     );
@@ -155,13 +156,12 @@ export default function LegalSectionsTab({
       {/* Re-run + errors */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-headline-md text-primary">Legal section intelligence</h2>
+          <h2 className="font-headline-md text-primary">{t("legal.title")}</h2>
           <p className="font-body-md text-on-surface-variant">
-            Grounded suggestions from BNS, BNSS and BSA — each mapped to the officer&rsquo;s
-            own words.
+            {t("legal.subtitle")}
           </p>
         </div>
-        <AnalyzeButton onClick={analyze} label="Re-analyse" secondary />
+        <AnalyzeButton onClick={analyze} label={t("legal.reanalyse")} secondary />
       </div>
       {error && <ErrorLine message={error} />}
 
@@ -171,10 +171,10 @@ export default function LegalSectionsTab({
           <span className="material-symbols-outlined text-accent-strong">warning</span>
           <div>
             <p className="font-body-lg text-accent-strong">
-              No section could be confidently matched.
+              {t("legal.noMatch.title")}
             </p>
             <p className="font-body-md text-on-surface-variant">
-              Please review the complaint and add sections manually.
+              {t("legal.noMatch.hint")}
             </p>
           </div>
         </div>
@@ -240,12 +240,13 @@ function AnalyzeButton({
 }
 
 function AnalyzeStages({ stage }: { stage: number }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-4">
       <p className="font-label-caps text-[10px] text-on-surface-variant text-center mb-8">
-        Grounded legal analysis
+        {t("legal.grounded")}
       </p>
-      {STAGES.map((label, i) => {
+      {STAGE_KEYS.map((key, i) => {
         const done = i < stage;
         const current = i === stage;
         return (
@@ -276,7 +277,7 @@ function AnalyzeStages({ stage }: { stage: number }) {
                 (done || current ? "text-on-surface" : "text-on-surface-variant")
               }
             >
-              {label}
+              {t(key as TKey)}
             </span>
           </div>
         );
@@ -330,11 +331,12 @@ function MarkedNarrative({
   activeId: number | null;
   setActiveId: (id: number | null) => void;
 }) {
+  const { t } = useI18n();
   if (!narrative) {
     return (
       <section className="bg-surface-container-lowest border border-outline-variant rounded p-8">
         <p className="font-body-md text-on-surface-variant italic">
-          No complaint narrative to mark up.
+          {t("legal.marked.empty")}
         </p>
       </section>
     );
@@ -346,7 +348,7 @@ function MarkedNarrative({
     <section className="bg-surface-container-lowest border border-outline-variant rounded p-8">
       <h3 className="font-label-caps text-[10px] text-on-surface-variant mb-6 flex items-center gap-2">
         <span className="w-8 h-px bg-outline-variant" />
-        Complaint narrative — marked up by the AI
+        {t("legal.marked.title")}
       </h3>
       <div className="font-serif text-body-lg leading-[1.9] text-on-surface max-w-[68ch] whitespace-pre-wrap">
         {segs.map((seg, i) =>
@@ -375,8 +377,7 @@ function MarkedNarrative({
       </div>
       {!anyMatch && (
         <p className="font-body-md text-on-surface-variant italic mt-4">
-          The triggering phrases were validated against the analysis input (complaint plus
-          recorded statements) but were not located in the complaint text shown here.
+          {t("legal.marked.notLocated")}
         </p>
       )}
     </section>
@@ -397,6 +398,7 @@ function SectionCard({
   onHover: (id: number | null) => void;
   onDecide: (id: number, decision: "ACCEPTED" | "REJECTED") => void;
 }) {
+  const { t } = useI18n();
   const accepted = section.status === "ACCEPTED";
   const officerRejected = section.status === "REJECTED";
   const conf = section.confidence != null ? Math.round(section.confidence * 100) : null;
@@ -443,7 +445,7 @@ function SectionCard({
                 {conf}%
               </div>
               <div className="font-label-caps text-[9px] text-on-surface-variant">
-                confidence
+                {t("legal.confidence")}
               </div>
             </>
           )}
@@ -455,15 +457,15 @@ function SectionCard({
         {accepted ? (
           <span className="inline-flex items-center gap-1 font-label-caps text-[10px] text-on-primary bg-primary rounded px-2 py-0.5">
             <span className="material-symbols-outlined text-sm">check</span>
-            Accepted
+            {t("legal.status.accepted")}
           </span>
         ) : officerRejected ? (
           <span className="inline-flex items-center gap-1 font-label-caps text-[10px] text-on-surface-variant border border-outline-variant rounded px-2 py-0.5">
-            Rejected
+            {t("legal.status.rejected")}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 font-label-caps text-[10px] text-on-secondary-container bg-secondary-container rounded px-2 py-0.5">
-            Suggested
+            {t("legal.status.suggested")}
           </span>
         )}
       </div>
@@ -482,7 +484,7 @@ function SectionCard({
             className="flex-1 flex items-center justify-center gap-1 bg-primary text-surface-bright py-2 rounded font-label-caps text-[11px] hover:bg-inverse-surface transition-colors"
           >
             <span className="material-symbols-outlined text-base">check</span>
-            Accept
+            {t("legal.accept")}
           </button>
           <button
             type="button"
@@ -490,7 +492,7 @@ function SectionCard({
             className="flex-1 flex items-center justify-center gap-1 border border-outline-variant py-2 rounded font-label-caps text-[11px] text-on-surface hover:bg-surface-container-low transition-colors"
           >
             <span className="material-symbols-outlined text-base">close</span>
-            Reject
+            {t("legal.reject")}
           </button>
         </div>
       ) : officerRejected ? (
@@ -499,7 +501,7 @@ function SectionCard({
           onClick={() => onDecide(section.id, "ACCEPTED")}
           className="font-label-caps text-[11px] text-primary hover:underline"
         >
-          Reinstate
+          {t("legal.reinstate")}
         </button>
       ) : null}
     </div>
@@ -509,6 +511,7 @@ function SectionCard({
 /* ---------------- Rejected by verification (collapsible) ---------------- */
 
 function RejectedByVerification({ rejected }: { rejected: RejectedSection[] }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   if (!rejected.length) return null;
   return (
@@ -520,8 +523,9 @@ function RejectedByVerification({ rejected }: { rejected: RejectedSection[] }) {
       >
         <span className="flex items-center gap-2">
           <span className="material-symbols-outlined text-lg">shield</span>
-          {rejected.length}{" "}
-          {rejected.length === 1 ? "suggestion" : "suggestions"} rejected by verification
+          {rejected.length === 1
+            ? t("legal.rejectedByVerification.one", { n: rejected.length })
+            : t("legal.rejectedByVerification.many", { n: rejected.length })}
         </span>
         <span className="material-symbols-outlined">
           {open ? "expand_less" : "expand_more"}
@@ -552,6 +556,7 @@ function yearOf(citation: string | null): string | null {
 }
 
 function JudgmentsPanel({ caseId }: { caseId: number }) {
+  const { t } = useI18n();
   const [judgments, setJudgments] = useState<Judgment[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -565,7 +570,7 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
       setJudgments(r.data.judgments ?? []);
       setStatus(r.data.status);
     } catch (e: any) {
-      setError(e?.response?.data?.detail ?? "Could not suggest judgments.");
+      setError(e?.response?.data?.detail ?? t("legal.judgments.error"));
     } finally {
       setLoading(false);
     }
@@ -575,9 +580,9 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
     <section className="border border-outline-variant rounded bg-surface-container-lowest">
       <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
         <div>
-          <h3 className="font-headline-md text-primary">Landmark judgments</h3>
+          <h3 className="font-headline-md text-primary">{t("legal.judgments.title")}</h3>
           <p className="font-body-md text-on-surface-variant">
-            Grounded in a curated corpus of Indian rulings.
+            {t("legal.judgments.subtitle")}
           </p>
         </div>
         <button
@@ -591,12 +596,12 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
               <span className="material-symbols-outlined animate-spin text-lg">
                 progress_activity
               </span>
-              Searching…
+              {t("legal.judgments.searching")}
             </>
           ) : (
             <>
               <span className="material-symbols-outlined text-lg">gavel</span>
-              {judgments ? "Refresh" : "Suggest judgments"}
+              {judgments ? t("legal.judgments.refresh") : t("legal.judgments.suggest")}
             </>
           )}
         </button>
@@ -606,14 +611,14 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
         {error && <ErrorLine message={error} />}
         {judgments == null && !loading && !error && (
           <p className="font-body-md text-on-surface-variant">
-            Suggest landmark judgments an officer or prosecutor would cite for these facts.
+            {t("legal.judgments.intro")}
           </p>
         )}
         {judgments != null && judgments.length === 0 && (
           <p className="font-body-md text-on-surface-variant">
             {status === "no_grounded_match"
-              ? "No judgment in the corpus confidently matched — none suggested."
-              : "No judgments suggested."}
+              ? t("legal.judgments.noMatch")
+              : t("legal.judgments.none")}
           </p>
         )}
         {judgments && judgments.length > 0 && (
@@ -635,7 +640,7 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
                   {j.relevance_reason && (
                     <p className="font-body-md text-on-surface mt-2 leading-relaxed">
                       <span className="font-label-caps text-[10px] text-on-surface-variant mr-2">
-                        Relevance
+                        {t("legal.judgments.relevance")}
                       </span>
                       {j.relevance_reason}
                     </p>
@@ -653,6 +658,7 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
 /* ---------------- Weak-charge alerts ---------------- */
 
 function WeakChargePanel({ caseId }: { caseId: number }) {
+  const { t } = useI18n();
   const [alerts, setAlerts] = useState<WeakAlert[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -666,7 +672,7 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
       setAlerts(r.data.alerts ?? []);
       setStatus(r.data.status);
     } catch (e: any) {
-      setError(e?.response?.data?.detail ?? "Could not run the weak-charge check.");
+      setError(e?.response?.data?.detail ?? t("legal.weak.error"));
     } finally {
       setLoading(false);
     }
@@ -676,9 +682,9 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
     <section className="border border-outline-variant rounded bg-surface-container-lowest">
       <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
         <div>
-          <h3 className="font-headline-md text-primary">Weak-charge alerts</h3>
+          <h3 className="font-headline-md text-primary">{t("legal.weak.title")}</h3>
           <p className="font-body-md text-on-surface-variant">
-            Which accepted charges are not yet established by the file.
+            {t("legal.weak.subtitle")}
           </p>
         </div>
         <button
@@ -692,12 +698,12 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
               <span className="material-symbols-outlined animate-spin text-lg">
                 progress_activity
               </span>
-              Checking…
+              {t("legal.weak.checking")}
             </>
           ) : (
             <>
               <span className="material-symbols-outlined text-lg">gpp_maybe</span>
-              {alerts ? "Re-check" : "Check weak charges"}
+              {alerts ? t("legal.weak.recheck") : t("legal.weak.check")}
             </>
           )}
         </button>
@@ -707,15 +713,15 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
         {error && <ErrorLine message={error} />}
         {alerts == null && !loading && !error && (
           <p className="font-body-md text-on-surface-variant">
-            Check each accepted section&rsquo;s ingredients against the material on file.
+            {t("legal.weak.intro")}
           </p>
         )}
         {alerts != null && alerts.length === 0 && !error && (
           <div className="flex items-center gap-2 font-body-md text-on-surface">
             <span className="material-symbols-outlined text-primary">verified</span>
             {status === "no_issues"
-              ? "Every accepted charge is supported by the file."
-              : "No weak charges found."}
+              ? t("legal.weak.allSupported")
+              : t("legal.weak.none")}
           </div>
         )}
         {alerts && alerts.length > 0 && (
@@ -731,6 +737,7 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
 }
 
 function WeakAlertCard({ alert }: { alert: WeakAlert }) {
+  const { t } = useI18n();
   const high = (alert.severity ?? "").toLowerCase() === "high";
   return (
     <li
@@ -757,14 +764,14 @@ function WeakAlertCard({ alert }: { alert: WeakAlert }) {
           <span className="material-symbols-outlined text-sm">
             {high ? "priority_high" : "info"}
           </span>
-          {high ? "High risk" : "Low risk"}
+          {high ? t("legal.weak.highRisk") : t("legal.weak.lowRisk")}
         </span>
       </div>
 
       {alert.missing_ingredients.length > 0 && (
         <div className="mb-3">
           <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">
-            Not established by the file
+            {t("legal.weak.notEstablished")}
           </p>
           <ul className="space-y-1">
             {alert.missing_ingredients.map((ing, j) => (
@@ -782,7 +789,7 @@ function WeakAlertCard({ alert }: { alert: WeakAlert }) {
       {alert.suggestion && (
         <p className="font-body-md text-on-surface-variant">
           <span className="font-label-caps text-[10px] text-on-surface-variant mr-2">
-            Suggestion
+            {t("legal.weak.suggestion")}
           </span>
           {alert.suggestion}
         </p>

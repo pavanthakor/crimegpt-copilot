@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/lib/i18n";
 
 type Form = {
   case_number: string;
@@ -49,6 +50,7 @@ const OPTIONAL: (keyof Form)[] = [
 
 export default function NewCasePage() {
   const { user, ready } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const [f, setF] = useState<Form>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export default function NewCasePage() {
   async function onCreate() {
     if (saving) return;
     if (!f.case_number.trim()) {
-      setFieldError("Case number is required.");
+      setFieldError(t("newCase.numberRequired"));
       return;
     }
     setSaving(true);
@@ -90,7 +92,7 @@ export default function NewCasePage() {
       router.push(`/cases/${res.data.id}`);
     } catch (e: any) {
       const detail = e?.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Could not create the case. Try again.");
+      setError(typeof detail === "string" ? detail : t("newCase.createError"));
       setSaving(false);
     }
   }
@@ -105,21 +107,21 @@ export default function NewCasePage() {
           type="button"
           onClick={() => router.push("/cases")}
           className="text-on-surface-variant hover:text-primary transition-colors"
-          aria-label="Back to cases"
+          aria-label={t("workspace.back")}
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
-        <h1 className="font-headline-lg text-primary">New case (FIR intake)</h1>
+        <h1 className="font-headline-lg text-primary">{t("newCase.title")}</h1>
       </div>
       <p className="font-body-md text-on-surface-variant mb-6 ml-9">
-        Enter the complaint once — every document draws from this record.
+        {t("newCase.subtitle")}
       </p>
 
       <div className="space-y-6">
         {/* Basic Information */}
-        <Section title="Basic Information" icon="badge">
+        <Section title={t("newCase.section.identity")} icon="badge">
           <Grid>
-            <Field label="Case number" required error={fieldError}>
+            <Field label={t("newCase.field.caseNumber")} required error={fieldError}>
               <TextInput
                 value={f.case_number}
                 onChange={(v) => set("case_number", v)}
@@ -127,52 +129,52 @@ export default function NewCasePage() {
                 placeholder="I-CR-0000-2026"
               />
             </Field>
-            <Field label="Case type">
+            <Field label={t("newCase.field.caseType")}>
               <Select
                 value={f.case_type}
                 onChange={(v) => set("case_type", v)}
                 options={[
-                  ["CONVENTIONAL", "Conventional"],
-                  ["CYBER_FINANCIAL", "Cyber / Financial"],
+                  ["CONVENTIONAL", t("newCase.caseType.CONVENTIONAL")],
+                  ["CYBER_FINANCIAL", t("newCase.caseType.CYBER_FINANCIAL")],
                 ]}
               />
             </Field>
-            <Field label="Title" full>
+            <Field label={t("newCase.field.title")} full>
               <TextInput
                 value={f.title}
                 onChange={(v) => set("title", v)}
                 placeholder="Short description of the case"
               />
             </Field>
-            <Field label="FIR number">
+            <Field label={t("newCase.field.firNumber")}>
               <TextInput value={f.fir_number} onChange={(v) => set("fir_number", v)} />
             </Field>
-            <Field label="FIR date">
+            <Field label={t("newCase.field.firDate")}>
               <TextInput type="date" value={f.fir_date} onChange={(v) => set("fir_date", v)} />
             </Field>
-            <Field label="Police station">
+            <Field label={t("newCase.field.policeStation")}>
               <TextInput
                 value={f.police_station}
                 onChange={(v) => set("police_station", v)}
               />
             </Field>
-            <Field label="District">
+            <Field label={t("newCase.field.district")}>
               <TextInput value={f.district} onChange={(v) => set("district", v)} />
             </Field>
           </Grid>
         </Section>
 
         {/* Incident Details */}
-        <Section title="Incident Details" icon="location_on">
+        <Section title={t("newCase.section.incident")} icon="location_on">
           <Grid>
-            <Field label="Incident date & time">
+            <Field label={t("newCase.field.incidentDatetime")}>
               <TextInput
                 type="datetime-local"
                 value={f.incident_datetime}
                 onChange={(v) => set("incident_datetime", v)}
               />
             </Field>
-            <Field label="Incident location">
+            <Field label={t("newCase.field.incidentLocation")}>
               <TextInput
                 value={f.incident_location}
                 onChange={(v) => set("incident_location", v)}
@@ -183,9 +185,9 @@ export default function NewCasePage() {
         </Section>
 
         {/* Complaint Narrative */}
-        <Section title="Complaint Narrative" icon="description">
+        <Section title={t("newCase.section.complaint")} icon="description">
           <Grid>
-            <Field label="Language">
+            <Field label={t("newCase.field.language")}>
               <Select
                 value={f.complaint_language}
                 onChange={(v) => set("complaint_language", v)}
@@ -196,7 +198,7 @@ export default function NewCasePage() {
                 ]}
               />
             </Field>
-            <Field label="Narrative" full>
+            <Field label={t("newCase.field.narrative")} full>
               <textarea
                 rows={6}
                 value={f.complaint_narrative}
@@ -229,12 +231,12 @@ export default function NewCasePage() {
               <span className="material-symbols-outlined animate-spin text-xl">
                 progress_activity
               </span>
-              Creating…
+              {t("newCase.creating")}
             </>
           ) : (
             <>
               <span className="material-symbols-outlined text-xl">check</span>
-              Create case
+              {t("newCase.create")}
             </>
           )}
         </button>
@@ -243,7 +245,7 @@ export default function NewCasePage() {
           onClick={() => router.push("/cases")}
           className="px-5 py-2.5 rounded font-body-md text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -281,13 +283,14 @@ function Field({
   full?: boolean;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <div className={`space-y-1.5 ${full ? "sm:col-span-2" : ""}`}>
       <div className="flex items-center gap-2">
         <label className="font-label-caps text-on-surface-variant">{label}</label>
         {required && (
           <span className="font-label-caps text-[9px] text-error border border-error rounded px-1 py-px">
-            Required
+            {t("common.required")}
           </span>
         )}
       </div>

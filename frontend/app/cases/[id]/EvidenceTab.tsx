@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
-import { descOr, formatUpdated } from "@/lib/cases";
+import { formatUpdated, isBlankDesc } from "@/lib/cases";
+import { useI18n } from "@/lib/i18n";
 
 type Person = { id: number; role: string; full_name: string | null };
 type SeizedItem = {
@@ -39,6 +40,7 @@ export default function EvidenceTab({
   const [persons, setPersons] = useState<Person[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const load = useCallback(() => {
     Promise.all([
@@ -51,9 +53,9 @@ export default function EvidenceTab({
         setEvidence(e.data);
         setPersons(p.data);
       })
-      .catch((err) => setError(err?.response?.data?.detail ?? "Could not load evidence."))
+      .catch((err) => setError(err?.response?.data?.detail ?? t("evidence.loadError")))
       .finally(() => setLoaded(true));
-  }, [caseId]);
+  }, [caseId, t]);
 
   useEffect(load, [load]);
 
@@ -128,14 +130,15 @@ function SeizedItemsBlock({
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState<SeizedItem | "new" | null>(null);
+  const { t } = useI18n();
 
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-headline-md text-primary">Seized items</h2>
+          <h2 className="font-headline-md text-primary">{t("evidence.seized.title")}</h2>
           <p className="font-body-md text-on-surface-variant">
-            Property taken into custody for this case.
+            {t("evidence.seized.subtitle")}
           </p>
         </div>
         <button
@@ -144,7 +147,7 @@ function SeizedItemsBlock({
           className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
         >
           <span className="material-symbols-outlined text-lg">add</span>
-          Add item
+          {t("evidence.seized.add")}
         </button>
       </div>
 
@@ -161,18 +164,18 @@ function SeizedItemsBlock({
       )}
 
       {items.length === 0 && !editing ? (
-        <EmptyBlock icon="inventory_2" title="No seized items" hint="Add the first item taken into custody." />
+        <EmptyBlock icon="inventory_2" title={t("evidence.seized.empty.title")} hint={t("evidence.seized.empty.hint")} />
       ) : (
         <div className="border border-outline-variant rounded overflow-hidden bg-surface-container-lowest">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">
-                <th className="px-4 py-3 font-label-caps">Description</th>
-                <th className="px-4 py-3 font-label-caps w-[70px]">Qty</th>
-                <th className="px-4 py-3 font-label-caps w-[130px]">Est. value</th>
-                <th className="px-4 py-3 font-label-caps w-[150px]">Seized from</th>
-                <th className="px-4 py-3 font-label-caps w-[200px]">Seizure date / place</th>
-                <th className="px-4 py-3 font-label-caps w-[90px] text-right">Actions</th>
+                <th className="px-4 py-3 font-label-caps">{t("evidence.col.description")}</th>
+                <th className="px-4 py-3 font-label-caps w-[70px]">{t("evidence.col.qty")}</th>
+                <th className="px-4 py-3 font-label-caps w-[130px]">{t("evidence.col.value")}</th>
+                <th className="px-4 py-3 font-label-caps w-[150px]">{t("evidence.col.seizedFrom")}</th>
+                <th className="px-4 py-3 font-label-caps w-[200px]">{t("evidence.col.seizureDate")}</th>
+                <th className="px-4 py-3 font-label-caps w-[90px] text-right">{t("evidence.col.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
@@ -192,7 +195,7 @@ function SeizedItemsBlock({
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <IconButton icon="edit" label="Edit" onClick={() => setEditing(it)} />
+                      <IconButton icon="edit" label={t("common.edit")} onClick={() => setEditing(it)} />
                       <DeleteButton
                         onDelete={async () => {
                           await api.delete(`/api/cases/${caseId}/seized-items/${it.id}`);
@@ -236,11 +239,12 @@ function SeizedItemForm({
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { t } = useI18n();
   const set = (k: keyof ItemForm, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   async function save() {
     if (!f.description.trim()) {
-      setErr("A description is required.");
+      setErr(t("evidence.descRequired"));
       return;
     }
     setSaving(true);
@@ -257,7 +261,7 @@ function SeizedItemForm({
       else await api.post(`/api/cases/${caseId}/seized-items`, body);
       onSaved();
     } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Could not save.");
+      setErr(e?.response?.data?.detail ?? t("details.saveError"));
       setSaving(false);
     }
   }
@@ -265,27 +269,27 @@ function SeizedItemForm({
   return (
     <div className="border border-outline-variant rounded bg-surface-container-low p-5 mb-4 space-y-3">
       <p className="font-label-caps text-[10px] text-on-surface-variant">
-        {item ? "Edit seized item" : "Add seized item"}
+        {item ? t("evidence.seized.editTitle") : t("evidence.seized.addTitle")}
       </p>
-      <Field label="Description">
+      <Field label={t("evidence.col.description")}>
         <Text value={f.description} onChange={(v) => set("description", v)} />
       </Field>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Field label="Quantity">
+        <Field label={t("evidence.field.quantity")}>
           <Text value={f.quantity} onChange={(v) => set("quantity", v)} />
         </Field>
-        <Field label="Est. value (₹)">
+        <Field label={t("evidence.field.estValue")}>
           <Text value={f.estimated_value} onChange={(v) => set("estimated_value", v)} />
         </Field>
-        <Field label="Seizure date/time">
+        <Field label={t("evidence.field.seizureDatetime")}>
           <Text type="datetime-local" value={f.seizure_datetime} onChange={(v) => set("seizure_datetime", v)} />
         </Field>
-        <Field label="Seizure place">
+        <Field label={t("evidence.field.seizurePlace")}>
           <Text value={f.seizure_location} onChange={(v) => set("seizure_location", v)} />
         </Field>
       </div>
       {err && <ErrorLine message={err} />}
-      <FormActions saving={saving} onSave={save} onCancel={onDone} saveLabel={item ? "Save" : "Add"} />
+      <FormActions saving={saving} onSave={save} onCancel={onDone} saveLabel={item ? t("common.save") : t("common.add")} savingLabel={t("common.saving")} />
     </div>
   );
 }
@@ -306,14 +310,15 @@ function EvidenceFilesBlock({
   onChanged: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const { t } = useI18n();
 
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-headline-md text-primary">Evidence files</h2>
+          <h2 className="font-headline-md text-primary">{t("evidence.files.title")}</h2>
           <p className="font-body-md text-on-surface-variant">
-            Every upload is hashed (SHA-256) on collection — the start of its chain of custody.
+            {t("evidence.files.subtitle")}
           </p>
         </div>
         <button
@@ -322,7 +327,7 @@ function EvidenceFilesBlock({
           className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
         >
           <span className="material-symbols-outlined text-lg">upload_file</span>
-          Upload evidence
+          {t("evidence.files.upload")}
         </button>
       </div>
 
@@ -339,7 +344,7 @@ function EvidenceFilesBlock({
       )}
 
       {evidence.length === 0 && !uploading ? (
-        <EmptyBlock icon="folder_open" title="No evidence uploaded" hint="Upload a photo, document or physical-item record." />
+        <EmptyBlock icon="folder_open" title={t("evidence.files.empty.title")} hint={t("evidence.files.empty.hint")} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {evidence.map((ev) => (
@@ -362,6 +367,7 @@ function EvidenceCard({
 }) {
   const [thumb, setThumb] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const { t } = useI18n();
 
   // Fetch the image as an authenticated blob (an <img src> can't send the JWT).
   useEffect(() => {
@@ -414,13 +420,15 @@ function EvidenceCard({
           </span>
         </div>
 
-        <p className="font-body-md text-on-surface">{descOr(ev.description)}</p>
+        <p className="font-body-md text-on-surface">
+          {isBlankDesc(ev.description) ? t("common.noDescription") : ev.description}
+        </p>
 
         {ev.tags && ev.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {ev.tags.map((t, i) => (
+            {ev.tags.map((tag, i) => (
               <span key={i} className="font-mono-sm text-on-secondary-container bg-secondary-container rounded px-2 py-0.5">
-                #{t}
+                #{tag}
               </span>
             ))}
           </div>
@@ -428,7 +436,7 @@ function EvidenceCard({
 
         {/* SHA-256 — surfaced prominently, the chain-of-custody anchor */}
         <div className="mt-auto pt-3 border-t border-outline-variant">
-          <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">SHA-256</p>
+          <p className="font-label-caps text-[10px] text-on-surface-variant mb-1">{t("evidence.sha")}</p>
           <div className="flex items-center gap-2">
             <code className="font-mono-data text-primary" title={hash}>
               {shortHash}
@@ -437,29 +445,29 @@ function EvidenceCard({
               type="button"
               onClick={copyHash}
               className="text-on-surface-variant hover:text-primary transition-colors"
-              title="Copy full hash"
-              aria-label="Copy SHA-256 hash"
+              title={t("evidence.copyHash")}
+              aria-label={t("evidence.copyHash")}
             >
               <span className="material-symbols-outlined text-base">
                 {copied ? "check" : "content_copy"}
               </span>
             </button>
-            {copied && <span className="font-body-md text-on-surface-variant">Copied</span>}
+            {copied && <span className="font-body-md text-on-surface-variant">{t("evidence.copied")}</span>}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-outline-variant">
           <div>
-            <p className="font-label-caps text-[9px] text-on-surface-variant">Collected</p>
+            <p className="font-label-caps text-[9px] text-on-surface-variant">{t("evidence.collected")}</p>
             <p className="font-mono-sm text-on-surface-variant">{formatUpdated(ev.collected_at)}</p>
           </div>
           <div>
-            <p className="font-label-caps text-[9px] text-on-surface-variant">By</p>
+            <p className="font-label-caps text-[9px] text-on-surface-variant">{t("evidence.by")}</p>
             <p className="font-body-md text-on-surface">{ev.collected_by_name ?? "—"}</p>
           </div>
           {ev.linked_person_id != null && (
             <div className="col-span-2">
-              <p className="font-label-caps text-[9px] text-on-surface-variant">Linked person</p>
+              <p className="font-label-caps text-[9px] text-on-surface-variant">{t("evidence.linkedPerson")}</p>
               <p className="font-body-md text-on-surface">
                 {personName.get(ev.linked_person_id) ?? `#${ev.linked_person_id}`}
               </p>
@@ -489,10 +497,11 @@ function UploadForm({
   const [linked, setLinked] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { t } = useI18n();
 
   async function upload() {
     if (!file) {
-      setErr("Choose a file to upload.");
+      setErr(t("evidence.upload.chooseFile"));
       return;
     }
     setSaving(true);
@@ -501,54 +510,54 @@ function UploadForm({
     fd.append("file", file);
     fd.append("type", type);
     if (description) fd.append("description", description);
-    if (tags) fd.append("tags", JSON.stringify(tags.split(",").map((t) => t.trim()).filter(Boolean)));
+    if (tags) fd.append("tags", JSON.stringify(tags.split(",").map((s) => s.trim()).filter(Boolean)));
     if (linked) fd.append("linked_person_id", linked);
     try {
       await api.post(`/api/cases/${caseId}/evidence`, fd);
       onSaved();
     } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Upload failed.");
+      setErr(e?.response?.data?.detail ?? t("evidence.upload.failed"));
       setSaving(false);
     }
   }
 
   return (
     <div className="border border-outline-variant rounded bg-surface-container-low p-5 mb-4 space-y-3">
-      <p className="font-label-caps text-[10px] text-on-surface-variant">Upload evidence</p>
+      <p className="font-label-caps text-[10px] text-on-surface-variant">{t("evidence.files.upload")}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="File">
+        <Field label={t("evidence.field.file")}>
           <input
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="w-full font-body-md text-on-surface file:mr-3 file:border-0 file:bg-primary file:text-surface-bright file:px-3 file:py-1.5 file:rounded file:font-body-md"
           />
         </Field>
-        <Field label="Type">
+        <Field label={t("evidence.field.type")}>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            {EVIDENCE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {EVIDENCE_TYPES.map((code) => (
+              <option key={code} value={code}>
+                {code}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Description">
+        <Field label={t("evidence.col.description")}>
           <Text value={description} onChange={setDescription} />
         </Field>
-        <Field label="Tags (comma-separated)">
+        <Field label={t("evidence.field.tags")}>
           <Text value={tags} onChange={setTags} placeholder="scene, weapon" />
         </Field>
-        <Field label="Linked person">
+        <Field label={t("evidence.field.linkedPerson")}>
           <select
             value={linked}
             onChange={(e) => setLinked(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            <option value="">None</option>
+            <option value="">{t("common.none")}</option>
             {persons.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.full_name ?? `Person ${p.id}`} ({p.role})
@@ -558,7 +567,7 @@ function UploadForm({
         </Field>
       </div>
       {err && <ErrorLine message={err} />}
-      <FormActions saving={saving} onSave={upload} onCancel={onDone} saveLabel="Upload" savingLabel="Uploading…" />
+      <FormActions saving={saving} onSave={upload} onCancel={onDone} saveLabel={t("evidence.upload.action")} savingLabel={t("evidence.upload.uploading")} />
     </div>
   );
 }
@@ -619,6 +628,7 @@ function FormActions({
   saveLabel: string;
   savingLabel?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-2 pt-1">
       <button
@@ -634,7 +644,7 @@ function FormActions({
         onClick={onCancel}
         className="px-4 py-2 rounded font-body-md text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
       >
-        Cancel
+        {t("common.cancel")}
       </button>
     </div>
   );
@@ -656,6 +666,7 @@ function IconButton({ icon, label, onClick }: { icon: string; label: string; onC
 
 function DeleteButton({ onDelete }: { onDelete: () => Promise<void> }) {
   const [confirm, setConfirm] = useState(false);
+  const { t } = useI18n();
   if (confirm) {
     return (
       <span className="inline-flex items-center gap-1">
@@ -664,19 +675,19 @@ function DeleteButton({ onDelete }: { onDelete: () => Promise<void> }) {
           onClick={onDelete}
           className="font-label-caps text-[10px] text-error hover:underline"
         >
-          Delete
+          {t("common.delete")}
         </button>
         <button
           type="button"
           onClick={() => setConfirm(false)}
           className="font-label-caps text-[10px] text-on-surface-variant hover:underline"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </span>
     );
   }
-  return <IconButton icon="delete" label="Delete" onClick={() => setConfirm(true)} />;
+  return <IconButton icon="delete" label={t("common.delete")} onClick={() => setConfirm(true)} />;
 }
 
 function ErrorLine({ message }: { message: string }) {

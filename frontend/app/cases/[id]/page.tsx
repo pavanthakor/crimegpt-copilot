@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n, type TKey } from "@/lib/i18n";
 import { CASE_STATUSES, statusMeta } from "@/lib/cases";
 import CaseDetailsTab from "./CaseDetailsTab";
 import LegalSectionsTab from "./LegalSectionsTab";
@@ -65,6 +66,7 @@ const TAB_KEYS = TABS.map((t) => t.key);
 
 export default function CaseWorkspacePage() {
   const { user, ready } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -108,7 +110,7 @@ export default function CaseWorkspacePage() {
           setSectionsCount((sec.data as unknown[]).length);
         })
         .catch((e) =>
-          setError(e?.response?.data?.detail ?? "The case could not be loaded.")
+          setError(e?.response?.data?.detail ?? t("workspace.loadError.title"))
         )
         .finally(() => {
           if (!silent) setLoading(false);
@@ -134,10 +136,27 @@ export default function CaseWorkspacePage() {
   const evidenceTotal = evidenceCount + data.seized_items.length;
 
   const stats = [
-    { label: "Evidence", value: evidenceTotal, sub: `${data.seized_items.length} seized` },
-    { label: "Documents", value: data.documents.length, sub: "generated" },
-    { label: "Witnesses", value: witnesses, sub: `${data.statements.length} statements` },
-    { label: "AI findings", value: sectionsCount, sub: "sections", accent: true },
+    {
+      label: t("workspace.stat.evidence"),
+      value: evidenceTotal,
+      sub: t("workspace.stat.evidence.sub", { n: data.seized_items.length }),
+    },
+    {
+      label: t("workspace.stat.documents"),
+      value: data.documents.length,
+      sub: t("workspace.stat.documents.sub"),
+    },
+    {
+      label: t("workspace.stat.witnesses"),
+      value: witnesses,
+      sub: t("workspace.stat.witnesses.sub", { n: data.statements.length }),
+    },
+    {
+      label: t("workspace.stat.findings"),
+      value: sectionsCount,
+      sub: t("workspace.stat.findings.sub"),
+      accent: true,
+    },
   ];
 
   const tabCounts: Partial<Record<TabKey, number>> = {
@@ -176,14 +195,14 @@ export default function CaseWorkspacePage() {
 
       {/* Tabs */}
       <div className="px-edge-margin bg-surface-bright border-b border-outline-variant flex overflow-x-auto">
-        {TABS.map((t) => {
-          const active = t.key === tab;
-          const count = tabCounts[t.key];
+        {TABS.map((tabItem) => {
+          const active = tabItem.key === tab;
+          const count = tabCounts[tabItem.key];
           return (
             <button
-              key={t.key}
+              key={tabItem.key}
               type="button"
-              onClick={() => setTab(t.key)}
+              onClick={() => setTab(tabItem.key)}
               className={
                 "px-5 py-4 font-body-md whitespace-nowrap border-b-2 transition-colors flex items-center gap-2 " +
                 (active
@@ -192,7 +211,7 @@ export default function CaseWorkspacePage() {
               }
               aria-current={active ? "page" : undefined}
             >
-              {t.label}
+              {t(`tab.${tabItem.key}` as TKey)}
               {count ? (
                 <span
                   className={
@@ -243,7 +262,7 @@ export default function CaseWorkspacePage() {
             onDiaryChanged={() => load(true)}
           />
         ) : (
-          <TabPlaceholder label={TABS.find((t) => t.key === tab)!.label} />
+          <TabPlaceholder label={TABS.find((tabItem) => tabItem.key === tab)!.label} />
         )}
       </div>
     </div>
@@ -257,6 +276,7 @@ function Header({
   data: CaseDetail;
   onStatusChanged: (status: string) => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -274,20 +294,22 @@ function Header({
     try {
       await api.patch(`/api/cases/${data.id}`, { status: next });
       onStatusChanged(next);
-      setToast(`Status set to ${statusMeta(next).label} — added to the case diary.`);
+      setToast(
+        t("workspace.statusToast", { status: t(`status.${next}` as TKey) })
+      );
       window.setTimeout(() => setToast(null), 4000);
     } catch (e: any) {
       setSelected(data.status); // revert
-      setErr(e?.response?.data?.detail ?? "Could not update status.");
+      setErr(e?.response?.data?.detail ?? t("workspace.statusError"));
     } finally {
       setSaving(false);
     }
   }
 
   const metaLine = [
-    data.fir_number ? `FIR ${data.fir_number}` : null,
+    data.fir_number ? t("workspace.firPrefix", { n: data.fir_number }) : null,
     data.police_station,
-    data.created_by_name ? `IO ${data.created_by_name}` : null,
+    data.created_by_name ? t("workspace.ioPrefix", { name: data.created_by_name }) : null,
   ].filter(Boolean);
 
   return (
@@ -298,7 +320,7 @@ function Header({
         className="flex items-center gap-1 font-body-md text-on-surface-variant hover:text-primary transition-colors mb-4"
       >
         <span className="material-symbols-outlined text-lg">arrow_back</span>
-        Back to cases
+        {t("workspace.back")}
       </button>
 
       <div className="flex flex-wrap justify-between items-start gap-4">
@@ -308,7 +330,7 @@ function Header({
             {data.case_number}
           </p>
           <h1 className="font-headline-md text-primary mt-2">
-            {data.title ?? "Untitled case"}
+            {data.title ?? t("common.untitled")}
           </h1>
           {metaLine.length > 0 && (
             <p className="font-body-md text-on-surface-variant mt-2">
@@ -319,7 +341,7 @@ function Header({
 
         {/* Status control */}
         <div className="flex flex-col items-end gap-2">
-          <span className="font-label-caps text-[10px] text-on-surface-variant">Status</span>
+          <span className="font-label-caps text-[10px] text-on-surface-variant">{t("workspace.status")}</span>
           <div className="flex items-center gap-2 border border-outline-variant rounded px-3 py-2 bg-surface-container-lowest">
             <span className={`inline-block w-2 h-2 rounded-full ${meta.dot}`} />
             <select
@@ -327,11 +349,11 @@ function Header({
               disabled={saving}
               onChange={(e) => changeStatus(e.target.value)}
               className="bg-transparent font-body-md text-on-surface focus:outline-none disabled:opacity-60"
-              aria-label="Case status"
+              aria-label={t("workspace.statusAria")}
             >
               {CASE_STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {statusMeta(s).label}
+                  {t(`status.${s}` as TKey)}
                 </option>
               ))}
             </select>
@@ -401,13 +423,14 @@ function WorkspaceError({
   message: string | null;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   return (
     <div className="py-20 flex flex-col items-center gap-3 text-center">
       <span className="material-symbols-outlined text-4xl text-error">error</span>
-      <p className="font-headline-md text-primary">Could not load this case</p>
+      <p className="font-headline-md text-primary">{t("workspace.loadError.title")}</p>
       <p className="font-body-md text-on-surface-variant">
-        {message ?? "The server could not be reached."}
+        {message ?? t("common.serverUnreachable")}
       </p>
       <div className="flex gap-3 mt-2">
         <button
@@ -416,14 +439,14 @@ function WorkspaceError({
           className="flex items-center gap-2 border border-outline-variant px-4 py-2 rounded font-body-md text-on-surface hover:bg-surface-container-low transition-colors"
         >
           <span className="material-symbols-outlined text-lg">refresh</span>
-          Retry
+          {t("common.retry")}
         </button>
         <button
           type="button"
           onClick={() => router.push("/cases")}
           className="px-4 py-2 rounded font-body-md text-on-surface-variant hover:bg-surface-container-low transition-colors"
         >
-          Back to cases
+          {t("workspace.back")}
         </button>
       </div>
     </div>

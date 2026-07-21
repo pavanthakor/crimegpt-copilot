@@ -9,6 +9,7 @@ import {
 } from "next/font/google";
 
 import { AuthProvider } from "@/components/AuthProvider";
+import { LanguageProvider } from "@/lib/i18n";
 import AppShell from "@/components/AppShell";
 
 // Self-hosted via next/font (no runtime Google Fonts dependency, so Gujarati +
@@ -65,7 +66,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           Google Fonts link, so the app has no network font dependency at all. */}
       <body>
         <AuthProvider>
-          <AppShell>{children}</AppShell>
+          <LanguageProvider>
+            <AppShell>{children}</AppShell>
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

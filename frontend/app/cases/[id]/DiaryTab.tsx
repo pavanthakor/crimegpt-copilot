@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
-import { descOr } from "@/lib/cases";
+import { isBlankDesc } from "@/lib/cases";
+import { useI18n, type TKey } from "@/lib/i18n";
 
 type Person = { id: number; full_name: string | null };
 export type DiaryEntry = {
@@ -26,15 +27,6 @@ const ACTIVITY_TYPES = [
   "OTHER",
 ] as const;
 
-const ACTIVITY_LABEL: Record<string, string> = {
-  COMPLAINT: "Complaint",
-  WITNESS_EXAM: "Witness exam",
-  EVIDENCE_SEIZURE: "Evidence seizure",
-  ARREST: "Arrest",
-  REMAND: "Remand",
-  DOC_GENERATED: "Document generated",
-  OTHER: "Note",
-};
 const ACTIVITY_ICON: Record<string, string> = {
   COMPLAINT: "report",
   WITNESS_EXAM: "record_voice_over",
@@ -50,8 +42,8 @@ function dateKey(iso: string | null): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "unknown" : d.toISOString().slice(0, 10);
 }
-function dateHeading(key: string): string {
-  if (key === "unknown") return "Undated";
+function dateHeading(key: string, t: (k: TKey) => string): string {
+  if (key === "unknown") return t("diary.undated");
   const d = new Date(key + "T00:00:00");
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
@@ -77,6 +69,7 @@ export default function DiaryTab({
   const [filter, setFilter] = useState<string>("ALL");
   const [adding, setAdding] = useState(false);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const { t } = useI18n();
 
   // Evidence descriptions for related_evidence resolution.
   useEffect(() => {
@@ -127,7 +120,7 @@ export default function DiaryTab({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <label htmlFor="diary-filter" className="font-label-caps text-on-surface-variant">
-            Activity
+            {t("diary.activity")}
           </label>
           <select
             id="diary-filter"
@@ -135,15 +128,17 @@ export default function DiaryTab({
             onChange={(e) => setFilter(e.target.value)}
             className="bg-surface-container-low border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            <option value="ALL">All activity</option>
-            {ACTIVITY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {ACTIVITY_LABEL[t]}
+            <option value="ALL">{t("diary.allActivity")}</option>
+            {ACTIVITY_TYPES.map((code) => (
+              <option key={code} value={code}>
+                {t(`activity.${code}` as TKey)}
               </option>
             ))}
           </select>
           <span className="font-body-md text-on-surface-variant">
-            {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+            {filtered.length === 1
+              ? t("diary.entryCount.one", { n: filtered.length })
+              : t("diary.entryCount.many", { n: filtered.length })}
           </span>
         </div>
         <button
@@ -152,7 +147,7 @@ export default function DiaryTab({
           className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
         >
           <span className="material-symbols-outlined text-lg">add</span>
-          Add entry
+          {t("diary.add")}
         </button>
       </div>
 
@@ -171,11 +166,9 @@ export default function DiaryTab({
       {filtered.length === 0 ? (
         <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-14 flex flex-col items-center gap-2 text-center">
           <span className="material-symbols-outlined text-4xl text-outline">event_note</span>
-          <p className="font-headline-md text-primary">No diary entries</p>
+          <p className="font-headline-md text-primary">{t("diary.empty.title")}</p>
           <p className="font-body-md text-on-surface-variant">
-            {filter === "ALL"
-              ? "Actions on this case appear here automatically; add your own note above."
-              : "No entries match this filter."}
+            {filter === "ALL" ? t("diary.empty.hint") : t("diary.empty.filtered")}
           </p>
         </div>
       ) : (
@@ -184,7 +177,7 @@ export default function DiaryTab({
             <div key={g.key}>
               {/* Serif date heading */}
               <h3 className="font-headline-md text-primary mb-4 flex items-center gap-3">
-                {dateHeading(g.key)}
+                {dateHeading(g.key, t)}
                 <span className="flex-1 h-px bg-outline-variant" />
               </h3>
               <ul className="space-y-3">
@@ -204,15 +197,17 @@ export default function DiaryTab({
                           <span className="material-symbols-outlined text-sm">
                             {ACTIVITY_ICON[e.activity_type] ?? "circle"}
                           </span>
-                          {ACTIVITY_LABEL[e.activity_type] ?? e.activity_type}
+                          {t(`activity.${e.activity_type}` as TKey)}
                         </span>
                         {e.auto_generated && (
                           <span className="font-label-caps text-[9px] text-on-secondary-container bg-secondary-container rounded px-1.5 py-0.5">
-                            Auto
+                            {t("diary.auto")}
                           </span>
                         )}
                       </div>
-                      <p className="font-body-md text-on-surface">{descOr(e.description)}</p>
+                      <p className="font-body-md text-on-surface">
+                        {isBlankDesc(e.description) ? t("common.noDescription") : e.description}
+                      </p>
                       {(e.related_person_id != null || e.related_evidence_id != null) && (
                         <div className="flex flex-wrap gap-3 mt-2">
                           {e.related_person_id != null && (
@@ -257,10 +252,11 @@ function ManualEntryForm({
   const [relatedPerson, setRelatedPerson] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { t } = useI18n();
 
   async function save() {
     if (!description.trim()) {
-      setErr("A description is required.");
+      setErr(t("diary.descRequired"));
       return;
     }
     setSaving(true);
@@ -273,37 +269,37 @@ function ManualEntryForm({
       });
       onSaved();
     } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Could not save the entry.");
+      setErr(e?.response?.data?.detail ?? t("diary.saveError"));
       setSaving(false);
     }
   }
 
   return (
     <div className="border border-outline-variant rounded bg-surface-container-low p-5 space-y-3">
-      <p className="font-label-caps text-[10px] text-on-surface-variant">Add a diary note</p>
+      <p className="font-label-caps text-[10px] text-on-surface-variant">{t("diary.form.title")}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block space-y-1">
-          <span className="font-label-caps text-[10px] text-on-surface-variant">Activity type</span>
+          <span className="font-label-caps text-[10px] text-on-surface-variant">{t("diary.form.activityType")}</span>
           <select
             value={activity}
             onChange={(e) => setActivity(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            {ACTIVITY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {ACTIVITY_LABEL[t]}
+            {ACTIVITY_TYPES.map((code) => (
+              <option key={code} value={code}>
+                {t(`activity.${code}` as TKey)}
               </option>
             ))}
           </select>
         </label>
         <label className="block space-y-1">
-          <span className="font-label-caps text-[10px] text-on-surface-variant">Related person (optional)</span>
+          <span className="font-label-caps text-[10px] text-on-surface-variant">{t("diary.form.relatedPerson")}</span>
           <select
             value={relatedPerson}
             onChange={(e) => setRelatedPerson(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            <option value="">None</option>
+            <option value="">{t("common.none")}</option>
             {persons.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.full_name ?? `Person ${p.id}`}
@@ -313,12 +309,12 @@ function ManualEntryForm({
         </label>
       </div>
       <label className="block space-y-1">
-        <span className="font-label-caps text-[10px] text-on-surface-variant">Description</span>
+        <span className="font-label-caps text-[10px] text-on-surface-variant">{t("diary.form.description")}</span>
         <textarea
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What happened…"
+          placeholder={t("diary.form.placeholder")}
           className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary resize-y"
         />
       </label>
@@ -335,14 +331,14 @@ function ManualEntryForm({
           disabled={saving}
           className="bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Add entry"}
+          {saving ? t("common.saving") : t("diary.add")}
         </button>
         <button
           type="button"
           onClick={onDone}
           className="px-4 py-2 rounded font-body-md text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>

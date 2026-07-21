@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { CaseSelect, useCasePicker } from "@/components/CasePicker";
+import { useI18n } from "@/lib/i18n";
 import { reasonRestatesTitle } from "@/lib/cases";
 
 // A read-only AI overview: one place to see the legal-intelligence output for a case —
@@ -52,6 +53,7 @@ const POOL_KEY = "current_pool";
 
 export default function AnalysisPage() {
   const { user, ready } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const { cases, loading: casesLoading, error: casesError, selected, setSelected } =
     useCasePicker();
@@ -81,7 +83,7 @@ export default function AnalysisPage() {
         setJudgments(j.data);
         setConsistency(c.data);
       })
-      .catch((e) => setError(e?.response?.data?.detail ?? "Could not load the analysis."))
+      .catch((e) => setError(e?.response?.data?.detail ?? t("analysis.loadError")))
       .finally(() => setLoading(false));
   }, [selected]);
 
@@ -102,18 +104,17 @@ export default function AnalysisPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-headline-lg text-primary">AI analysis</h1>
+        <h1 className="font-headline-lg text-primary">{t("analysis.title")}</h1>
         <p className="font-body-md text-on-surface-variant mt-1">
-          The legal-intelligence picture for a case — sections, authorities, weak charges
-          and cross-document consistency, in one place.
+          {t("analysis.subtitle")}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
         {casesLoading ? (
-          <span className="font-body-md text-on-surface-variant">Loading cases…</span>
+          <span className="font-body-md text-on-surface-variant">{t("audit.loadingCases")}</span>
         ) : cases.length === 0 ? (
-          <span className="font-body-md text-on-surface-variant">No cases to analyse yet.</span>
+          <span className="font-body-md text-on-surface-variant">{t("analysis.noCases")}</span>
         ) : (
           <>
             <CaseSelect cases={cases} value={selected} onChange={setSelected} />
@@ -122,7 +123,7 @@ export default function AnalysisPage() {
                 href={`/cases/${selected}?tab=sections`}
                 className="flex items-center gap-1 font-body-md text-primary hover:underline"
               >
-                Open in case workspace
+                {t("analysis.openWorkspace")}
                 <span className="material-symbols-outlined text-lg">arrow_forward</span>
               </Link>
             )}
@@ -144,11 +145,14 @@ export default function AnalysisPage() {
           {/* Sections */}
           <Panel
             icon="gavel"
-            title="Legal sections"
-            subtitle={`${accepted.length} accepted · ${suggested.length} suggested`}
+            title={t("analysis.sections.title")}
+            subtitle={t("analysis.sections.subtitle", {
+              accepted: accepted.length,
+              suggested: suggested.length,
+            })}
           >
             {accepted.length === 0 && suggested.length === 0 ? (
-              <Empty text="No sections analysed for this case yet." />
+              <Empty text={t("analysis.sections.empty")} />
             ) : (
               <div className="space-y-3">
                 {accepted.map((s) => (
@@ -164,11 +168,11 @@ export default function AnalysisPage() {
           {/* Judgments */}
           <Panel
             icon="menu_book"
-            title="Landmark judgments"
-            subtitle={`${judgments?.length ?? 0} on file`}
+            title={t("analysis.judgments.title")}
+            subtitle={t("analysis.judgments.subtitle", { n: judgments?.length ?? 0 })}
           >
             {!judgments || judgments.length === 0 ? (
-              <Empty text="No judgments attached to this case yet." />
+              <Empty text={t("analysis.judgments.empty")} />
             ) : (
               <ul className="space-y-4">
                 {judgments.map((j) => (
@@ -200,6 +204,7 @@ export default function AnalysisPage() {
 }
 
 function SectionRow({ s }: { s: Section }) {
+  const { t } = useI18n();
   const accepted = s.status === "ACCEPTED";
   const conf = s.confidence != null ? Math.round(s.confidence * 100) : null;
   const reason = reasonRestatesTitle(s.reason, s.section_title) ? null : s.reason;
@@ -230,10 +235,12 @@ function SectionRow({ s }: { s: Section }) {
                 : "text-on-secondary-container bg-secondary-container")
             }
           >
-            {accepted ? "Accepted" : "Suggested"}
+            {accepted ? t("analysis.sections.accepted") : t("analysis.sections.suggested")}
           </span>
           {conf != null && (
-            <p className="font-mono-sm text-on-surface-variant mt-1">{conf}% conf.</p>
+            <p className="font-mono-sm text-on-surface-variant mt-1">
+              {t("analysis.sections.conf", { n: conf })}
+            </p>
           )}
         </div>
       </div>
@@ -245,25 +252,26 @@ function SectionRow({ s }: { s: Section }) {
 }
 
 function ConsistencyPanel({ result }: { result: ConsistencyResult | null }) {
+  const { t } = useI18n();
   const issues = result?.inconsistencies ?? [];
   return (
     <Panel
       icon="rule"
-      title="Consistency check"
+      title={t("analysis.consistency.title")}
       subtitle={
         result
-          ? `${result.checked_documents} document(s) checked`
+          ? t("analysis.consistency.subtitle", { n: result.checked_documents })
           : "—"
       }
     >
       {!result ? (
-        <Empty text="Consistency data unavailable." />
+        <Empty text={t("analysis.consistency.unavailable")} />
       ) : issues.length === 0 ? (
         <div className="flex items-center gap-2 font-body-md text-on-surface">
           <span className="material-symbols-outlined text-primary">verified</span>
           {result.checked_documents === 0
-            ? "No documents generated yet — nothing to cross-check."
-            : "Every document agrees with the current record."}
+            ? t("analysis.consistency.noDocs")
+            : t("analysis.consistency.clean")}
         </div>
       ) : (
         <ul className="space-y-4">
@@ -277,6 +285,7 @@ function ConsistencyPanel({ result }: { result: ConsistencyResult | null }) {
 }
 
 function InconsistencyCard({ inc }: { inc: Inconsistency }) {
+  const { t } = useI18n();
   const high = inc.severity.toLowerCase() === "high";
   // Separate the live pool value ("current record") from each document's stale snapshot.
   const current = inc.values[POOL_KEY];
@@ -301,7 +310,7 @@ function InconsistencyCard({ inc }: { inc: Inconsistency }) {
           <span className="material-symbols-outlined text-sm">
             {high ? "priority_high" : "info"}
           </span>
-          {high ? "High" : "Low"}
+          {high ? t("analysis.consistency.high") : t("analysis.consistency.low")}
         </span>
       </div>
 
@@ -311,15 +320,15 @@ function InconsistencyCard({ inc }: { inc: Inconsistency }) {
             <span className="font-label-caps text-[9px] text-on-surface-variant w-32 shrink-0">
               {label}
             </span>
-            <span className="text-on-surface-variant line-through">{value ?? "(empty)"}</span>
+            <span className="text-on-surface-variant line-through">{value ?? t("audit.empty.value")}</span>
           </div>
         ))}
         {current !== undefined && (
           <div className="flex items-baseline gap-2 font-body-md pt-1.5 mt-1.5 border-t border-outline-variant">
             <span className="font-label-caps text-[9px] text-primary w-32 shrink-0">
-              Current record
+              {t("analysis.consistency.currentRecord")}
             </span>
-            <span className="text-on-surface font-medium">{current ?? "(empty)"}</span>
+            <span className="text-on-surface font-medium">{current ?? t("audit.empty.value")}</span>
           </div>
         )}
       </div>
@@ -330,6 +339,7 @@ function InconsistencyCard({ inc }: { inc: Inconsistency }) {
 }
 
 function WeakChargePanel({ caseId }: { caseId: number }) {
+  const { t } = useI18n();
   const [alerts, setAlerts] = useState<WeakAlert[] | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -350,7 +360,7 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
       setAlerts(r.data.alerts ?? []);
       setStatus(r.data.status);
     } catch (e: any) {
-      setError(e?.response?.data?.detail ?? "Could not run the weak-charge check.");
+      setError(e?.response?.data?.detail ?? t("analysis.weak.error"));
     } finally {
       setLoading(false);
     }
@@ -359,8 +369,8 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
   return (
     <Panel
       icon="gpp_maybe"
-      title="Weak-charge alerts"
-      subtitle="Accepted charges not yet established by the file"
+      title={t("analysis.weak.title")}
+      subtitle={t("analysis.weak.subtitle")}
       action={
         <button
           type="button"
@@ -373,12 +383,12 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
               <span className="material-symbols-outlined animate-spin text-lg">
                 progress_activity
               </span>
-              Checking…
+              {t("analysis.weak.checking")}
             </>
           ) : (
             <>
               <span className="material-symbols-outlined text-lg">bolt</span>
-              {alerts ? "Re-check" : "Run check"}
+              {alerts ? t("analysis.weak.recheck") : t("analysis.weak.run")}
             </>
           )}
         </button>
@@ -386,14 +396,14 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
     >
       {error && <ErrorLine message={error} />}
       {alerts == null && !loading && !error && (
-        <Empty text="Run the check to test each accepted section's ingredients against the file. This calls the AI model." />
+        <Empty text={t("analysis.weak.intro")} />
       )}
       {alerts != null && alerts.length === 0 && !error && (
         <div className="flex items-center gap-2 font-body-md text-on-surface">
           <span className="material-symbols-outlined text-primary">verified</span>
           {status === "no_issues"
-            ? "Every accepted charge is supported by the file."
-            : "No weak charges found."}
+            ? t("analysis.weak.allSupported")
+            : t("analysis.weak.none")}
         </div>
       )}
       {alerts && alerts.length > 0 && (
@@ -422,7 +432,7 @@ function WeakChargePanel({ caseId }: { caseId: number }) {
                         : "text-on-surface-variant border border-outline-variant")
                     }
                   >
-                    {high ? "High risk" : "Low risk"}
+                    {high ? t("analysis.weak.highRisk") : t("analysis.weak.lowRisk")}
                   </span>
                 </div>
                 {a.missing_ingredients.length > 0 && (

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { CaseSelect, useCasePicker } from "@/components/CasePicker";
+import { useI18n, type TKey } from "@/lib/i18n";
 import { formatUpdated } from "@/lib/cases";
 
 // The audit trail is a named PS requirement (CLAUDE.md §4 Tier 1 "Search & Audit",
@@ -43,18 +44,6 @@ const ENTITY_TYPES = [
   "case_diary_entry",
   "cctns_export",
 ] as const;
-const ENTITY_LABEL: Record<string, string> = {
-  case: "Case",
-  person: "Person",
-  seized_item: "Seized item",
-  statement: "Statement",
-  evidence: "Evidence",
-  legal_section: "Legal section",
-  document: "Document",
-  case_diary_entry: "Diary entry",
-  cctns_export: "CCTNS export",
-};
-
 const ACTION_META: Record<string, { label: string; cls: string; icon: string }> = {
   CREATE: {
     label: "Created",
@@ -69,14 +58,9 @@ const ACTION_META: Record<string, { label: string; cls: string; icon: string }> 
   DELETE: { label: "Deleted", cls: "text-on-error-container bg-error-container", icon: "delete" },
 };
 
-const ROLE_LABEL: Record<string, string> = {
-  IO: "Investigating Officer",
-  SHO: "Station House Officer",
-  LEGAL_ADVISOR: "Legal Advisor",
-};
-
 export default function AuditPage() {
   const { user, ready } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const { cases, loading: casesLoading, error: casesError, selected, setSelected } =
     useCasePicker();
@@ -105,7 +89,7 @@ export default function AuditPage() {
         },
       })
       .then((r) => setPage(r.data))
-      .catch((e) => setError(e?.response?.data?.detail ?? "Could not load the audit trail."))
+      .catch((e) => setError(e?.response?.data?.detail ?? t("audit.loadError.title")))
       .finally(() => setLoading(false));
   }, [selected, offset, entityType]);
 
@@ -127,25 +111,24 @@ export default function AuditPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-headline-lg text-primary">Audit trail</h1>
+        <h1 className="font-headline-lg text-primary">{t("audit.title")}</h1>
         <p className="font-body-md text-on-surface-variant mt-1">
-          Every create, update and delete on a case — who did it, when, and exactly
-          what changed.
+          {t("audit.subtitle")}
         </p>
       </div>
 
       {/* Controls: case + entity-type filter */}
       <div className="flex flex-wrap items-center gap-4 mb-4">
         {casesLoading ? (
-          <span className="font-body-md text-on-surface-variant">Loading cases…</span>
+          <span className="font-body-md text-on-surface-variant">{t("audit.loadingCases")}</span>
         ) : cases.length === 0 ? (
-          <span className="font-body-md text-on-surface-variant">No cases to audit yet.</span>
+          <span className="font-body-md text-on-surface-variant">{t("audit.noCases")}</span>
         ) : (
           <CaseSelect cases={cases} value={selected} onChange={setSelected} />
         )}
         <div className="flex items-center gap-3">
           <label htmlFor="entity-filter" className="font-label-caps text-on-surface-variant">
-            Entity
+            {t("audit.entity")}
           </label>
           <select
             id="entity-filter"
@@ -153,10 +136,10 @@ export default function AuditPage() {
             onChange={(e) => setEntityType(e.target.value)}
             className="bg-surface-container-low border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            <option value="ALL">All entities</option>
-            {ENTITY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {ENTITY_LABEL[t]}
+            <option value="ALL">{t("audit.entity.all")}</option>
+            {ENTITY_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {t(`audit.entity.${type}` as TKey)}
               </option>
             ))}
           </select>
@@ -170,11 +153,11 @@ export default function AuditPage() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">
-              <th className="px-4 py-3 font-label-caps w-[170px]">Time</th>
-              <th className="px-4 py-3 font-label-caps w-[120px]">Action</th>
-              <th className="px-4 py-3 font-label-caps w-[150px]">Entity</th>
-              <th className="px-4 py-3 font-label-caps">What changed</th>
-              <th className="px-4 py-3 font-label-caps w-[220px]">Performed by</th>
+              <th className="px-4 py-3 font-label-caps w-[170px]">{t("audit.col.time")}</th>
+              <th className="px-4 py-3 font-label-caps w-[120px]">{t("audit.col.action")}</th>
+              <th className="px-4 py-3 font-label-caps w-[150px]">{t("audit.col.entity")}</th>
+              <th className="px-4 py-3 font-label-caps">{t("audit.col.changed")}</th>
+              <th className="px-4 py-3 font-label-caps w-[220px]">{t("audit.col.performedBy")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant">
@@ -185,7 +168,7 @@ export default function AuditPage() {
                 <td colSpan={5} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <span className="material-symbols-outlined text-4xl text-error">error</span>
-                    <p className="font-headline-md text-primary">Could not load the audit trail</p>
+                    <p className="font-headline-md text-primary">{t("audit.loadError.title")}</p>
                     <p className="font-body-md text-on-surface-variant">{error}</p>
                     <button
                       type="button"
@@ -193,7 +176,7 @@ export default function AuditPage() {
                       className="mt-2 flex items-center gap-2 border border-outline-variant px-4 py-2 rounded font-body-md text-on-surface hover:bg-surface-container-low transition-colors"
                     >
                       <span className="material-symbols-outlined text-lg">refresh</span>
-                      Retry
+                      {t("common.retry")}
                     </button>
                   </div>
                 </td>
@@ -205,11 +188,13 @@ export default function AuditPage() {
                     <span className="material-symbols-outlined text-4xl text-outline">
                       verified_user
                     </span>
-                    <p className="font-headline-md text-primary">No audit entries</p>
+                    <p className="font-headline-md text-primary">{t("audit.empty.title")}</p>
                     <p className="font-body-md text-on-surface-variant">
                       {entityType === "ALL"
-                        ? "Actions on this case will be recorded here."
-                        : `No ${ENTITY_LABEL[entityType]?.toLowerCase()} changes recorded.`}
+                        ? t("audit.empty.all")
+                        : t("audit.empty.filtered", {
+                            entity: t(`audit.entity.${entityType}` as TKey),
+                          })}
                     </p>
                   </div>
                 </td>
@@ -231,12 +216,12 @@ export default function AuditPage() {
                         className={`inline-flex items-center gap-1 font-label-caps text-[10px] rounded px-2 py-0.5 ${action.cls}`}
                       >
                         <span className="material-symbols-outlined text-sm">{action.icon}</span>
-                        {action.label}
+                        {t(`audit.action.${e.action}` as TKey)}
                       </span>
                     </td>
                     <td className="px-4 py-4">
                       <span className="font-body-md text-on-surface">
-                        {ENTITY_LABEL[e.entity_type ?? ""] ?? e.entity_type ?? "—"}
+                        {e.entity_type ? t(`audit.entity.${e.entity_type}` as TKey) : "—"}
                       </span>
                       {e.entity_id != null && (
                         <span className="font-mono-sm text-on-surface-variant ml-1">
@@ -253,7 +238,7 @@ export default function AuditPage() {
                       </p>
                       {e.performed_by_role && (
                         <p className="font-label-caps text-[9px] text-on-surface-variant mt-0.5">
-                          {ROLE_LABEL[e.performed_by_role] ?? e.performed_by_role}
+                          {e.performed_by_role ? t(`role.${e.performed_by_role}` as TKey) : null}
                         </p>
                       )}
                     </td>
@@ -269,20 +254,18 @@ export default function AuditPage() {
       {page && total > 0 && (
         <div className="flex items-center justify-between mt-4">
           <p className="font-body-md text-on-surface-variant">
-            Showing <span className="font-mono-data text-on-surface">{from}</span>–
-            <span className="font-mono-data text-on-surface">{to}</span> of{" "}
-            <span className="font-mono-data text-on-surface">{total}</span>
+            {t("audit.showing", { from, to, total })}
           </p>
           <div className="flex items-center gap-2">
             <PageButton
               icon="chevron_left"
-              label="Previous"
+              label={t("audit.previous")}
               disabled={offset === 0 || loading}
               onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
             />
             <PageButton
               icon="chevron_right"
-              label="Next"
+              label={t("audit.next")}
               trailing
               disabled={to >= total || loading}
               onClick={() => setOffset((o) => o + PAGE_SIZE)}
@@ -305,11 +288,16 @@ function ChangeCell({
   action: string;
   changes: Record<string, Change> | null;
 }) {
+  const { t } = useI18n();
+  const show = (v: unknown) => {
+    const s = fmt(v);
+    return s === "(empty)" ? t("audit.empty.value") : s;
+  };
   const keys = changes ? Object.keys(changes) : [];
   if (keys.length === 0) {
     return (
       <span className="font-body-md text-on-surface-variant italic">
-        {action === "DELETE" ? "record removed" : "—"}
+        {action === "DELETE" ? t("audit.recordRemoved") : "—"}
       </span>
     );
   }
@@ -323,14 +311,14 @@ function ChangeCell({
             <span className="font-mono-sm text-on-surface-variant">{k}</span>{" "}
             {isDiff ? (
               <>
-                <span className="text-on-surface-variant line-through">{fmt(v.old)}</span>
+                <span className="text-on-surface-variant line-through">{show(v.old)}</span>
                 <span className="material-symbols-outlined text-sm align-middle mx-1 text-outline">
                   arrow_forward
                 </span>
-                <span className="text-on-surface font-medium">{fmt(v.new)}</span>
+                <span className="text-on-surface font-medium">{show(v.new)}</span>
               </>
             ) : (
-              <span className="text-on-surface">{fmt(changes![k])}</span>
+              <span className="text-on-surface">{show(changes![k])}</span>
             )}
           </li>
         );

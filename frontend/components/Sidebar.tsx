@@ -2,8 +2,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useI18n, type TKey } from "@/lib/i18n";
+
 type NavItem = {
-  label: string;
+  id: string;
+  labelKey: TKey; // i18n key for the nav label
   href: string;
   icon: string; // Material Symbols ligature name
   ready: boolean; // false → page not built yet, shown muted + non-clickable
@@ -18,12 +21,12 @@ type NavItem = {
 // otherwise they fall back to the case list (where an officer picks a case).
 type Item = NavItem & { caseTab?: string };
 const NAV: Item[] = [
-  { label: "Dashboard", href: "/dashboard", icon: "dashboard", ready: true },
-  { label: "Cases", href: "/cases", icon: "folder_shared", ready: true },
-  { label: "Evidence", href: "/cases", icon: "inventory_2", ready: true, caseTab: "evidence" },
-  { label: "Documents", href: "/cases", icon: "description", ready: true, caseTab: "documents" },
-  { label: "AI Analysis", href: "/analysis", icon: "neurology", ready: true },
-  { label: "Audit", href: "/audit", icon: "verified_user", ready: true },
+  { id: "dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: "dashboard", ready: true },
+  { id: "cases", labelKey: "nav.cases", href: "/cases", icon: "folder_shared", ready: true },
+  { id: "evidence", labelKey: "nav.evidence", href: "/cases", icon: "inventory_2", ready: true, caseTab: "evidence" },
+  { id: "documents", labelKey: "nav.documents", href: "/cases", icon: "description", ready: true, caseTab: "documents" },
+  { id: "analysis", labelKey: "nav.analysis", href: "/analysis", icon: "neurology", ready: true },
+  { id: "audit", labelKey: "nav.audit", href: "/audit", icon: "verified_user", ready: true },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -40,6 +43,7 @@ function currentCasePath(pathname: string): string | null {
 export default function Sidebar() {
   const pathname = usePathname() ?? "";
   const casePath = currentCasePath(pathname);
+  const { t } = useI18n();
 
   return (
     <nav className="fixed left-0 top-0 h-full w-[280px] flex flex-col py-stack-lg bg-surface border-r border-outline-variant z-50">
@@ -53,7 +57,7 @@ export default function Sidebar() {
             CrimeGPT
           </h1>
           <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant">
-            Investigative Intelligence
+            {t("brand.tagline")}
           </p>
         </div>
       </div>
@@ -73,15 +77,15 @@ export default function Sidebar() {
             // Muted, non-interactive placeholder with a "Soon" tag.
             return (
               <div
-                key={item.label}
+                key={item.id}
                 aria-disabled="true"
-                title="Coming soon"
+                title={t("nav.comingSoon")}
                 className="flex items-center gap-4 px-4 py-3 rounded text-outline/60 cursor-not-allowed select-none"
               >
                 <span className="material-symbols-outlined">{item.icon}</span>
-                <span className="font-body-md">{item.label}</span>
+                <span className="font-body-md">{t(item.labelKey)}</span>
                 <span className="ml-auto font-label-caps text-[9px] text-outline/60 border border-outline-variant rounded px-1 py-0.5">
-                  Soon
+                  {t("nav.soon")}
                 </span>
               </div>
             );
@@ -89,7 +93,7 @@ export default function Sidebar() {
 
           return (
             <Link
-              key={item.label}
+              key={item.id}
               href={href}
               className={
                 active
@@ -103,15 +107,15 @@ export default function Sidebar() {
               >
                 {item.icon}
               </span>
-              <span className="font-body-md">{item.label}</span>
+              <span className="font-body-md">{t(item.labelKey)}</span>
             </Link>
           );
         })}
       </div>
 
       <div className="px-6 pt-4 mt-4 border-t border-outline-variant">
-        <p className="font-label-caps text-[10px] text-on-surface-variant">Ahmedabad City Police</p>
-        <p className="font-mono-sm text-outline">Cyber Crime Branch</p>
+        <p className="font-label-caps text-[10px] text-on-surface-variant">{t("org.force")}</p>
+        <p className="font-mono-sm text-outline">{t("org.branch")}</p>
       </div>
     </nav>
   );

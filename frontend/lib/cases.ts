@@ -48,13 +48,12 @@ export function formatUpdated(iso: string | null | undefined): string {
   return `${date} · ${time}`;
 }
 
-// A description string, or a clear placeholder when it is missing, blank, or just a
-// bare dash placeholder ("—" / "-" / "–"). `??` alone leaks empty strings and stored
-// em-dash placeholders through as a meaningless cell; officers read "(no description)"
-// as "nothing recorded", not as a rendering glitch.
-export function descOr(desc: string | null | undefined): string {
-  const trimmed = (desc ?? "").replace(/[\s—–-]+/g, "");
-  return trimmed ? (desc as string) : "(no description)";
+// True when a description carries no real content — missing, blank, or just a bare
+// dash placeholder ("—" / "-" / "–"). Call sites render the (translated) "(no
+// description)" placeholder for these instead of a meaningless cell. Kept as a
+// predicate (not a string helper) so the placeholder can go through i18n `t()`.
+export function isBlankDesc(desc: string | null | undefined): boolean {
+  return (desc ?? "").replace(/[\s—–-]+/g, "").length === 0;
 }
 
 // A section's `reason` adds nothing when it merely restates the heading title (the

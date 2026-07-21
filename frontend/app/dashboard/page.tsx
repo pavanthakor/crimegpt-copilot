@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
-import { CASE_STATUSES, descOr, formatUpdated, statusMeta } from "@/lib/cases";
+import { useI18n, type TKey } from "@/lib/i18n";
+import { CASE_STATUSES, formatUpdated, isBlankDesc, statusMeta } from "@/lib/cases";
 
 // A landing view over the whole caseload. Everything here is real: status counts come
 // straight from the case list, and the activity feed is the actual case-diary entries
@@ -32,15 +33,6 @@ type CaseDetail = { diary_entries: DiaryEntry[] };
 const ACTIVITY_CASE_CAP = 20;
 const ACTIVITY_LIMIT = 12;
 
-const ACTIVITY_LABEL: Record<string, string> = {
-  COMPLAINT: "Complaint",
-  WITNESS_EXAM: "Witness exam",
-  EVIDENCE_SEIZURE: "Evidence seizure",
-  ARREST: "Arrest",
-  REMAND: "Remand",
-  DOC_GENERATED: "Document generated",
-  OTHER: "Note",
-};
 const ACTIVITY_ICON: Record<string, string> = {
   COMPLAINT: "report",
   WITNESS_EXAM: "record_voice_over",
@@ -55,6 +47,7 @@ type FeedItem = DiaryEntry & { caseId: number; caseNumber: string };
 
 export default function DashboardPage() {
   const { user, ready } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
 
   const [cases, setCases] = useState<CaseRow[]>([]);
@@ -98,7 +91,7 @@ export default function DashboardPage() {
         );
         setFeed(items.slice(0, ACTIVITY_LIMIT));
       })
-      .catch((e) => setError(e?.response?.data?.detail ?? "The server could not be reached."))
+      .catch((e) => setError(e?.response?.data?.detail ?? t("common.serverUnreachable")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -115,7 +108,6 @@ export default function DashboardPage() {
 
   const counts = CASE_STATUSES.map((s) => ({
     status: s,
-    label: statusMeta(s).label,
     dot: statusMeta(s).dot,
     count: cases.filter((c) => c.status === s).length,
   }));
@@ -124,10 +116,11 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Greeting */}
       <div>
-        <h1 className="font-headline-lg text-primary">Dashboard</h1>
+        <h1 className="font-headline-lg text-primary">{t("dash.title")}</h1>
         <p className="font-body-md text-on-surface-variant mt-1">
-          {user.full_name ? `Welcome back, ${user.full_name}.` : "Welcome back."} Here is
-          your caseload at a glance.
+          {user.full_name
+            ? t("dash.welcome", { name: user.full_name })
+            : t("dash.welcomeNoName")}
         </p>
       </div>
 
@@ -136,9 +129,9 @@ export default function DashboardPage() {
       {/* Status counts */}
       <section>
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="font-headline-md text-primary">Cases by status</h2>
+          <h2 className="font-headline-md text-primary">{t("dash.byStatus")}</h2>
           <Link href="/cases" className="font-body-md text-primary hover:underline">
-            {loading ? "…" : `${cases.length} total`}
+            {loading ? "…" : t("dash.total", { n: cases.length })}
           </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-outline-variant border border-outline-variant">
@@ -151,7 +144,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mb-2">
                 <span className={`inline-block w-2 h-2 rounded-full ${c.dot}`} />
                 <span className="font-label-caps text-[10px] text-on-surface-variant">
-                  {c.label}
+                  {t(`status.${c.status}` as TKey)}
                 </span>
               </div>
               <span className="font-display-case text-3xl text-on-surface">
@@ -165,7 +158,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8 items-start">
         {/* Recent activity */}
         <section>
-          <h2 className="font-headline-md text-primary mb-3">Recent activity</h2>
+          <h2 className="font-headline-md text-primary mb-3">{t("dash.recent")}</h2>
           <div className="border border-outline-variant rounded bg-surface-container-lowest">
             {loading ? (
               <ActivitySkeleton />
@@ -174,9 +167,9 @@ export default function DashboardPage() {
                 <span className="material-symbols-outlined text-4xl text-outline">
                   event_note
                 </span>
-                <p className="font-headline-md text-primary">No activity yet</p>
+                <p className="font-headline-md text-primary">{t("dash.recent.empty.title")}</p>
                 <p className="font-body-md text-on-surface-variant">
-                  Case-diary entries across your cases will appear here.
+                  {t("dash.recent.empty.hint")}
                 </p>
               </div>
             ) : (
@@ -197,15 +190,17 @@ export default function DashboardPage() {
                           {e.caseNumber}
                         </Link>
                         <span className="font-label-caps text-[9px] text-on-surface-variant border border-outline-variant rounded px-1.5 py-0.5">
-                          {ACTIVITY_LABEL[e.activity_type] ?? e.activity_type}
+                          {t(`activity.${e.activity_type}` as TKey)}
                         </span>
                         {e.auto_generated && (
                           <span className="font-label-caps text-[9px] text-on-secondary-container bg-secondary-container rounded px-1.5 py-0.5">
-                            Auto
+                            {t("diary.auto")}
                           </span>
                         )}
                       </div>
-                      <p className="font-body-md text-on-surface">{descOr(e.description)}</p>
+                      <p className="font-body-md text-on-surface">
+                        {isBlankDesc(e.description) ? t("common.noDescription") : e.description}
+                      </p>
                     </div>
                     <span className="shrink-0 font-mono-sm text-on-surface-variant text-right whitespace-nowrap">
                       {formatUpdated(e.entry_datetime)}
@@ -217,19 +212,19 @@ export default function DashboardPage() {
           </div>
           {capped && (
             <p className="font-body-md text-on-surface-variant mt-2">
-              Showing activity from your {ACTIVITY_CASE_CAP} most recently updated cases.
+              {t("dash.recent.capped", { n: ACTIVITY_CASE_CAP })}
             </p>
           )}
         </section>
 
         {/* Quick links */}
         <section>
-          <h2 className="font-headline-md text-primary mb-3">Quick links</h2>
+          <h2 className="font-headline-md text-primary mb-3">{t("dash.quickLinks")}</h2>
           <div className="space-y-2">
-            <QuickLink href="/cases/new" icon="add_circle" label="New case" primary />
-            <QuickLink href="/cases" icon="folder_shared" label="All cases" />
-            <QuickLink href="/analysis" icon="neurology" label="AI analysis" />
-            <QuickLink href="/audit" icon="verified_user" label="Audit trail" />
+            <QuickLink href="/cases/new" icon="add_circle" label={t("dash.link.newCase")} primary />
+            <QuickLink href="/cases" icon="folder_shared" label={t("dash.link.allCases")} />
+            <QuickLink href="/analysis" icon="neurology" label={t("dash.link.analysis")} />
+            <QuickLink href="/audit" icon="verified_user" label={t("dash.link.audit")} />
           </div>
         </section>
       </div>
@@ -278,6 +273,7 @@ function ActivitySkeleton() {
 }
 
 function ErrorLine({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-3 border border-error/40 bg-error-container/40 rounded p-4">
       <span className="material-symbols-outlined text-error">error</span>
@@ -288,7 +284,7 @@ function ErrorLine({ message, onRetry }: { message: string; onRetry: () => void 
         className="flex items-center gap-1 border border-outline-variant px-3 py-1.5 rounded font-body-md text-on-surface hover:bg-surface-container-low transition-colors"
       >
         <span className="material-symbols-outlined text-lg">refresh</span>
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   );

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { api } from "@/lib/api";
-import { statusMeta } from "@/lib/cases";
+import { useI18n, type TKey } from "@/lib/i18n";
 
 // A minimal case row — enough to label the picker options. /audit and /analysis
 // both operate on a single chosen case, so they share this loader + dropdown.
@@ -65,10 +65,11 @@ export function CaseSelect({
   onChange: (id: number) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-3">
       <label htmlFor="case-select" className="font-label-caps text-on-surface-variant">
-        Case
+        {t("audit.case")}
       </label>
       <select
         id="case-select"
@@ -79,7 +80,7 @@ export function CaseSelect({
       >
         {cases.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.case_number} — {c.title ?? "Untitled case"} · {statusMeta(c.status).label}
+            {c.case_number} — {c.title ?? t("common.untitled")} · {t(`status.${c.status}` as TKey)}
           </option>
         ))}
       </select>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n } from "@/lib/i18n";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+  const { t } = useI18n();
 
   async function onSignIn() {
     if (loading) return;
@@ -28,11 +30,7 @@ export default function LoginPage() {
     } catch (e: any) {
       // 401 → wrong credentials; anything else → a generic reachability message.
       const status = e?.response?.status;
-      setError(
-        status === 401
-          ? "Username or password is incorrect."
-          : "Could not reach the server. Try again."
-      );
+      setError(status === 401 ? t("login.error") : t("common.serverUnreachable"));
       setLoading(false);
     }
   }
@@ -50,34 +48,34 @@ export default function LoginPage() {
             <span className="material-symbols-outlined filled text-surface-bright">security</span>
           </div>
           <span className="font-label-caps text-[10px] tracking-[0.3em] text-surface-bright/70">
-            Ahmedabad City Police
+            {t("org.force")}
           </span>
         </div>
 
         <div>
           <h1 className="font-display-case text-surface-bright mb-4">CrimeGPT</h1>
           <p className="font-headline-md font-normal text-surface-bright/80 max-w-sm">
-            AI-assisted crime documentation and legal intelligence.
+            {t("login.tagline")}
           </p>
         </div>
 
-        <p className="font-mono-sm text-surface-bright/50">Cyber Crime Branch</p>
+        <p className="font-mono-sm text-surface-bright/50">{t("org.branch")}</p>
       </div>
 
       {/* Right: sign-in form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="mb-8">
-            <h2 className="font-headline-lg text-primary mb-1">Sign in</h2>
+            <h2 className="font-headline-lg text-primary mb-1">{t("login.signIn")}</h2>
             <p className="font-body-md text-on-surface-variant">
-              Use your officer account to continue.
+              {t("login.subtitle")}
             </p>
           </div>
 
           <div className="space-y-5">
             <div className="space-y-2">
               <label htmlFor="username" className="font-label-caps text-on-surface-variant block">
-                Username
+                {t("login.username")}
               </label>
               <input
                 id="username"
@@ -92,7 +90,7 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <label htmlFor="password" className="font-label-caps text-on-surface-variant block">
-                Password
+                {t("login.password")}
               </label>
               <input
                 id="password"
@@ -123,10 +121,10 @@ export default function LoginPage() {
                   <span className="material-symbols-outlined animate-spin text-xl">
                     progress_activity
                   </span>
-                  Signing in…
+                  {t("login.signingIn")}
                 </>
               ) : (
-                "Sign in"
+                t("login.signIn")
               )}
             </button>
           </div>

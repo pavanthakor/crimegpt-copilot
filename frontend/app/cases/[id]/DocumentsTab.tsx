@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { formatUpdated } from "@/lib/cases";
+import { useI18n, type TKey } from "@/lib/i18n";
 
 type Doc = {
   id: number;
@@ -35,9 +36,6 @@ const DOC_TYPES: { key: string; label: string; note?: string; icon: string }[] =
   { key: "LERS_PRESERVATION_REQUEST", label: "LERS Preservation Request", icon: "lock_clock" },
   { key: "LERS_RECORDS_REQUEST", label: "LERS Records Request", icon: "folder_data" },
 ];
-const LABEL: Record<string, string> = Object.fromEntries(
-  DOC_TYPES.map((d) => [d.key, d.label])
-);
 const NOTE: Record<string, string | undefined> = Object.fromEntries(
   DOC_TYPES.map((d) => [d.key, d.note])
 );
@@ -91,10 +89,12 @@ export default function DocumentsTab({
   role: string;
   onDocsChanged: () => void;
 }) {
+  const { t, apiLang } = useI18n();
   const isSho = role === "SHO";
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState(apiLang);
+  const docLabel = (key: string) => t(`docs.type.${key}` as TKey);
   const [generating, setGenerating] = useState<string | null>(null);
   const [genError, setGenError] = useState<{ docType: string; missing: string[] | null; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +104,12 @@ export default function DocumentsTab({
     api
       .get<Doc[]>(`/api/cases/${caseId}/documents`)
       .then((r) => setDocs(r.data))
-      .catch((e) => setError(e?.response?.data?.detail ?? "Could not load documents."))
+      .catch((e) => setError(e?.response?.data?.detail ?? t("docs.loadError")))
       .finally(() => setLoaded(true));
-  }, [caseId]);
+  }, [caseId, t]);
 
   useEffect(load, [load]);
+  useEffect(() => setLang(apiLang), [apiLang]);
 
   async function generate(docType: string) {
     setGenerating(docType);
@@ -121,7 +122,7 @@ export default function DocumentsTab({
     } catch (e: any) {
       const detail: string | undefined = e?.response?.data?.detail;
       // 400 = missing pool data -> a designed panel, not a toast.
-      setGenError({ docType, missing: parseMissing(detail), message: detail ?? "Generation failed." });
+      setGenError({ docType, missing: parseMissing(detail), message: detail ?? t("docs.genFailed") });
     } finally {
       setGenerating(null);
     }
@@ -133,15 +134,15 @@ export default function DocumentsTab({
       <section className="border border-outline-variant rounded bg-surface-container-lowest p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="font-headline-md text-primary">Generate a document</h2>
+            <h2 className="font-headline-md text-primary">{t("docs.generate.title")}</h2>
             <p className="font-body-md text-on-surface-variant">
-              Every draft is pre-filled from the case pool and must be reviewed before filing.
+              {t("docs.generate.subtitle")}
             </p>
           </div>
           {/* Output language selector */}
           <div className="flex flex-col items-end gap-1">
-            <span className="font-label-caps text-[10px] text-on-surface-variant">Output language</span>
-            <div className="flex items-center rounded border border-outline-variant overflow-hidden" role="group" aria-label="Output language">
+            <span className="font-label-caps text-[10px] text-on-surface-variant">{t("docs.outputLanguage")}</span>
+            <div className="flex items-center rounded border border-outline-variant overflow-hidden" role="group" aria-label={t("docs.outputLanguage")}>
               {LANGS.map((l) => {
                 const on = lang === l.code;
                 return (
@@ -179,7 +180,7 @@ export default function DocumentsTab({
                 </span>
                 <span className="min-w-0">
                   <span className="block font-body-md text-primary">
-                    {busy ? "Generating…" : d.label}
+                    {busy ? t("docs.generating") : docLabel(d.key)}
                   </span>
                   {d.note && (
                     <span className="block font-mono-sm text-on-surface-variant">{d.note}</span>
@@ -199,8 +200,7 @@ export default function DocumentsTab({
                 {genError.missing ? (
                   <>
                     <p className="font-body-lg text-on-error-container">
-                      Cannot generate the {LABEL[genError.docType].toLowerCase()} yet — add the
-                      following first:
+                      {t("docs.cannotGenerate", { doc: docLabel(genError.docType) })}
                     </p>
                     <p className="font-body-md text-on-surface mt-2">
                       {genError.missing.map(friendly).join("  ·  ")}
@@ -228,9 +228,9 @@ export default function DocumentsTab({
       ) : docs.length === 0 ? (
         <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-16 flex flex-col items-center gap-2 text-center">
           <span className="material-symbols-outlined text-4xl text-outline">description</span>
-          <p className="font-headline-md text-primary">No documents generated yet</p>
+          <p className="font-headline-md text-primary">{t("docs.empty.title")}</p>
           <p className="font-body-md text-on-surface-variant">
-            Use the buttons above to generate a draft.
+            {t("docs.empty.hint")}
           </p>
         </div>
       ) : (
@@ -238,11 +238,11 @@ export default function DocumentsTab({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">
-                <th className="px-4 py-3 font-label-caps">Document</th>
-                <th className="px-4 py-3 font-label-caps w-[90px]">Version</th>
-                <th className="px-4 py-3 font-label-caps w-[150px]">Status</th>
-                <th className="px-4 py-3 font-label-caps w-[230px]">Generated</th>
-                <th className="px-4 py-3 font-label-caps w-[260px] text-right">Actions</th>
+                <th className="px-4 py-3 font-label-caps">{t("docs.col.document")}</th>
+                <th className="px-4 py-3 font-label-caps w-[90px]">{t("docs.col.version")}</th>
+                <th className="px-4 py-3 font-label-caps w-[150px]">{t("docs.col.status")}</th>
+                <th className="px-4 py-3 font-label-caps w-[230px]">{t("docs.col.generated")}</th>
+                <th className="px-4 py-3 font-label-caps w-[260px] text-right">{t("docs.col.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
@@ -283,6 +283,8 @@ function DocRow({
   onChanged: () => void;
   onError: (msg: string | null) => void;
 }) {
+  const { t } = useI18n();
+  const docLabel = (key: string) => t(`docs.type.${key}` as TKey);
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<VersionEntry[] | null>(null);
   const [vLoading, setVLoading] = useState(false);
@@ -304,7 +306,7 @@ function DocRow({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      onError("Could not download the document.");
+      onError(t("docs.downloadError"));
     }
   }
 
@@ -320,7 +322,7 @@ function DocRow({
         const r = await api.get(`/api/documents/${doc.id}/versions`);
         setVersions(r.data.versions);
       } catch {
-        onError("Could not load version history.");
+        onError(t("docs.versionsError"));
       } finally {
         setVLoading(false);
       }
@@ -335,7 +337,7 @@ function DocRow({
       setVersions(null); // history changed
       onChanged();
     } catch (e: any) {
-      onError(e?.response?.data?.detail ?? "Could not finalize the document.");
+      onError(e?.response?.data?.detail ?? t("docs.finalizeError"));
     } finally {
       setBusy(null);
     }
@@ -345,13 +347,13 @@ function DocRow({
     <>
       <tr className="align-top">
         <td className="px-4 py-4">
-          <span className="font-serif text-body-lg text-primary">{LABEL[doc.doc_type] ?? doc.doc_type}</span>
+          <span className="font-serif text-body-lg text-primary">{docLabel(doc.doc_type)}</span>
           {NOTE[doc.doc_type] && (
             <span className="ml-2 font-mono-sm text-on-surface-variant">{NOTE[doc.doc_type]}</span>
           )}
           {draft && (
             <p className="font-body-md text-on-surface-variant italic mt-0.5">
-              Draft — review and sign before filing.
+              {t("docs.draftNote")}
             </p>
           )}
         </td>
@@ -368,16 +370,16 @@ function DocRow({
         </td>
         <td className="px-4 py-4">
           <div className="flex items-center justify-end gap-1 flex-wrap">
-            <RowButton icon="download" label="Download" onClick={download} />
+            <RowButton icon="download" label={t("common.download")} onClick={download} />
             <RowButton
               icon={showVersions ? "expand_less" : "history"}
-              label="Versions"
+              label={t("docs.action.versions")}
               onClick={toggleVersions}
             />
             {isSho && draft && (
               <RowButton
                 icon="draw"
-                label={busy ? "Finalizing…" : "Finalize"}
+                label={busy ? t("docs.action.finalizing") : t("docs.action.finalize")}
                 onClick={finalize}
                 primary
                 disabled={busy}
@@ -390,7 +392,7 @@ function DocRow({
         <tr>
           <td colSpan={5} className="px-4 pb-5 bg-surface-container-low">
             {vLoading ? (
-              <p className="font-body-md text-on-surface-variant py-4">Loading version history…</p>
+              <p className="font-body-md text-on-surface-variant py-4">{t("docs.versions.loading")}</p>
             ) : (
               <VersionHistory versions={versions ?? []} />
             )}
@@ -402,11 +404,12 @@ function DocRow({
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useI18n();
   const finalized = status === "FINALIZED";
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={`inline-block w-2 h-2 rounded-full ${finalized ? "bg-success" : "bg-accent"}`} />
-      <span className="font-body-md text-on-surface">{finalized ? "Finalized" : "Draft"}</span>
+      <span className="font-body-md text-on-surface">{finalized ? t("docs.status.finalized") : t("docs.status.draft")}</span>
     </span>
   );
 }
@@ -443,12 +446,13 @@ function RowButton({
 }
 
 function VersionHistory({ versions }: { versions: VersionEntry[] }) {
+  const { t } = useI18n();
   if (!versions.length) {
-    return <p className="font-body-md text-on-surface-variant py-4">No version history.</p>;
+    return <p className="font-body-md text-on-surface-variant py-4">{t("docs.versions.none")}</p>;
   }
   return (
     <div className="pt-4 space-y-4">
-      <p className="font-label-caps text-[10px] text-on-surface-variant">Version history</p>
+      <p className="font-label-caps text-[10px] text-on-surface-variant">{t("docs.versions.title")}</p>
       {versions.map((v) => (
         <div key={v.version} className="border border-outline-variant rounded bg-surface-container-lowest p-4">
           <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -464,10 +468,10 @@ function VersionHistory({ versions }: { versions: VersionEntry[] }) {
           </div>
 
           {v.diff_from_previous == null ? (
-            <p className="font-body-md text-on-surface-variant italic">Initial version.</p>
+            <p className="font-body-md text-on-surface-variant italic">{t("docs.versions.initial")}</p>
           ) : v.diff_from_previous.changed_fields.length === 0 ? (
             <p className="font-body-md text-on-surface-variant italic">
-              No field changes from the previous version.
+              {t("docs.versions.noChange")}
             </p>
           ) : (
             <ul className="space-y-2">

@@ -1,13 +1,9 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
-import {
-  COMPLAINT_LANGS,
-  PERSON_ROLES,
-  PERSON_ROLE_LABEL,
-  STATEMENT_TYPES,
-} from "@/lib/cases";
+import { COMPLAINT_LANGS, PERSON_ROLES, STATEMENT_TYPES } from "@/lib/cases";
+import { useI18n, type TKey } from "@/lib/i18n";
 
 type Person = {
   id: number;
@@ -69,9 +65,10 @@ export default function CaseDetailsTab({
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
-      {/* Left column: narrative as a document + statements below */}
+      {/* Left column: narrative as a document + voice dictation + statements below */}
       <div className="space-y-8 min-w-0">
         <NarrativeCard narrative={narrative} language={language} />
+        <VoiceDictation caseId={caseId} onApplied={onPoolChanged} />
         <StatementsPanel
           caseId={caseId}
           persons={persons}
@@ -93,10 +90,11 @@ function NarrativeCard({
   narrative: string | null;
   language: string | null;
 }) {
+  const { t } = useI18n();
   return (
     <section className="bg-surface-container-lowest border border-outline-variant rounded p-8">
       <div className="flex items-center justify-between border-b border-outline-variant pb-4 mb-6">
-        <h2 className="font-headline-md text-primary">Complaint narrative</h2>
+        <h2 className="font-headline-md text-primary">{t("details.narrative.title")}</h2>
         {language && (
           <span className="font-label-caps text-[10px] text-on-surface-variant border border-outline-variant rounded px-2 py-0.5">
             {language}
@@ -110,8 +108,326 @@ function NarrativeCard({
         </div>
       ) : (
         <p className="font-body-md text-on-surface-variant italic">
-          No complaint narrative recorded for this case.
+          {t("details.narrative.empty")}
         </p>
+      )}
+    </section>
+  );
+}
+
+/* ---------------- Voice dictation (CLAUDE.md §4 Gujarati voice-to-document) ---------------- */
+
+type TranscribeResult = {
+  transcript: string; // spoken-script text (e.g. Gujarati)
+  language: string; // detected source (gu | hi | en)
+  task: string;
+  translation: string | null; // English narrative (null when source was English)
+  duration: number | null;
+  confidence: number | null;
+  model: string | null;
+  audio_id: string;
+};
+
+type VoiceState = "idle" | "recording" | "processing" | "done" | "error";
+
+// Expected CPU transcription time (backend note: ~11s). Used only to pace the progress
+// bar so the officer sees motion, not a bare spinner — the real completion is the POST.
+const EXPECTED_MS = 11000;
+
+function VoiceDictation({
+  caseId,
+  onApplied,
+}: {
+  caseId: number;
+  onApplied: () => void;
+}) {
+  const { t, apiLang } = useI18n();
+  const [state, setState] = useState<VoiceState>("idle");
+  const [spokenLang, setSpokenLang] = useState<string>(apiLang);
+  const [seconds, setSeconds] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<TranscribeResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const tickRef = useRef<number | undefined>(undefined);
+
+  // Keep the spoken-language default in step with the interface language until the
+  // officer overrides it.
+  useEffect(() => {
+    setSpokenLang(apiLang);
+  }, [apiLang]);
+
+  // Recording timer.
+  useEffect(() => {
+    if (state !== "recording") return;
+    const id = window.setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [state]);
+
+  // Determinate-ish progress while the model runs — climbs toward 95% over ~11s and is
+  // finished by the actual response. Not a bare spinner (CLAUDE.md §4 requirement).
+  useEffect(() => {
+    if (state !== "processing") return;
+    setProgress(6);
+    const start = Date.now();
+    tickRef.current = window.setInterval(() => {
+      const frac = Math.min((Date.now() - start) / EXPECTED_MS, 1);
+      setProgress(6 + Math.round(frac * 89)); // 6 → 95
+    }, 200);
+    return () => window.clearInterval(tickRef.current);
+  }, [state]);
+
+  function cleanupStream() {
+    streamRef.current?.getTracks().forEach((tr) => tr.stop());
+    streamRef.current = null;
+  }
+
+  async function startRecording() {
+    setError(null);
+    setResult(null);
+    setApplied(false);
+    if (typeof navigator === "undefined" || !navigator.mediaDevices || typeof MediaRecorder === "undefined") {
+      setError(t("voice.error.unsupported"));
+      setState("error");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        cleanupStream();
+        void submit();
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setSeconds(0);
+      setState("recording");
+    } catch {
+      cleanupStream();
+      setError(t("voice.error.mic"));
+      setState("error");
+    }
+  }
+
+  function stopRecording() {
+    recorderRef.current?.stop();
+  }
+
+  async function submit() {
+    setState("processing");
+    const type = chunksRef.current[0]?.type || "audio/webm";
+    const blob = new Blob(chunksRef.current, { type });
+    if (!blob.size) {
+      setError(t("voice.error.empty"));
+      setState("error");
+      return;
+    }
+    const ext = type.includes("ogg") ? "ogg" : type.includes("webm") ? "webm" : "wav";
+    const fd = new FormData();
+    fd.append("file", blob, `dictation.${ext}`);
+    fd.append("language", spokenLang);
+    fd.append("task", "transcribe");
+    try {
+      const r = await api.post<TranscribeResult>(`/api/cases/${caseId}/transcribe`, fd);
+      const data = r.data;
+      // Never accept a silent empty transcript — surface it as a clear failure.
+      if (!data.transcript || !data.transcript.trim()) {
+        setError(t("voice.error.failed"));
+        setState("error");
+        return;
+      }
+      setProgress(100);
+      setResult(data);
+      setState("done");
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? t("voice.error.failed"));
+      setState("error");
+    }
+  }
+
+  function reset() {
+    setResult(null);
+    setError(null);
+    setApplied(false);
+    setSeconds(0);
+    setProgress(0);
+    setState("idle");
+  }
+
+  // The English text an officer applies to the record. When the source was already
+  // English there is no separate translation, so the transcript itself is the English.
+  const englishText = result ? result.translation ?? result.transcript : "";
+
+  async function apply() {
+    if (!englishText.trim()) return;
+    setApplying(true);
+    setError(null);
+    try {
+      await api.patch(`/api/cases/${caseId}`, { complaint_narrative: englishText });
+      setApplied(true);
+      onApplied();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? t("voice.applyError"));
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <section className="bg-surface border border-outline-variant rounded p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-outline-variant pb-4 mb-5">
+        <div className="min-w-0">
+          <h2 className="font-headline-md text-primary flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">mic</span>
+            {t("voice.title")}
+          </h2>
+          <p className="font-body-md text-on-surface-variant mt-1 max-w-prose">
+            {t("voice.subtitle")}
+          </p>
+        </div>
+
+        {/* Spoken-language selector — defaults to the interface language. */}
+        <label className="flex flex-col items-end gap-1">
+          <span className="font-label-caps text-[10px] text-on-surface-variant">
+            {t("voice.language")}
+          </span>
+          <select
+            value={spokenLang}
+            disabled={state === "recording" || state === "processing"}
+            onChange={(e) => setSpokenLang(e.target.value)}
+            className="bg-surface-container-lowest border border-outline-variant rounded px-3 py-1.5 font-body-md text-on-surface focus:outline-none focus:border-primary disabled:opacity-60"
+          >
+            {COMPLAINT_LANGS.map((code) => (
+              <option key={code} value={code.toLowerCase()}>
+                {code}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {/* Controls / state */}
+      {state === "idle" || state === "error" ? (
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={startRecording}
+            className="self-start flex items-center gap-2 bg-primary text-surface-bright px-5 py-2.5 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
+          >
+            <span className="material-symbols-outlined">mic</span>
+            {t("voice.record")}
+          </button>
+          {state === "error" && error && <ErrorLine message={error} />}
+        </div>
+      ) : state === "recording" ? (
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="flex items-center gap-2 bg-error text-on-error px-5 py-2.5 rounded font-body-md font-semibold hover:opacity-90 transition-opacity"
+          >
+            <span className="material-symbols-outlined animate-pulse">stop_circle</span>
+            {t("voice.stop")}
+          </button>
+          <span className="flex items-center gap-2 font-body-md text-on-surface">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-error animate-pulse" />
+            {t("voice.recording", { sec: seconds })}
+          </span>
+        </div>
+      ) : state === "processing" ? (
+        <div className="max-w-xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-body-md text-on-surface flex items-center gap-2">
+              <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+              {t("voice.processing")}
+            </span>
+            <span className="font-mono-sm text-on-surface-variant">{progress}%</span>
+          </div>
+          <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-[width] duration-200 ease-linear"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="font-body-md text-on-surface-variant mt-2">{t("voice.processingHint")}</p>
+        </div>
+      ) : null}
+
+      {/* Result: transcript + translation side by side (review before applying) */}
+      {state === "done" && result && (
+        <div className="mt-2 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-outline-variant rounded bg-surface-container-lowest p-4">
+              <p className="font-label-caps text-[10px] text-on-surface-variant mb-2 flex items-center justify-between">
+                <span>{t("voice.transcript")}</span>
+                <span className="font-mono-sm normal-case tracking-normal text-outline uppercase">
+                  {result.language}
+                </span>
+              </p>
+              <p className="font-serif text-body-lg leading-relaxed text-on-surface whitespace-pre-wrap">
+                {result.transcript}
+              </p>
+            </div>
+            <div className="border border-outline-variant rounded bg-surface-container-lowest p-4">
+              <p className="font-label-caps text-[10px] text-on-surface-variant mb-2">
+                {t("voice.translation")}
+              </p>
+              {result.translation ? (
+                <p className="font-serif text-body-lg leading-relaxed text-on-surface whitespace-pre-wrap">
+                  {result.translation}
+                </p>
+              ) : (
+                <p className="font-body-md text-on-surface-variant italic">
+                  {t("voice.noTranslation")}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="font-body-md text-on-surface-variant flex items-start gap-2">
+            <span className="material-symbols-outlined text-base text-on-surface-variant mt-0.5">info</span>
+            {t("voice.reviewNote")}
+          </p>
+
+          {error && <ErrorLine message={error} />}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={apply}
+              disabled={applying || applied || !englishText.trim()}
+              className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-lg">
+                {applied ? "check_circle" : "playlist_add_check"}
+              </span>
+              {applied ? t("voice.applied") : t("voice.apply")}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="flex items-center gap-2 border border-outline-variant px-4 py-2 rounded font-body-md text-on-surface hover:bg-surface-container-low transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg">restart_alt</span>
+              {t("voice.rerecord")}
+            </button>
+            {result.duration != null && (
+              <span className="font-mono-sm text-on-surface-variant">
+                {t("voice.duration", { sec: Math.round(result.duration) })}
+              </span>
+            )}
+          </div>
+        </div>
       )}
     </section>
   );
@@ -128,6 +444,7 @@ function PersonsPanel({
   persons: Person[];
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState<Person | "new" | null>(null);
 
   const grouped = useMemo(() => {
@@ -140,19 +457,19 @@ function PersonsPanel({
   return (
     <aside className="bg-surface border border-outline-variant rounded">
       <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant">
-        <h2 className="font-headline-md text-primary">People</h2>
+        <h2 className="font-headline-md text-primary">{t("details.people.title")}</h2>
         <button
           type="button"
           onClick={() => setEditing("new")}
           className="flex items-center gap-1 font-body-md text-primary hover:underline"
         >
           <span className="material-symbols-outlined text-lg">add</span>
-          Add
+          {t("common.add")}
         </button>
       </div>
 
       {editing && (
-        <PersonForm
+        <PersonFormRow
           caseId={caseId}
           person={editing === "new" ? null : editing}
           onDone={() => setEditing(null)}
@@ -165,23 +482,21 @@ function PersonsPanel({
 
       {grouped.length === 0 && !editing ? (
         <p className="px-5 py-8 font-body-md text-on-surface-variant text-center">
-          No people added yet.
+          {t("details.people.empty")}
         </p>
       ) : (
         <div className="divide-y divide-outline-variant">
           {grouped.map((g) => (
             <div key={g.role} className="px-5 py-4">
               <p className="font-label-caps text-[10px] text-on-surface-variant mb-3">
-                {g.people.length > 1
-                  ? PERSON_ROLE_LABEL[g.role].plural
-                  : PERSON_ROLE_LABEL[g.role].singular}
+                {t(`person.${g.role}.${g.people.length > 1 ? "many" : "one"}` as TKey)}
               </p>
               <ul className="space-y-3">
                 {g.people.map((p) => (
                   <li key={p.id} className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-body-md text-on-surface">
-                        {p.full_name ?? "Unnamed"}
+                        {p.full_name ?? t("details.person.unnamed")}
                         {p.alias ? (
                           <span className="text-on-surface-variant"> · “{p.alias}”</span>
                         ) : null}
@@ -203,7 +518,7 @@ function PersonsPanel({
                       type="button"
                       onClick={() => setEditing(p)}
                       className="text-on-surface-variant hover:text-primary transition-colors shrink-0"
-                      aria-label={`Edit ${p.full_name ?? "person"}`}
+                      aria-label={t("common.edit")}
                     >
                       <span className="material-symbols-outlined text-lg">edit</span>
                     </button>
@@ -218,7 +533,7 @@ function PersonsPanel({
   );
 }
 
-function PersonForm({
+function PersonFormRow({
   caseId,
   person,
   onDone,
@@ -229,6 +544,7 @@ function PersonForm({
   onDone: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [f, setF] = useState<PersonForm>(
     person
       ? {
@@ -251,7 +567,7 @@ function PersonForm({
 
   async function save() {
     if (!f.full_name.trim()) {
-      setErr("A name is required.");
+      setErr(t("details.person.nameRequired"));
       return;
     }
     setSaving(true);
@@ -262,7 +578,7 @@ function PersonForm({
       else await api.post(`/api/cases/${caseId}/persons`, body);
       onSaved();
     } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Could not save.");
+      setErr(e?.response?.data?.detail ?? t("details.saveError"));
       setSaving(false);
     }
   }
@@ -270,9 +586,9 @@ function PersonForm({
   return (
     <div className="px-5 py-4 bg-surface-container-low border-b border-outline-variant space-y-3">
       <p className="font-label-caps text-[10px] text-on-surface-variant">
-        {person ? "Edit person" : "Add person"}
+        {person ? t("details.person.edit") : t("details.person.add")}
       </p>
-      <FieldRow label="Role">
+      <FieldRow label={t("details.field.role")}>
         <select
           value={f.role}
           onChange={(e) => set("role", e.target.value)}
@@ -280,35 +596,35 @@ function PersonForm({
         >
           {PERSON_ROLES.map((r) => (
             <option key={r} value={r}>
-              {PERSON_ROLE_LABEL[r].singular}
+              {t(`person.${r}.one` as TKey)}
             </option>
           ))}
         </select>
       </FieldRow>
-      <FieldRow label="Full name">
+      <FieldRow label={t("details.field.fullName")}>
         <TextInput value={f.full_name} onChange={(v) => set("full_name", v)} />
       </FieldRow>
       <div className="grid grid-cols-2 gap-3">
-        <FieldRow label="Alias">
+        <FieldRow label={t("details.field.alias")}>
           <TextInput value={f.alias} onChange={(v) => set("alias", v)} />
         </FieldRow>
-        <FieldRow label="Father's name">
+        <FieldRow label={t("details.field.fatherName")}>
           <TextInput value={f.father_name} onChange={(v) => set("father_name", v)} />
         </FieldRow>
-        <FieldRow label="Age">
+        <FieldRow label={t("details.field.age")}>
           <TextInput value={f.age} onChange={(v) => set("age", v)} />
         </FieldRow>
-        <FieldRow label="Gender">
+        <FieldRow label={t("details.field.gender")}>
           <TextInput value={f.gender} onChange={(v) => set("gender", v)} />
         </FieldRow>
-        <FieldRow label="Phone">
+        <FieldRow label={t("details.field.phone")}>
           <TextInput value={f.phone} onChange={(v) => set("phone", v)} />
         </FieldRow>
-        <FieldRow label="Occupation">
+        <FieldRow label={t("details.field.occupation")}>
           <TextInput value={f.occupation} onChange={(v) => set("occupation", v)} />
         </FieldRow>
       </div>
-      <FieldRow label="Address">
+      <FieldRow label={t("details.field.address")}>
         <TextInput value={f.address} onChange={(v) => set("address", v)} />
       </FieldRow>
 
@@ -326,14 +642,14 @@ function PersonForm({
           disabled={saving}
           className="flex items-center gap-1 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
         >
-          {saving ? "Saving…" : person ? "Save" : "Add"}
+          {saving ? t("common.saving") : person ? t("common.save") : t("common.add")}
         </button>
         <button
           type="button"
           onClick={onDone}
           className="px-4 py-2 rounded font-body-md text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -353,6 +669,7 @@ function StatementsPanel({
   statements: Statement[];
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [adding, setAdding] = useState(false);
   const nameById = useMemo(() => {
     const m = new Map<number, string>();
@@ -363,14 +680,14 @@ function StatementsPanel({
   return (
     <section className="bg-surface-container-lowest border border-outline-variant rounded">
       <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
-        <h2 className="font-headline-md text-primary">Statements</h2>
+        <h2 className="font-headline-md text-primary">{t("details.statements.title")}</h2>
         <button
           type="button"
           onClick={() => setAdding((a) => !a)}
           className="flex items-center gap-1 font-body-md text-primary hover:underline"
         >
           <span className="material-symbols-outlined text-lg">add</span>
-          Add statement
+          {t("details.statements.add")}
         </button>
       </div>
 
@@ -388,7 +705,7 @@ function StatementsPanel({
 
       {statements.length === 0 && !adding ? (
         <p className="px-6 py-8 font-body-md text-on-surface-variant text-center">
-          No statements recorded yet.
+          {t("details.statements.empty")}
         </p>
       ) : (
         <ul className="divide-y divide-outline-variant">
@@ -396,7 +713,7 @@ function StatementsPanel({
             <li key={s.id} className="px-6 py-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-label-caps text-[10px] text-on-surface-variant border border-outline-variant rounded px-2 py-0.5">
-                  {s.statement_type}
+                  {t(`statementType.${s.statement_type}` as TKey)}
                 </span>
                 <span className="font-body-md text-on-surface">
                   {s.person_id != null ? nameById.get(s.person_id) ?? "—" : "—"}
@@ -427,6 +744,7 @@ function StatementForm({
   onDone: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [personId, setPersonId] = useState("");
   const [type, setType] = useState("WITNESS");
   const [lang, setLang] = useState("EN");
@@ -436,11 +754,11 @@ function StatementForm({
 
   async function save() {
     if (!personId) {
-      setErr("Select the person giving the statement.");
+      setErr(t("details.statement.selectPerson"));
       return;
     }
     if (!text.trim()) {
-      setErr("Statement text is required.");
+      setErr(t("details.statement.textRequired"));
       return;
     }
     setSaving(true);
@@ -454,7 +772,7 @@ function StatementForm({
       });
       onSaved();
     } catch (e: any) {
-      setErr(e?.response?.data?.detail ?? "Could not save.");
+      setErr(e?.response?.data?.detail ?? t("details.saveError"));
       setSaving(false);
     }
   }
@@ -462,13 +780,13 @@ function StatementForm({
   return (
     <div className="px-6 py-4 bg-surface-container-low border-b border-outline-variant space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <FieldRow label="Person">
+        <FieldRow label={t("details.statement.person")}>
           <select
             value={personId}
             onChange={(e) => setPersonId(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            <option value="">Select…</option>
+            <option value="">{t("common.select")}</option>
             {persons.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.full_name ?? `Person ${p.id}`} ({p.role})
@@ -476,20 +794,20 @@ function StatementForm({
             ))}
           </select>
         </FieldRow>
-        <FieldRow label="Type">
+        <FieldRow label={t("details.statement.type")}>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
           >
-            {STATEMENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {STATEMENT_TYPES.map((tp) => (
+              <option key={tp} value={tp}>
+                {t(`statementType.${tp}` as TKey)}
               </option>
             ))}
           </select>
         </FieldRow>
-        <FieldRow label="Language">
+        <FieldRow label={t("details.statement.language")}>
           <select
             value={lang}
             onChange={(e) => setLang(e.target.value)}
@@ -503,12 +821,12 @@ function StatementForm({
           </select>
         </FieldRow>
       </div>
-      <FieldRow label="Statement">
+      <FieldRow label={t("details.statement.text")}>
         <textarea
           rows={4}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="What the person stated…"
+          placeholder={t("details.statement.placeholder")}
           className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary resize-y"
         />
       </FieldRow>
@@ -527,14 +845,14 @@ function StatementForm({
           disabled={saving}
           className="flex items-center gap-1 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Add statement"}
+          {saving ? t("common.saving") : t("details.statements.add")}
         </button>
         <button
           type="button"
           onClick={onDone}
           className="px-4 py-2 rounded font-body-md text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -566,5 +884,14 @@ function TextInput({
       onChange={(e) => onChange(e.target.value)}
       className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
     />
+  );
+}
+
+function ErrorLine({ message }: { message: string }) {
+  return (
+    <p role="alert" className="flex items-center gap-2 font-body-md text-error">
+      <span className="material-symbols-outlined text-base">error</span>
+      {message}
+    </p>
   );
 }

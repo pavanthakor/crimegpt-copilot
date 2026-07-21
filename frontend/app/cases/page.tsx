@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
+import { useI18n, type TKey } from "@/lib/i18n";
 import { CASE_STATUSES, formatUpdated, statusMeta } from "@/lib/cases";
 
 type CaseRow = {
@@ -18,6 +19,7 @@ type CaseRow = {
 
 export default function CasesPage() {
   const { user, ready } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [rows, setRows] = useState<CaseRow[]>([]);
@@ -38,7 +40,7 @@ export default function CasesPage() {
     api
       .get<CaseRow[]>("/api/cases")
       .then((r) => setRows(r.data))
-      .catch((e) => setError(e?.response?.data?.detail ?? "The server could not be reached."))
+      .catch((e) => setError(e?.response?.data?.detail ?? t("common.serverUnreachable")))
       .finally(() => setLoading(false));
   }
 
@@ -74,13 +76,13 @@ export default function CasesPage() {
       {/* Header: count + New case */}
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="font-headline-lg text-primary">Cases</h1>
+          <h1 className="font-headline-lg text-primary">{t("cases.title")}</h1>
           <p className="font-body-md text-on-surface-variant mt-1">
             {loading
-              ? "Loading…"
-              : `${rows.length} ${rows.length === 1 ? "case" : "cases"}${
-                  isSho ? " across all officers" : " assigned to you"
-                }`}
+              ? t("common.loading")
+              : isSho
+                ? t("cases.subtitle.sho", { n: rows.length })
+                : t("cases.subtitle.io", { n: rows.length })}
           </p>
         </div>
         <button
@@ -89,7 +91,7 @@ export default function CasesPage() {
           className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2.5 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
         >
           <span className="material-symbols-outlined text-xl">add</span>
-          New case
+          {t("cases.new")}
         </button>
       </div>
 
@@ -103,12 +105,12 @@ export default function CasesPage() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search case number, title, or station…"
+            placeholder={t("cases.searchPlaceholder")}
             className="w-full bg-surface-container-low border border-outline-variant rounded pl-11 pr-4 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary transition-colors"
           />
         </div>
         <label htmlFor="status-filter" className="font-label-caps text-on-surface-variant">
-          Status
+          {t("cases.filter.status")}
         </label>
         <select
           id="status-filter"
@@ -116,10 +118,10 @@ export default function CasesPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="bg-surface-container-low border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
         >
-          <option value="ALL">All</option>
+          <option value="ALL">{t("cases.filter.all")}</option>
           {CASE_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {statusMeta(s).label}
+              {t(`status.${s}` as TKey)}
             </option>
           ))}
         </select>
@@ -130,12 +132,12 @@ export default function CasesPage() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">
-              <th className="px-4 py-3 font-label-caps w-[160px]">Case #</th>
-              <th className="px-4 py-3 font-label-caps">Title</th>
-              <th className="px-4 py-3 font-label-caps w-[150px]">Status</th>
-              {isSho && <th className="px-4 py-3 font-label-caps w-[180px]">Officer</th>}
-              <th className="px-4 py-3 font-label-caps w-[180px]">Police Station</th>
-              <th className="px-4 py-3 font-label-caps w-[170px] text-right">Last Updated</th>
+              <th className="px-4 py-3 font-label-caps w-[160px]">{t("cases.col.number")}</th>
+              <th className="px-4 py-3 font-label-caps">{t("cases.col.title")}</th>
+              <th className="px-4 py-3 font-label-caps w-[150px]">{t("cases.col.status")}</th>
+              {isSho && <th className="px-4 py-3 font-label-caps w-[180px]">{t("cases.col.officer")}</th>}
+              <th className="px-4 py-3 font-label-caps w-[180px]">{t("cases.col.station")}</th>
+              <th className="px-4 py-3 font-label-caps w-[170px] text-right">{t("cases.col.updated")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant">
@@ -148,7 +150,7 @@ export default function CasesPage() {
                 <td colSpan={cols} className="px-4 py-16 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <span className="material-symbols-outlined text-4xl text-error">error</span>
-                    <p className="font-headline-md text-primary">Could not load cases</p>
+                    <p className="font-headline-md text-primary">{t("cases.loadError.title")}</p>
                     <p className="font-body-md text-on-surface-variant">{error}</p>
                     <button
                       type="button"
@@ -156,7 +158,7 @@ export default function CasesPage() {
                       className="mt-2 flex items-center gap-2 border border-outline-variant px-4 py-2 rounded font-body-md text-on-surface hover:bg-surface-container-low transition-colors"
                     >
                       <span className="material-symbols-outlined text-lg">refresh</span>
-                      Retry
+                      {t("common.retry")}
                     </button>
                   </div>
                 </td>
@@ -169,9 +171,9 @@ export default function CasesPage() {
                       <span className="material-symbols-outlined text-4xl text-outline">
                         folder_open
                       </span>
-                      <p className="font-headline-md text-primary">No cases yet</p>
+                      <p className="font-headline-md text-primary">{t("cases.empty.title")}</p>
                       <p className="font-body-md text-on-surface-variant">
-                        Create the first case to begin.
+                        {t("cases.empty.hint")}
                       </p>
                       <button
                         type="button"
@@ -179,12 +181,12 @@ export default function CasesPage() {
                         className="mt-2 flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
                       >
                         <span className="material-symbols-outlined text-lg">add</span>
-                        New case
+                        {t("cases.new")}
                       </button>
                     </div>
                   ) : (
                     <p className="font-body-md text-on-surface-variant">
-                      No cases match your filters.
+                      {t("cases.noMatch")}
                     </p>
                   )}
                 </td>
@@ -203,13 +205,13 @@ export default function CasesPage() {
                     </td>
                     <td className="px-4 py-4 align-top">
                       <span className="font-body-md text-primary group-hover:underline">
-                        {c.title ?? "Untitled case"}
+                        {c.title ?? t("common.untitled")}
                       </span>
                     </td>
                     <td className="px-4 py-4 align-top">
                       <span className="inline-flex items-center gap-2">
                         <span className={`inline-block w-2 h-2 rounded-full ${meta.dot}`} />
-                        <span className="font-body-md text-on-surface">{meta.label}</span>
+                        <span className="font-body-md text-on-surface">{t(`status.${c.status}` as TKey)}</span>
                       </span>
                     </td>
                     {isSho && (
