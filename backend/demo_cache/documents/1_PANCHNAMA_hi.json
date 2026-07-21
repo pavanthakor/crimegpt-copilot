@@ -19,12 +19,12 @@
     {
       "description": "Gold chain, approx 18 grams, yellow metal",
       "quantity": 1,
-      "estimated_value": 108000.0
+      "estimated_value": "Rs. 1,08,000"
     },
     {
       "description": "Iron crowbar used to break the window grille",
       "quantity": 1,
-      "estimated_value": 250.0
+      "estimated_value": "Rs. 250"
     }
   ],
   "witnesses": [
@@ -48,10 +48,10 @@
   ],
   "seizure_datetime": "12/07/2026 at 11:00 hrs",
   "seizure_location": "Vasna, Ahmedabad",
-  "panchnama_date": "20/07/2026",
+  "panchnama_date": "10/07/2026",
   "panchnama_place": "B/12 Shivalik Residency, Satellite, Ahmedabad",
-  "proceedings_narrative": "\"\"\"संबंधित कार्य I-CR-0142-2026 के साथ, गलती से हुए घटना के स्थान और उसके संबंधित वस्तुएँ पंच सबूतदाताओं की मौजूदगी में जांची गई। जांच के अनुसार, नीचे वर्ण",
-  "investigation_done": "The complaint was registered vide FIR No. 0142/2026 dated 10/07/2026 at Satellite Police Station. The accused Suresh Vaghela has been arrested. The following article(s) have been seized during investigation: Gold chain, approx 18 grams, yellow metal, Iron crowbar used to break the window grille. Statement(s) of 1 witness(es)/person(s) have been recorded.",
+  "proceedings_narrative": "संबंधित काशीय I-CR-0142-2026, न्यायिक स्थान और अपराध से जुड़े प्रतिबंधित वस्तुएँ पंच सब्जेक्ट की मौजूदा होने पर जाँच की गई। जाँच के अनुसार निम्नलिखित वस्तुएँ न्याय के अनुसार पाई और संलग्न की गई।",
+  "investigation_done": "The complaint was registered vide FIR No. 0142/2026 dated 10/07/2026 at Satellite Police Station. The accused Suresh Vaghela has been arrested. The following article(s) have been seized during investigation: (1) Gold chain, approx 18 grams, yellow metal; (2) Iron crowbar used to break the window grille. Statement(s) of 1 witness(es)/person(s) have been recorded.",
   "pending_investigation": "Recovery of the remaining case property, verification of the antecedents of the accused, identification of any associates, and recording of further statements remain to be completed.",
   "grounds_for_custody": "The custodial interrogation of the accused Suresh Vaghela is necessary to recover the remaining case property, to identify the associates involved in the offence, and to complete the investigation. There is a likelihood of the accused tampering with evidence or influencing witnesses if not taken into custody.",
   "hospital": "Civil Hospital, Ahmedabad",

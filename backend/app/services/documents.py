@@ -79,6 +79,32 @@ def _fmt_date(dt) -> str | None:
     return dt.strftime("%d/%m/%Y") if dt else None
 
 
+def _fmt_inr(value) -> str:
+    """Format a rupee amount with Indian digit grouping and an 'Rs.' prefix.
+
+    108000 -> 'Rs. 1,08,000'; 250 -> 'Rs. 250'; None/blank -> ''. Rupees are shown as whole
+    numbers (the pool stores no paise), so the raw-float '108000.0' artefact never appears.
+    """
+    if value is None or value == "":
+        return ""
+    try:
+        n = int(round(float(value)))
+    except (TypeError, ValueError):
+        return str(value)
+    sign = "-" if n < 0 else ""
+    s = str(abs(n))
+    if len(s) > 3:
+        last3, rest = s[-3:], s[:-3]
+        groups = []
+        while len(rest) > 2:
+            groups.insert(0, rest[-2:])
+            rest = rest[:-2]
+        if rest:
+            groups.insert(0, rest)
+        s = ",".join(groups) + "," + last3
+    return f"Rs. {sign}{s}"
+
+
 def _first(persons: list[Person], role: PersonRole) -> Person | None:
     return next((p for p in persons if p.role == role), None)
 
@@ -107,7 +133,9 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
         {
             "description": s.description,
             "quantity": s.quantity,
-            "estimated_value": float(s.estimated_value) if s.estimated_value is not None else None,
+            # Pre-formatted for display (Indian grouping + Rs.), so the template renders
+            # "Rs. 1,08,000" not the raw float "108000.0".
+            "estimated_value": _fmt_inr(s.estimated_value),
         }
         for s in seized
     ]
@@ -142,7 +170,10 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
         )
 
     district = case.district or ""
-    item_list = ", ".join(s.description for s in seized if s.description) or "nil"
+    # Numbered, semicolon-separated so item boundaries stay clear even though individual
+    # descriptions contain commas (e.g. "Gold chain, approx 18 grams, yellow metal").
+    _descs = [s.description for s in seized if s.description]
+    item_list = "; ".join(f"({i}) {d}" for i, d in enumerate(_descs, 1)) or "nil"
 
     # CCTNS Form IF4 (Property Seizure Memo) fields — derived from existing pool data.
     _empty_witness = {"full_name": "", "father_name": "", "address": ""}
@@ -188,8 +219,13 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
         # seizure header
         "seizure_datetime": _fmt_dt(first_seized.seizure_datetime) if first_seized else None,
         "seizure_location": (first_seized.seizure_location if first_seized else None),
-        # panchnama
-        "panchnama_date": _fmt_date(datetime.now(timezone.utc).date()),
+        # panchnama — dated to the case's incident/proceedings date (paired with
+        # panchnama_place = incident_location), NOT the document-generation date.
+        "panchnama_date": _fmt_date(
+            case.incident_datetime.date()
+            if case.incident_datetime
+            else (case.fir_date or datetime.now(timezone.utc).date())
+        ),
         "panchnama_place": case.incident_location or case.police_station,
         "proceedings_narrative": (
             f"In connection with case {case.case_number}, the place and the articles connected "

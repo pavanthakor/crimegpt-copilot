@@ -19,12 +19,12 @@
     {
       "description": "Gold chain, approx 18 grams, yellow metal",
       "quantity": 1,
-      "estimated_value": 108000.0
+      "estimated_value": "Rs. 1,08,000"
     },
     {
       "description": "Iron crowbar used to break the window grille",
       "quantity": 1,
-      "estimated_value": 250.0
+      "estimated_value": "Rs. 250"
     }
   ],
   "witnesses": [
@@ -48,12 +48,12 @@
   ],
   "seizure_datetime": "12/07/2026 at 11:00 hrs",
   "seizure_location": "Vasna, Ahmedabad",
-  "panchnama_date": "20/07/2026",
+  "panchnama_date": "10/07/2026",
   "panchnama_place": "B/12 Shivalik Residency, Satellite, Ahmedabad",
   "proceedings_narrative": "In connection with case I-CR-0142-2026, the place and the articles connected with the offence were examined in the presence of the panch witnesses. On examination the article(s) described below were found and seized as per law.",
-  "investigation_done": "\"\"\"लेटिक हुई थी कार्रवाई फ़आरी नंबर I-CR-0142-2026 द्वारा 10/07/2026 को सैटलिट पुलिस स्टेशन में। दावेदार सुरेश वागेला को अटकाया गया है। निवड़न के दौरान इस प्रकार के वस्तुओं की संपत्ति की लेटिक अधिसूचना हुई: सोलह ग्राम आमतौर पर साफ़े धातु की जॉली, इरons नावड़ा जिसका उपयोग दरवाज़े की टिरेल को खोलने के लिए किया गया था। 1 सब्जित/दंडित की कथन अटकाया गया है।\"\"\"",
-  "pending_investigation": "\"\"\"\"शेष मामले धारा की पत्रिका का पुनरायोजन, सम्भव अभियोजित की पूर्व इतिहास की सत्यापन, किसी संबद्ध की पहचान और दопहराव के लिए अधिक बयावत रिकॉर्ड का रचयिता अभी भी पूरा नहीं हुआ है।\"\"\"",
-  "grounds_for_custody": "\"\"\"\"सुरेश वागेला के प्रतिबंधित सवाल-जवाब की आवश्यकता है रहस्यमय धारा को पता लगाने, अपराध में जुड़े संबद्ध व्यक्तियों कीIndent the text to match the Hindi sentence structure. व्यक्तिगत प्रमाण को टैंपर करना या देशियों को प्रभावित करना नहीं हुआ अगर उसे प्रतिबंधित नहीं किया जाए।\"\"\"",
+  "investigation_done": "लेभी नंबर 0142/2026 के अनुसार 10/07/2026 को सैटलिट पालिसी स्टेशन पर आरोप लगाया गया है। दावेदार सुरेश वाघेला को अटकाया गया है। निवडन के दौरान इस प्रकार की मालिकाही ढूंढी गई: (1) सफेद धातु का लग्ड़ी जिना, लगभग 18 ग्राम; (2) पैरावाला मस्क जो खाड़ी को टेस्टने के लिए उपयोग किया गया। 1 सब्जित/लोक का कथन रचित किया गया है।",
+  "pending_investigation": "पतन वस्तुओं की पुनराये-आयै, समाचार पत्रों की सत्यता की सत्यापिति, सहास्त्रकारों की पहचान और अधिक कथनों के नोटिफाईकेशन अभी तक पूरा नहीं हुआ है।",
+  "grounds_for_custody": "कार्रवाई की अधिकारी सुरेश वागेला के अनुसूचित प्रश्नावली की आवश्यकता है जिससे शेष मामले की संपत्ति की पुरालेखन की गई अवधि पाई जा सके, दोष से जुड़े सहायकों की पहचान की जा सके और शोध को पूरा किया जा सके। अगर उसे अनुपालन में रखा नहीं जाता है, तो दावेदार ने और्डर का प्रतिबद्ध विषय से गुटका लगाकर या मल्टर जाहिर करने की संभावना है।",
   "hospital": "Civil Hospital, Ahmedabad",
   "subject_name": "Suresh Vaghela",
   "subject_role": "accused",

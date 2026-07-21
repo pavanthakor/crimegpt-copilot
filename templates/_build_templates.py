@@ -203,27 +203,22 @@ def build_seizure_receipt():
     _line(
         doc,
         "The property described below was seized by {{ io_name }}, Investigating Officer, in "
-        "the presence of the two independent panch witnesses named below. Each article was "
-        "packed and sealed as recorded:",
+        "the presence of the two independent panch witnesses named below, and each article was "
+        "thereafter packed and sealed:",
     )
-    # Packing / sealing table (with a physically-filled 'how packed & sealed' column)
+    # Seized-property table. (The est.-value column carries its own 'Rs.' prefix, so the
+    # header drops the redundant '(Rs.)'.)
     _looped_table(
         doc,
-        ["Sr.", "Description of property", "Qty", "Est. value (Rs.)", "How packed & sealed"],
+        ["Sr.", "Description of property", "Qty", "Est. value"],
         "{%tr for item in seized_items %}",
         [
             "{{ loop.index }}",
             "{{ item.description }}",
             "{{ item.quantity }}",
             "{{ item.estimated_value }}",
-            "",
         ],
     )
-    doc.add_paragraph()
-
-    # Seal specimen box (physical impression affixed here)
-    _line(doc, "Specimen of seal used (affix impression below):", bold=True)
-    _blank_box(doc, lines=4)
     doc.add_paragraph()
 
     # Two independent panch witness blocks
@@ -279,7 +274,7 @@ def build_panchnama():
     _line(doc, "Articles found / seized during the proceedings:", bold=True)
     _looped_table(
         doc,
-        ["No.", "Description", "Quantity", "Estimated value (Rs.)"],
+        ["No.", "Description", "Quantity", "Estimated value"],
         "{%tr for item in seized_items %}",
         ["{{ loop.index }}", "{{ item.description }}", "{{ item.quantity }}", "{{ item.estimated_value }}"],
     )
