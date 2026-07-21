@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
+import { descOr } from "@/lib/cases";
 
 type Person = { id: number; full_name: string | null };
 export type DiaryEntry = {
@@ -211,7 +212,7 @@ export default function DiaryTab({
                           </span>
                         )}
                       </div>
-                      <p className="font-body-md text-on-surface">{e.description}</p>
+                      <p className="font-body-md text-on-surface">{descOr(e.description)}</p>
                       {(e.related_person_id != null || e.related_evidence_id != null) && (
                         <div className="flex flex-wrap gap-3 mt-2">
                           {e.related_person_id != null && (

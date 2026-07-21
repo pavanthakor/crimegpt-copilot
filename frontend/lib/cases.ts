@@ -48,6 +48,32 @@ export function formatUpdated(iso: string | null | undefined): string {
   return `${date} · ${time}`;
 }
 
+// A description string, or a clear placeholder when it is missing, blank, or just a
+// bare dash placeholder ("—" / "-" / "–"). `??` alone leaks empty strings and stored
+// em-dash placeholders through as a meaningless cell; officers read "(no description)"
+// as "nothing recorded", not as a rendering glitch.
+export function descOr(desc: string | null | undefined): string {
+  const trimmed = (desc ?? "").replace(/[\s—–-]+/g, "");
+  return trimmed ? (desc as string) : "(no description)";
+}
+
+// A section's `reason` adds nothing when it merely restates the heading title (the
+// AI often returns the short statutory title as the "reason", so a full title in the
+// heading + short title as the reason reads as a duplicated title). Compare case- and
+// punctuation-insensitively (Latin, Devanagari, Gujarati): redundant if the title
+// starts with, ends with, contains, or equals the reason.
+export function reasonRestatesTitle(
+  reason: string | null | undefined,
+  title: string | null | undefined
+): boolean {
+  if (!reason || !title) return false;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9ऀ-ॿ઀-૿]+/g, " ").trim();
+  const r = norm(reason);
+  const t = norm(title);
+  if (!r || !t) return false;
+  return t === r || t.startsWith(r) || t.endsWith(r) || t.includes(` ${r} `);
+}
+
 // Person roles, in the display order the Case-details panel groups them.
 export const PERSON_ROLES = ["COMPLAINANT", "ACCUSED", "WITNESS", "VICTIM"] as const;
 export type PersonRole = (typeof PERSON_ROLES)[number];

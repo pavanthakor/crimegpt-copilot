@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
-import { formatUpdated } from "@/lib/cases";
+import { descOr, formatUpdated } from "@/lib/cases";
 
 type Person = { id: number; role: string; full_name: string | null };
 type SeizedItem = {
@@ -414,7 +414,7 @@ function EvidenceCard({
           </span>
         </div>
 
-        <p className="font-body-md text-on-surface">{ev.description ?? "No description"}</p>
+        <p className="font-body-md text-on-surface">{descOr(ev.description)}</p>
 
         {ev.tags && ev.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

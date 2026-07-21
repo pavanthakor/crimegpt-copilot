@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import { reasonRestatesTitle } from "@/lib/cases";
 
 type Section = {
   id: number;
@@ -384,6 +385,7 @@ function MarkedNarrative({
 
 /* ---------------- Section card ---------------- */
 
+
 function SectionCard({
   section,
   active,
@@ -398,6 +400,12 @@ function SectionCard({
   const accepted = section.status === "ACCEPTED";
   const officerRejected = section.status === "REJECTED";
   const conf = section.confidence != null ? Math.round(section.confidence * 100) : null;
+  // The reason is often just the short statutory title, which the full title in the
+  // heading already carries — showing both reads as a duplicated title. Suppress the
+  // reason when it is a leading fragment of (or identical to) the heading title.
+  const reason = reasonRestatesTitle(section.reason, section.section_title)
+    ? null
+    : section.reason;
 
   return (
     <div
@@ -460,9 +468,9 @@ function SectionCard({
         )}
       </div>
 
-      {section.reason && (
+      {reason && (
         <p className="font-body-md text-on-surface-variant leading-relaxed mb-4">
-          {section.reason}
+          {reason}
         </p>
       )}
 

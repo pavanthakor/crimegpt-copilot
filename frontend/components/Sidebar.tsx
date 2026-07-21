@@ -18,12 +18,12 @@ type NavItem = {
 // otherwise they fall back to the case list (where an officer picks a case).
 type Item = NavItem & { caseTab?: string };
 const NAV: Item[] = [
-  { label: "Dashboard", href: "/dashboard", icon: "dashboard", ready: false },
+  { label: "Dashboard", href: "/dashboard", icon: "dashboard", ready: true },
   { label: "Cases", href: "/cases", icon: "folder_shared", ready: true },
   { label: "Evidence", href: "/cases", icon: "inventory_2", ready: true, caseTab: "evidence" },
   { label: "Documents", href: "/cases", icon: "description", ready: true, caseTab: "documents" },
-  { label: "AI Analysis", href: "/analysis", icon: "neurology", ready: false },
-  { label: "Audit", href: "/audit", icon: "verified_user", ready: false },
+  { label: "AI Analysis", href: "/analysis", icon: "neurology", ready: true },
+  { label: "Audit", href: "/audit", icon: "verified_user", ready: true },
 ];
 
 function isActive(pathname: string, href: string): boolean {

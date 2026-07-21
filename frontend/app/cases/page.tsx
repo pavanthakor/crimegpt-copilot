@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
@@ -19,11 +19,16 @@ type CaseRow = {
 export default function CasesPage() {
   const { user, ready } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<CaseRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  // Honour a ?status= deep-link (e.g. from a dashboard status tile) as the initial filter.
+  const initialStatus = searchParams.get("status");
+  const [statusFilter, setStatusFilter] = useState<string>(
+    initialStatus && (CASE_STATUSES as string[]).includes(initialStatus) ? initialStatus : "ALL"
+  );
 
   const isSho = user?.role === "SHO";
 
