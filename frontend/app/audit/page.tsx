@@ -149,7 +149,7 @@ export default function AuditPage() {
       {casesError && <ErrorLine message={casesError} />}
 
       {/* Dense ruled table */}
-      <div className="border border-outline-variant rounded overflow-hidden bg-surface-container-lowest">
+      <div className="border border-outline-variant rounded overflow-x-auto bg-surface-container-lowest">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">

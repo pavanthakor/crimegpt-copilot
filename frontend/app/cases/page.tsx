@@ -88,7 +88,7 @@ export default function CasesPage() {
         <button
           type="button"
           onClick={() => router.push("/cases/new")}
-          className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2.5 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
+          className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
         >
           <span className="material-symbols-outlined text-xl">add</span>
           {t("cases.new")}
@@ -128,7 +128,7 @@ export default function CasesPage() {
       </div>
 
       {/* Ruled table */}
-      <div className="border border-outline-variant rounded overflow-hidden bg-surface-container-lowest">
+      <div className="border border-outline-variant rounded overflow-x-auto bg-surface-container-lowest">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">

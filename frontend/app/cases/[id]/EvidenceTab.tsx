@@ -166,7 +166,7 @@ function SeizedItemsBlock({
       {items.length === 0 && !editing ? (
         <EmptyBlock icon="inventory_2" title={t("evidence.seized.empty.title")} hint={t("evidence.seized.empty.hint")} />
       ) : (
-        <div className="border border-outline-variant rounded overflow-hidden bg-surface-container-lowest">
+        <div className="border border-outline-variant rounded overflow-x-auto bg-surface-container-lowest">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">
@@ -576,7 +576,7 @@ function UploadForm({
 
 function EmptyBlock({ icon, title, hint }: { icon: string; title: string; hint: string }) {
   return (
-    <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-12 flex flex-col items-center gap-2 text-center">
+    <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-16 flex flex-col items-center gap-3 text-center">
       <span className="material-symbols-outlined text-4xl text-outline">{icon}</span>
       <p className="font-headline-md text-primary">{title}</p>
       <p className="font-body-md text-on-surface-variant">{hint}</p>

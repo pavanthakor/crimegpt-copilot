@@ -322,7 +322,7 @@ function VoiceDictation({
           <button
             type="button"
             onClick={startRecording}
-            className="self-start flex items-center gap-2 bg-primary text-surface-bright px-5 py-2.5 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
+            className="self-start flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
           >
             <span className="material-symbols-outlined">mic</span>
             {t("voice.record")}
@@ -370,7 +370,7 @@ function VoiceDictation({
             <div className="border border-outline-variant rounded bg-surface-container-lowest p-4">
               <p className="font-label-caps text-[10px] text-on-surface-variant mb-2 flex items-center justify-between">
                 <span>{t("voice.transcript")}</span>
-                <span className="font-mono-sm normal-case tracking-normal text-outline uppercase">
+                <span className="font-mono-sm normal-case tracking-normal text-on-surface-variant uppercase">
                   {result.language}
                 </span>
               </p>

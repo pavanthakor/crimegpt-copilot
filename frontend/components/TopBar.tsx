@@ -21,13 +21,15 @@ export default function TopBar() {
     : "";
 
   return (
-    <header className="fixed top-0 right-0 left-0 ml-[280px] h-16 bg-surface-bright border-b border-outline-variant flex items-center justify-between px-edge-margin z-40">
-      {/* Search */}
-      <div className="flex items-center gap-8 w-full max-w-2xl">
+    <header className="fixed top-0 right-0 left-0 ml-[280px] h-16 bg-surface-bright border-b border-outline-variant flex items-center justify-between gap-4 px-edge-margin z-40">
+      {/* Search — flex-1 + min-w-0 so it shrinks to give the right cluster room instead
+          of forcing it to wrap onto a second line (the 1440px cramping bug). */}
+      <div className="flex items-center min-w-0 flex-1 max-w-2xl">
         <GlobalSearch />
       </div>
 
-      <div className="flex items-center gap-5">
+      {/* Right cluster never wraps (shrink-0); the search yields space, not this. */}
+      <div className="flex items-center gap-4 shrink-0">
         {/* Language selector: EN | हिं | ગુ — drives the whole interface + AI lang param */}
         <div
           className="flex items-center rounded border border-outline-variant overflow-hidden"
@@ -58,8 +60,10 @@ export default function TopBar() {
         {/* Officer name + role badge */}
         {user && (
           <div className="flex items-center gap-3 pl-2 border-l border-outline-variant">
-            <div className="flex flex-col items-end">
-              <p className="font-body-md text-on-surface leading-none">{user.full_name}</p>
+            <div className="flex flex-col items-end min-w-0">
+              <p className="font-body-md text-on-surface leading-none whitespace-nowrap">
+                {user.full_name}
+              </p>
               <span className="mt-1 font-label-caps text-[10px] text-secondary bg-secondary-container px-1.5 py-0.5 rounded">
                 {roleTitle}
               </span>
@@ -196,7 +200,7 @@ function GlobalSearch() {
         role="combobox"
         aria-expanded={showPanel}
         aria-controls="global-search-results"
-        className="w-full bg-surface-container-low border-none rounded focus:ring-1 focus:ring-primary pl-12 pr-4 py-2 font-body-md text-on-surface placeholder:text-outline"
+        className="w-full bg-surface-container-low border-none rounded focus:ring-1 focus:ring-primary pl-12 pr-4 py-2 font-body-md text-on-surface placeholder:text-on-surface-variant"
       />
 
       {showPanel && (

@@ -164,7 +164,7 @@ export default function DiaryTab({
       )}
 
       {filtered.length === 0 ? (
-        <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-14 flex flex-col items-center gap-2 text-center">
+        <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-16 flex flex-col items-center gap-3 text-center">
           <span className="material-symbols-outlined text-4xl text-outline">event_note</span>
           <p className="font-headline-md text-primary">{t("diary.empty.title")}</p>
           <p className="font-body-md text-on-surface-variant">

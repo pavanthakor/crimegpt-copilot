@@ -1,9 +1,21 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { api } from "@/lib/api";
 import { formatUpdated } from "@/lib/cases";
 import { useI18n, type TKey } from "@/lib/i18n";
+
+// Fan-out: one case entry visibly produces many documents. The rows stagger in ~120ms
+// apart when the list (re)renders after a generation. Respects prefers-reduced-motion.
+const DOC_LIST_VARIANTS = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12 } },
+};
+const DOC_ROW_VARIANTS = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+};
 
 type Doc = {
   id: number;
@@ -90,6 +102,7 @@ export default function DocumentsTab({
   onDocsChanged: () => void;
 }) {
   const { t, apiLang } = useI18n();
+  const reduce = useReducedMotion();
   const isSho = role === "SHO";
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -226,7 +239,7 @@ export default function DocumentsTab({
       {!loaded ? (
         <DocsSkeleton />
       ) : docs.length === 0 ? (
-        <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-16 flex flex-col items-center gap-2 text-center">
+        <div className="border border-dashed border-outline-variant rounded bg-surface-container-lowest py-16 flex flex-col items-center gap-3 text-center">
           <span className="material-symbols-outlined text-4xl text-outline">description</span>
           <p className="font-headline-md text-primary">{t("docs.empty.title")}</p>
           <p className="font-body-md text-on-surface-variant">
@@ -234,7 +247,7 @@ export default function DocumentsTab({
           </p>
         </div>
       ) : (
-        <div className="border border-outline-variant rounded overflow-hidden bg-surface-container-lowest">
+        <div className="border border-outline-variant rounded overflow-x-auto bg-surface-container-lowest">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-outline text-on-surface-variant bg-surface-container-low">
@@ -245,7 +258,14 @@ export default function DocumentsTab({
                 <th className="px-4 py-3 font-label-caps w-[260px] text-right">{t("docs.col.actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant">
+            {/* key by count so a newly generated document re-triggers the fan-out. */}
+            <motion.tbody
+              key={docs.length}
+              className="divide-y divide-outline-variant"
+              variants={DOC_LIST_VARIANTS}
+              initial={reduce ? "show" : "hidden"}
+              animate="show"
+            >
               {docs.map((d) => (
                 <DocRow
                   key={d.id}
@@ -260,7 +280,7 @@ export default function DocumentsTab({
                   onError={setError}
                 />
               ))}
-            </tbody>
+            </motion.tbody>
           </table>
         </div>
       )}
@@ -345,7 +365,7 @@ function DocRow({
 
   return (
     <>
-      <tr className="align-top">
+      <motion.tr variants={DOC_ROW_VARIANTS} className="align-top">
         <td className="px-4 py-4">
           <span className="font-serif text-body-lg text-primary">{docLabel(doc.doc_type)}</span>
           {NOTE[doc.doc_type] && (
@@ -387,7 +407,7 @@ function DocRow({
             )}
           </div>
         </td>
-      </tr>
+      </motion.tr>
       {showVersions && (
         <tr>
           <td colSpan={5} className="px-4 pb-5 bg-surface-container-low">

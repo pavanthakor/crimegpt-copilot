@@ -35,8 +35,10 @@
        always resolve to a real glyph instead of tofu boxes. */
     font-family: var(--font-noto-sans), var(--font-noto-gujarati),
       var(--font-noto-devanagari), system-ui, sans-serif;
-    font-size: 14px;
-    line-height: 20px;
+    /* 16px base for projector legibility (station-house demo runs on a projector) —
+       body text never drops below 16px. */
+    font-size: 16px;
+    line-height: 24px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -81,8 +83,10 @@
   .font-body-md {
     font-family: var(--font-noto-sans), var(--font-noto-gujarati),
       var(--font-noto-devanagari), system-ui, sans-serif;
-    font-size: 14px;
-    line-height: 20px;
+    /* Bumped 14 -> 16px: this is the interface workhorse (labels, cells, buttons),
+       and 14px washes out on a projector. Never below 16px for reading text. */
+    font-size: 16px;
+    line-height: 24px;
     font-weight: 400;
   }
   .font-label-caps {
@@ -97,15 +101,16 @@
   .font-mono-data {
     font-family: var(--font-jetbrains-mono), "JetBrains Mono", var(--font-noto-gujarati),
       var(--font-noto-devanagari), monospace;
-    font-size: 13px;
-    line-height: 18px;
+    font-size: 14px;
+    line-height: 20px;
     font-weight: 500;
   }
   .font-mono-sm {
     font-family: var(--font-jetbrains-mono), "JetBrains Mono", var(--font-noto-gujarati),
       var(--font-noto-devanagari), monospace;
-    font-size: 11px;
-    line-height: 14px;
+    /* 11 -> 12px: timestamps and sub-labels stay readable on a projector. */
+    font-size: 12px;
+    line-height: 16px;
     font-weight: 400;
   }
 

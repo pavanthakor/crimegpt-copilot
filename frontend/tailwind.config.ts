@@ -101,10 +101,11 @@ const config: Config = {
         "headline-lg-mobile": ["24px", { lineHeight: "30px", fontWeight: "700" }],
         "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }],
         "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
-        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+        // Bumped 14 -> 16px for projector legibility (never below 16px for reading text).
+        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
         "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600" }],
-        "mono-data": ["13px", { lineHeight: "18px", fontWeight: "500" }],
-        "mono-sm": ["11px", { lineHeight: "14px", fontWeight: "400" }],
+        "mono-data": ["14px", { lineHeight: "20px", fontWeight: "500" }],
+        "mono-sm": ["12px", { lineHeight: "16px", fontWeight: "400" }],
       },
       borderRadius: {
         DEFAULT: "0.25rem",

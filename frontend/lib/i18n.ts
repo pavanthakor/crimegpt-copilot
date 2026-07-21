@@ -934,7 +934,7 @@ const gu: Dict = {
   "common.required": "જરૂરી",
   "common.serverUnreachable": "સર્વર સાથે સંપર્ક થઈ શક્યો નહીં.",
 
-  "brand.tagline": "તપાસ ગુપ્તચર", // TODO_GU
+  "brand.tagline": "તપાસ માટે બુદ્ધિશાળી સહાય",
   "org.force": "અમદાવાદ શહેર પોલીસ",
   "org.branch": "સાયબર ક્રાઇમ શાખા",
 
@@ -959,7 +959,7 @@ const gu: Dict = {
   "search.field.seized_item": "જપ્ત વસ્તુ",
 
   "role.IO": "તપાસ અધિકારી",
-  "role.SHO": "સ્ટેશન હાઉસ ઓફિસર", // TODO_GU
+  "role.SHO": "પોલીસ મથક અધિકારી",
   "role.LEGAL_ADVISOR": "કાનૂની સલાહકાર",
 
   "status.COMPLAINT": "ફરિયાદ",
@@ -1100,7 +1100,7 @@ const gu: Dict = {
   "evidence.field.seizurePlace": "જપ્તી સ્થળ",
   "evidence.descRequired": "વર્ણન જરૂરી છે.",
   "evidence.files.title": "પુરાવા ફાઇલો",
-  "evidence.files.subtitle": "દરેક અપલોડ સંગ્રહ સમયે હેશ (SHA-256) થાય છે — તેની કસ્ટડી-શૃંખલાની શરૂઆત.", // TODO_GU
+  "evidence.files.subtitle": "દરેક અપલોડ સંગ્રહ સમયે હેશ (SHA-256) કરવામાં આવે છે — તેની કબજા-શૃંખલાની શરૂઆત.",
   "evidence.files.upload": "પુરાવા અપલોડ કરો",
   "evidence.files.empty.title": "કોઈ પુરાવા અપલોડ થયા નથી",
   "evidence.files.empty.hint": "ફોટો, દસ્તાવેજ કે ભૌતિક-વસ્તુ રેકોર્ડ અપલોડ કરો.",
@@ -1152,10 +1152,10 @@ const gu: Dict = {
   "docs.type.PANCHNAMA": "પંચનામા",
   "docs.type.REMAND": "રિમાન્ડ વિનંતી",
   "docs.type.MEDICAL_LETTER": "તબીબી પત્ર",
-  "docs.type.LERS_PRESERVATION_REQUEST": "LERS જાળવણી વિનંતી", // TODO_GU
-  "docs.type.LERS_RECORDS_REQUEST": "LERS રેકોર્ડ વિનંતી", // TODO_GU
+  "docs.type.LERS_PRESERVATION_REQUEST": "LERS જાળવણી વિનંતી",
+  "docs.type.LERS_RECORDS_REQUEST": "LERS રેકોર્ડ વિનંતી",
 
-  "legal.title": "કાનૂની કલમ ગુપ્તચર", // TODO_GU
+  "legal.title": "કાનૂની કલમ વિશ્લેષણ",
   "legal.subtitle": "BNS, BNSS અને BSA પર આધારિત સૂચનો — દરેક અધિકારીના પોતાના શબ્દો સાથે જોડાયેલ.",
   "legal.analyze": "AI થી વિશ્લેષણ કરો",
   "legal.reanalyse": "ફરી વિશ્લેષણ",
@@ -1169,7 +1169,7 @@ const gu: Dict = {
   "legal.noMatch.hint": "કૃપા કરી ફરિયાદની સમીક્ષા કરો અને કલમો જાતે ઉમેરો.",
   "legal.marked.title": "ફરિયાદ વર્ણન — AI દ્વારા ચિહ્નિત",
   "legal.marked.empty": "ચિહ્નિત કરવા માટે કોઈ ફરિયાદ વર્ણન નથી.",
-  "legal.marked.notLocated": "પ્રેરક શબ્દસમૂહો વિશ્લેષણ ઇનપુટ (ફરિયાદ અને નોંધાયેલા નિવેદનો) સામે ચકાસાયા, પણ અહીં દર્શાવેલ ફરિયાદ લખાણમાં મળ્યા નહીં.", // TODO_GU
+  "legal.marked.notLocated": "વિશ્લેષણમાં દર્શાવેલ શબ્દસમૂહો લખાણમાં મળ્યા નહીં.",
   "legal.stage.searching": "BNS, BNSS અને BSA ની 1,059 કલમોમાં શોધ…",
   "legal.stage.retrieved": "સંભવિત કલમો મળી",
   "legal.stage.matching": "ફરિયાદ સામે મેળ…",
@@ -1183,7 +1183,7 @@ const gu: Dict = {
   "legal.status.suggested": "સૂચવેલ",
   "legal.rejectedByVerification.one": "ચકાસણી દ્વારા {n} સૂચન નકારાયું",
   "legal.rejectedByVerification.many": "ચકાસણી દ્વારા {n} સૂચનો નકારાયાં",
-  "legal.judgments.title": "સીમાચિહ્ન ચુકાદા", // TODO_GU
+  "legal.judgments.title": "મહત્ત્વના ચુકાદા",
   "legal.judgments.subtitle": "ભારતીય ચુકાદાઓના પસંદ કરેલા સંગ્રહ પર આધારિત.",
   "legal.judgments.suggest": "ચુકાદા સૂચવો",
   "legal.judgments.refresh": "તાજું કરો",
@@ -1243,13 +1243,13 @@ const gu: Dict = {
   "audit.title": "ઓડિટ ટ્રેલ",
   "audit.subtitle": "કેસ પરની દરેક રચના, અપડેટ અને કાઢી નાખવાની ક્રિયા — કોણે કરી, ક્યારે, અને બરાબર શું બદલાયું.",
   "audit.case": "કેસ",
-  "audit.entity": "એન્ટિટી", // TODO_GU
-  "audit.entity.all": "બધી એન્ટિટી", // TODO_GU
+  "audit.entity": "રેકોર્ડ પ્રકાર",
+  "audit.entity.all": "બધા પ્રકાર",
   "audit.loadingCases": "કેસ લોડ થઈ રહ્યા છે…",
   "audit.noCases": "હજી ઓડિટ કરવા માટે કોઈ કેસ નથી.",
   "audit.col.time": "સમય",
   "audit.col.action": "ક્રિયા",
-  "audit.col.entity": "એન્ટિટી", // TODO_GU
+  "audit.col.entity": "રેકોર્ડ પ્રકાર",
   "audit.col.changed": "શું બદલાયું",
   "audit.col.performedBy": "કોણે કર્યું",
   "audit.action.CREATE": "બનાવ્યું",
@@ -1286,7 +1286,7 @@ const gu: Dict = {
   "analysis.sections.accepted": "સ્વીકૃત",
   "analysis.sections.suggested": "સૂચવેલ",
   "analysis.sections.conf": "{n}% વિશ્વાસ",
-  "analysis.judgments.title": "સીમાચિહ્ન ચુકાદા", // TODO_GU
+  "analysis.judgments.title": "મહત્ત્વના ચુકાદા",
   "analysis.judgments.subtitle": "{n} ફાઇલ પર",
   "analysis.judgments.empty": "આ કેસ સાથે હજી કોઈ ચુકાદો જોડાયેલ નથી.",
   "analysis.consistency.title": "સુસંગતતા તપાસ",
@@ -1340,7 +1340,7 @@ const gu: Dict = {
   "login.signIn": "સાઇન ઇન",
   "login.signingIn": "સાઇન ઇન થઈ રહ્યું છે…",
   "login.error": "અમાન્ય વપરાશકર્તા નામ કે પાસવર્ડ.",
-  "login.tagline": "AI-સહાયિત ગુના દસ્તાવેજીકરણ અને કાનૂની ગુપ્તચર.", // TODO_GU
+  "login.tagline": "AI-સહાયિત ગુના દસ્તાવેજીકરણ અને કાનૂની વિશ્લેષણ",
 };
 
 const TABLE: Record<Lang, Dict> = { EN: en, HI: hi, GU: gu };

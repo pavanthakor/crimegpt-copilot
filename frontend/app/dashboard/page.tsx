@@ -163,7 +163,7 @@ export default function DashboardPage() {
             {loading ? (
               <ActivitySkeleton />
             ) : feed.length === 0 ? (
-              <div className="py-14 flex flex-col items-center gap-2 text-center">
+              <div className="py-16 flex flex-col items-center gap-3 text-center">
                 <span className="material-symbols-outlined text-4xl text-outline">
                   event_note
                 </span>

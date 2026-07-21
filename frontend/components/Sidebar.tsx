@@ -115,7 +115,7 @@ export default function Sidebar() {
 
       <div className="px-6 pt-4 mt-4 border-t border-outline-variant">
         <p className="font-label-caps text-[10px] text-on-surface-variant">{t("org.force")}</p>
-        <p className="font-mono-sm text-outline">{t("org.branch")}</p>
+        <p className="font-mono-sm text-on-surface-variant">{t("org.branch")}</p>
       </div>
     </nav>
   );

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { api } from "@/lib/api";
 import { reasonRestatesTitle } from "@/lib/cases";
@@ -241,6 +242,7 @@ function AnalyzeButton({
 
 function AnalyzeStages({ stage }: { stage: number }) {
   const { t } = useI18n();
+  const reduce = useReducedMotion();
   return (
     <div className="space-y-4">
       <p className="font-label-caps text-[10px] text-on-surface-variant text-center mb-8">
@@ -250,7 +252,13 @@ function AnalyzeStages({ stage }: { stage: number }) {
         const done = i < stage;
         const current = i === stage;
         return (
-          <div key={i} className="flex items-center gap-3">
+          // Pending lines sit dimmed; each row eases up to full as it becomes active.
+          <motion.div
+            key={i}
+            className="flex items-center gap-3"
+            animate={{ opacity: done || current ? 1 : 0.45 }}
+            transition={{ duration: reduce ? 0 : 0.25 }}
+          >
             <span
               className={
                 "shrink-0 w-6 h-6 rounded-full flex items-center justify-center " +
@@ -258,11 +266,19 @@ function AnalyzeStages({ stage }: { stage: number }) {
                   ? "bg-primary text-surface-bright"
                   : current
                   ? "bg-surface-container-high text-primary"
-                  : "bg-surface-container text-outline")
+                  : "bg-surface-container text-on-surface-variant")
               }
             >
               {done ? (
-                <span className="material-symbols-outlined text-base">check</span>
+                // The tick springs in the moment the stage completes.
+                <motion.span
+                  className="material-symbols-outlined text-base"
+                  initial={reduce ? false : { scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                >
+                  check
+                </motion.span>
               ) : current ? (
                 <span className="material-symbols-outlined text-base animate-spin">
                   progress_activity
@@ -279,7 +295,7 @@ function AnalyzeStages({ stage }: { stage: number }) {
             >
               {t(key as TKey)}
             </span>
-          </div>
+          </motion.div>
         );
       })}
     </div>
@@ -332,6 +348,7 @@ function MarkedNarrative({
   setActiveId: (id: number | null) => void;
 }) {
   const { t } = useI18n();
+  const reduce = useReducedMotion();
   if (!narrative) {
     return (
       <section className="bg-surface-container-lowest border border-outline-variant rounded p-8">
@@ -343,6 +360,8 @@ function MarkedNarrative({
   }
   const segs = buildSegments(narrative, sections);
   const anyMatch = segs.some((s) => s.id != null);
+  // Track a running index across highlighted phrases so the sweeps cascade in order.
+  let markIndex = -1;
 
   return (
     <section className="bg-surface-container-lowest border border-outline-variant rounded p-8">
@@ -351,9 +370,16 @@ function MarkedNarrative({
         {t("legal.marked.title")}
       </h3>
       <div className="font-serif text-body-lg leading-[1.9] text-on-surface max-w-[68ch] whitespace-pre-wrap">
-        {segs.map((seg, i) =>
-          seg.id != null ? (
-            <mark
+        {segs.map((seg, i) => {
+          if (seg.id == null) return <span key={i}>{seg.text}</span>;
+          markIndex += 1;
+          // Khaki marker drawn left-to-right: the wash is a no-repeat gradient whose
+          // width animates 0% -> 100% (backgroundColor stays transparent so the browser's
+          // default <mark> yellow never shows). Sweeps cascade ~90ms apart.
+          const wash =
+            activeId === seg.id ? "rgba(138,124,63,0.45)" : "rgba(138,124,63,0.22)";
+          return (
+            <motion.mark
               key={i}
               onMouseEnter={() => setActiveId(seg.id!)}
               onMouseLeave={() => setActiveId(null)}
@@ -363,17 +389,25 @@ function MarkedNarrative({
                   .getElementById(`section-card-${seg.id}`)
                   ?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
-              className={
-                "cursor-pointer border-b-2 border-accent [box-decoration-break:clone] px-0.5 transition-colors " +
-                (activeId === seg.id ? "bg-accent/[0.45]" : "bg-accent/[0.22]")
-              }
+              initial={reduce ? false : { backgroundSize: "0% 100%" }}
+              animate={{ backgroundSize: "100% 100%" }}
+              transition={{
+                duration: reduce ? 0 : 0.4,
+                ease: "easeInOut",
+                delay: reduce ? 0 : Math.min(markIndex * 0.09, 0.9),
+              }}
+              style={{
+                backgroundColor: "transparent",
+                backgroundImage: `linear-gradient(${wash}, ${wash})`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "left center",
+              }}
+              className="cursor-pointer border-b-2 border-accent [box-decoration-break:clone] px-0.5 transition-colors"
             >
               {seg.text}
-            </mark>
-          ) : (
-            <span key={i}>{seg.text}</span>
-          )
-        )}
+            </motion.mark>
+          );
+        })}
       </div>
       {!anyMatch && (
         <p className="font-body-md text-on-surface-variant italic mt-4">
@@ -631,7 +665,7 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
                   <p className="font-mono-data text-on-surface-variant mt-1">
                     {j.citation}
                     {(j.court || yr) && (
-                      <span className="text-outline">
+                      <span className="text-on-surface-variant">
                         {"  ·  "}
                         {[j.court, yr].filter(Boolean).join("  ·  ")}
                       </span>

@@ -224,7 +224,7 @@ export default function NewCasePage() {
           type="button"
           onClick={onCreate}
           disabled={saving}
-          className="flex items-center gap-2 bg-primary text-surface-bright px-5 py-2.5 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
         >
           {saving ? (
             <>
