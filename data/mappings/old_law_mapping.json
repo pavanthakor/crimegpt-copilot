@@ -1,0 +1,58 @@
+{
+  "_meta": {
+    "description": "Curated pre-2024 concordance for CrimeGPT cross-references. Keys are the NEW-law (act, section_code) as stored in this system's corpus (data/bns_bnss_bsa/*_sections.json); values are the corresponding pre-2024 provision. This is a fixed published mapping (BNS<->IPC, BNSS<->CrPC, BSA<->Indian Evidence Act 1872), NOT inferred. Where a BNS/BNSS/BSA section maps to a cluster of old sections, the single most representative (usually punishment) provision is given. Genuinely new offences with no pre-2024 predecessor (e.g. BNS 304 Snatching) are intentionally ABSENT and fall back to the AI-suggested path.",
+    "frameworks": {
+      "BNS": "IPC (Indian Penal Code, 1860)",
+      "BNSS": "CrPC (Code of Criminal Procedure, 1973)",
+      "BSA": "EVIDENCE_ACT (Indian Evidence Act, 1872)"
+    }
+  },
+  "BNS": {
+    "115": { "framework": "IPC", "provision": "323", "title": "Punishment for voluntarily causing hurt" },
+    "117": { "framework": "IPC", "provision": "325", "title": "Punishment for voluntarily causing grievous hurt" },
+    "118": { "framework": "IPC", "provision": "324", "title": "Voluntarily causing hurt by dangerous weapons or means" },
+    "126": { "framework": "IPC", "provision": "341", "title": "Punishment for wrongful restraint" },
+    "127": { "framework": "IPC", "provision": "342", "title": "Punishment for wrongful confinement" },
+    "129": { "framework": "IPC", "provision": "350", "title": "Criminal force" },
+    "131": { "framework": "IPC", "provision": "352", "title": "Punishment for assault or criminal force" },
+    "189": { "framework": "IPC", "provision": "143", "title": "Punishment for being member of unlawful assembly" },
+    "190": { "framework": "IPC", "provision": "147", "title": "Punishment for rioting" },
+    "303": { "framework": "IPC", "provision": "379", "title": "Punishment for theft" },
+    "305": { "framework": "IPC", "provision": "380", "title": "Theft in dwelling house, etc." },
+    "306": { "framework": "IPC", "provision": "381", "title": "Theft by clerk or servant of property in possession of master" },
+    "307": { "framework": "IPC", "provision": "384", "title": "Punishment for extortion" },
+    "309": { "framework": "IPC", "provision": "392", "title": "Punishment for robbery" },
+    "310": { "framework": "IPC", "provision": "395", "title": "Punishment for dacoity" },
+    "314": { "framework": "IPC", "provision": "403", "title": "Dishonest misappropriation of property" },
+    "315": { "framework": "IPC", "provision": "404", "title": "Dishonest misappropriation of property possessed by deceased person" },
+    "316": { "framework": "IPC", "provision": "406", "title": "Punishment for criminal breach of trust" },
+    "317": { "framework": "IPC", "provision": "411", "title": "Dishonestly receiving stolen property" },
+    "318": { "framework": "IPC", "provision": "420", "title": "Cheating and dishonestly inducing delivery of property" },
+    "319": { "framework": "IPC", "provision": "419", "title": "Punishment for cheating by personation" },
+    "324": { "framework": "IPC", "provision": "426", "title": "Punishment for mischief" },
+    "329": { "framework": "IPC", "provision": "442", "title": "House-trespass" },
+    "331": { "framework": "IPC", "provision": "457", "title": "Lurking house-trespass or house-breaking by night in order to commit offence" },
+    "351": { "framework": "IPC", "provision": "506", "title": "Punishment for criminal intimidation" }
+  },
+  "BNSS": {
+    "35": { "framework": "CrPC", "provision": "41", "title": "When police may arrest without warrant" },
+    "36": { "framework": "CrPC", "provision": "41B", "title": "Procedure of arrest and duties of officer making arrest" },
+    "43": { "framework": "CrPC", "provision": "46", "title": "Arrest how made" },
+    "46": { "framework": "CrPC", "provision": "49", "title": "No unnecessary restraint" },
+    "47": { "framework": "CrPC", "provision": "50", "title": "Person arrested to be informed of grounds of arrest and of right to bail" },
+    "48": { "framework": "CrPC", "provision": "50A", "title": "Obligation of person making arrest to inform about the arrest to a relative or friend" },
+    "58": { "framework": "CrPC", "provision": "57", "title": "Person arrested not to be detained more than twenty-four hours" },
+    "106": { "framework": "CrPC", "provision": "102", "title": "Power of police officer to seize certain property" },
+    "185": { "framework": "CrPC", "provision": "165", "title": "Search by police officer" },
+    "187": { "framework": "CrPC", "provision": "167", "title": "Procedure when investigation cannot be completed in twenty-four hours" },
+    "190": { "framework": "CrPC", "provision": "170", "title": "Cases to be sent to Magistrate when evidence is sufficient" },
+    "193": { "framework": "CrPC", "provision": "173", "title": "Report of police officer on completion of investigation" },
+    "480": { "framework": "CrPC", "provision": "437", "title": "When bail may be taken in case of non-bailable offence" }
+  },
+  "BSA": {
+    "57": { "framework": "EVIDENCE_ACT", "provision": "62", "title": "Primary evidence" },
+    "58": { "framework": "EVIDENCE_ACT", "provision": "63", "title": "Secondary evidence" },
+    "62": { "framework": "EVIDENCE_ACT", "provision": "65A", "title": "Special provisions as to evidence relating to electronic record" },
+    "63": { "framework": "EVIDENCE_ACT", "provision": "65B", "title": "Admissibility of electronic records" }
+  }
+}

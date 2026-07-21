@@ -284,7 +284,121 @@ export default function DocumentsTab({
           </table>
         </div>
       )}
+
+      {/* CCTNS mock export — IO/SHO only (LEGAL_ADVISOR is blocked server-side too). */}
+      {role !== "LEGAL_ADVISOR" && <CctnsExport caseId={caseId} />}
     </div>
+  );
+}
+
+// ---- CCTNS export (mock / demonstration gateway) ----------------------------
+// Posts the case to the local mock CCTNS receiver and shows the returned mock FIR id
+// plus the IIF-shaped payload. This is a DEMONSTRATION gateway, not a live government
+// integration — the copy says so plainly. The backend already writes the audit + diary
+// rows, so the panel just confirms that persistence happened.
+type CctnsResult = {
+  cctns_fir_id: string | null;
+  mock_response: Record<string, unknown>;
+  iif_payload: Record<string, unknown>;
+};
+
+function CctnsExport({ caseId }: { caseId: number }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<CctnsResult | null>(null);
+  const [showPayload, setShowPayload] = useState(false);
+
+  async function exportCctns() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.post<CctnsResult>(`/api/cases/${caseId}/export/cctns`);
+      setResult(r.data);
+      setShowPayload(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? t("cctns.error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="border border-outline-variant rounded bg-surface-container-lowest p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-on-surface-variant">cloud_upload</span>
+            <h2 className="font-headline-md text-primary">{t("cctns.title")}</h2>
+          </div>
+          <p className="font-body-md text-on-surface-variant mt-1">{t("cctns.subtitle")}</p>
+          {/* Unmistakable mock label — must not imply a live government link. */}
+          <span className="mt-3 inline-flex items-center gap-1 font-label-caps text-[10px] text-on-secondary-container bg-secondary-container rounded px-2 py-0.5">
+            <span className="material-symbols-outlined text-sm">science</span>
+            {t("cctns.mockBadge")}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={exportCctns}
+          disabled={busy}
+          className="shrink-0 flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded font-label-caps text-[11px] hover:bg-inverse-surface disabled:opacity-60 transition-colors"
+        >
+          <span
+            className={
+              "material-symbols-outlined text-base" + (busy ? " animate-spin" : "")
+            }
+          >
+            {busy ? "progress_activity" : "cloud_upload"}
+          </span>
+          {busy ? t("cctns.exporting") : t("cctns.button")}
+        </button>
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-4 flex items-center gap-2 font-body-md text-error">
+          <span className="material-symbols-outlined text-base">error</span>
+          {error}
+        </p>
+      )}
+
+      {result && (
+        <div className="mt-5 border-t border-outline-variant pt-5">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div>
+              <span className="block font-label-caps text-[9px] text-on-surface-variant">
+                {t("cctns.firId")}
+              </span>
+              <span className="font-mono-data text-lg text-primary">
+                {result.cctns_fir_id ?? "—"}
+              </span>
+            </div>
+            <p className="flex items-center gap-1.5 font-body-md text-success">
+              <span className="material-symbols-outlined text-base">check_circle</span>
+              {t("cctns.confirmed")}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowPayload((s) => !s)}
+            className="mt-4 flex items-center gap-1 font-label-caps text-[11px] text-primary hover:underline"
+          >
+            <span className="material-symbols-outlined text-base">
+              {showPayload ? "expand_less" : "expand_more"}
+            </span>
+            {showPayload ? t("cctns.hidePayload") : t("cctns.viewPayload")}
+          </button>
+
+          {showPayload && (
+            <pre className="mt-3 max-h-80 overflow-auto rounded border border-outline-variant bg-surface-container-low p-4 font-mono-sm text-on-surface">
+              {JSON.stringify(result.iif_payload, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

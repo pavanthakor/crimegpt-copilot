@@ -57,6 +57,8 @@ class LegalSectionOut(BaseModel):
     reason: str | None = None
     triggering_phrase: str | None = None
     confidence: float | None = None
+    # Pre-2024 equivalent (IPC/CrPC/Evidence Act) or null; see models.LegalSection.
+    cross_reference: dict | None = None
     status: SectionStatus
 
 
@@ -205,6 +207,7 @@ def analyze_case(
             reason=s.get("reason"),
             triggering_phrase=s.get("triggering_phrase"),
             confidence=s.get("confidence"),
+            cross_reference=s.get("cross_reference"),
             status=SectionStatus.SUGGESTED,
             added_by=user.id,
         )

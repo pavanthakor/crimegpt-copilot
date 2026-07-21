@@ -28,6 +28,10 @@ class LegalSection(Base):
     triggering_phrase = Column(Text)  # explainability
     confidence = Column(Float)
     ingredient_evidence_map = Column(JSONB)  # ingredient -> evidence
+    # AI-suggested pre-2024 equivalent (IPC/CrPC/Evidence Act) for this new-law
+    # section, or NULL when none is confidently known. Shape:
+    #   {"framework": "IPC"|"CrPC"|"EVIDENCE_ACT", "provision": "379", "note": "..."}
+    cross_reference = Column(JSONB)
     status = Column(
         Enum(SectionStatus), nullable=False, default=SectionStatus.SUGGESTED
     )

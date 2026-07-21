@@ -6,6 +6,17 @@ import { api } from "@/lib/api";
 import { reasonRestatesTitle } from "@/lib/cases";
 import { useI18n, type TKey } from "@/lib/i18n";
 
+// Pre-2024 equivalent (IPC / CrPC / Evidence Act) the new-law section replaces, or
+// null when none is known. `source` records provenance: "curated" comes from the
+// fixed published concordance table; "ai_suggested" was inferred by the LLM and
+// carries a "suggested" marker so the officer knows to verify it.
+type CrossReference = {
+  framework: string; // "IPC" | "CrPC" | "EVIDENCE_ACT"
+  provision: string;
+  title?: string; // curated: old-provision title
+  note?: string; // ai_suggested: model's short note
+  source?: "curated" | "ai_suggested";
+};
 type Section = {
   id: number;
   act: string;
@@ -14,6 +25,7 @@ type Section = {
   reason: string | null;
   triggering_phrase: string | null;
   confidence: number | null;
+  cross_reference: CrossReference | null;
   status: "SUGGESTED" | "ACCEPTED" | "REJECTED";
 };
 type RejectedSection = {
@@ -22,6 +34,12 @@ type RejectedSection = {
   triggering_phrase: string | null;
   rejection_reason: string | null;
 };
+
+// Old-law framework codes are proper identifiers (not translated); only the
+// "EVIDENCE_ACT" enum value is expanded for reading.
+function frameworkLabel(fw: string): string {
+  return fw === "EVIDENCE_ACT" ? "Evidence Act" : fw;
+}
 type Judgment = {
   id: number;
   title: string | null;
@@ -508,6 +526,37 @@ function SectionCard({
         <p className="font-body-md text-on-surface-variant leading-relaxed mb-4">
           {reason}
         </p>
+      )}
+
+      {/* Pre-2024 cross-reference: the IPC / CrPC / Evidence-Act provision this
+          new-law section replaces. Curated mappings come from the fixed published
+          concordance; AI-suggested ones carry a "suggested" marker to verify. */}
+      {section.cross_reference && (
+        <div className="mb-4 flex items-start gap-2 rounded border border-outline-variant bg-surface-container-low px-3 py-2">
+          <span className="material-symbols-outlined text-base text-on-surface-variant leading-5">
+            history
+          </span>
+          <div className="min-w-0">
+            <span className="flex items-center gap-1.5 font-label-caps text-[9px] text-on-surface-variant">
+              {t("legal.crossRef.label")}
+              {section.cross_reference.source === "ai_suggested" && (
+                <span className="inline-flex items-center gap-0.5 font-label-caps text-[9px] text-on-secondary-container bg-secondary-container rounded px-1 py-px normal-case">
+                  <span className="material-symbols-outlined text-[11px] leading-none">auto_awesome</span>
+                  {t("legal.crossRef.suggested")}
+                </span>
+              )}
+            </span>
+            <p className="font-mono-data text-on-surface">
+              {frameworkLabel(section.cross_reference.framework)} {section.cross_reference.provision}
+              {section.cross_reference.title || section.cross_reference.note ? (
+                <span className="font-body-md text-on-surface-variant">
+                  {" · "}
+                  {section.cross_reference.title ?? section.cross_reference.note}
+                </span>
+              ) : null}
+            </p>
+          </div>
+        </div>
       )}
 
       {section.status === "SUGGESTED" ? (

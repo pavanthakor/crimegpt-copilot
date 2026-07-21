@@ -17,11 +17,18 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import lru_cache
+from pathlib import Path
 
 from app.ai import rag
 from app.ai.llm import call_llm
 
 logger = logging.getLogger("crimegpt.legal")
+
+# Curated pre-2024 concordance (BNS<->IPC, BNSS<->CrPC, BSA<->Evidence Act). This is a
+# fixed published table, so a cross-reference is looked up here FIRST and only falls
+# back to the LLM when a section is absent. app/ai/legal.py -> parents[3] = repo root.
+_MAPPING_FILE = Path(__file__).resolve().parents[3] / "data" / "mappings" / "old_law_mapping.json"
 
 SELECTION_SCHEMA = {
     "selected": [
@@ -31,9 +38,21 @@ SELECTION_SCHEMA = {
             "triggering_phrase": "exact substring quoted verbatim from the narrative",
             "reason": "short reason this section applies",
             "confidence": "float 0.0-1.0",
+            "cross_reference": (
+                "the pre-2024 equivalent provision, or null. Object: "
+                "{framework: 'IPC'|'CrPC'|'EVIDENCE_ACT', provision: 'e.g. 379', "
+                "note: 'optional short note'}. Use null if you are not confident of the exact "
+                "corresponding old-law section."
+            ),
         }
     ]
 }
+
+# The only old-law frameworks a BNS/BNSS/BSA section can map back to. Anything else
+# the model emits is discarded (conservative-null discipline).
+_ALLOWED_FRAMEWORKS = {"IPC", "CRPC", "EVIDENCE_ACT"}
+# Canonical display forms once validated.
+_FRAMEWORK_CANON = {"IPC": "IPC", "CRPC": "CrPC", "EVIDENCE_ACT": "EVIDENCE_ACT"}
 
 _SYSTEM = (
     "You are a legal assistant for Indian police working under the BNS, BNSS and BSA. "
@@ -85,10 +104,101 @@ def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
         "do NOT copy the candidate section definitions, and do NOT invent words. If you cannot find "
         "a supporting phrase in the narrative itself, omit that section.\n"
         "  - reason: a short reason it applies.\n"
-        "  - confidence: 0.0-1.0.\n\n"
+        "  - confidence: 0.0-1.0.\n"
+        "  - cross_reference: the PRE-2024 provision this new-law section replaces. The BNS, BNSS "
+        "and BSA (2023) renumbered most pre-existing offences from the IPC / CrPC / Indian Evidence "
+        "Act, so the great majority of sections HAVE a direct old-law equivalent — provide it. "
+        "Format: {\"framework\": \"IPC\" | \"CrPC\" | \"EVIDENCE_ACT\", \"provision\": "
+        "\"<old section number>\", \"note\": \"<optional <=6-word note>\"}. Well-known examples: "
+        "BNS 303 (theft) -> IPC 379; BNS 305 (theft in dwelling) -> IPC 380; BNS 318 (cheating) -> "
+        "IPC 420; BNS 115 (voluntarily causing hurt) -> IPC 323; BNS 309 (robbery) -> IPC 392. "
+        "Set cross_reference to null ONLY for a genuinely NEW offence with no pre-2024 predecessor. "
+        "Do NOT guess a random number — give the established equivalent or null.\n\n"
         f"NARRATIVE (quote triggering_phrase from HERE):\n\"\"\"{narrative}\"\"\"\n\n"
         f"CANDIDATE SECTIONS (choose section_code from HERE):\n{_format_candidates(candidates)}\n"
     )
+
+
+def _sanitize_cross_reference(raw) -> dict | None:
+    """Coerce the model's `cross_reference` to a trusted shape or drop it.
+
+    Cross-refs are NOT corpus-grounded (the bare-act corpus has no IPC/CrPC mapping),
+    so they are LLM-generated and treated conservatively: keep one only when it names a
+    known old-law framework AND a non-empty provision. Anything else becomes null, so a
+    section renders without a cross-ref rather than with a fabricated one.
+    """
+    if not isinstance(raw, dict):
+        return None
+    # Guard against literal None -> "None" (str(None) is truthy) for every field.
+    fw_raw = raw.get("framework")
+    fw = "" if fw_raw is None else str(fw_raw).strip().upper().replace(".", "").replace(" ", "_")
+    if fw == "INDIAN_PENAL_CODE":
+        fw = "IPC"
+    if fw in ("CR_PC", "CRPC", "CR_P_C"):
+        fw = "CRPC"
+    if fw not in _ALLOWED_FRAMEWORKS:
+        return None
+    prov_raw = raw.get("provision")
+    provision = "" if prov_raw is None else str(prov_raw).strip()
+    if not provision or provision.lower() == "none":
+        return None
+    note_raw = raw.get("note")
+    note = "" if note_raw is None else str(note_raw).strip()
+    if note.lower() == "none":
+        note = ""
+    out = {"framework": _FRAMEWORK_CANON[fw], "provision": provision}
+    if note:
+        out["note"] = note
+    return out
+
+
+@lru_cache(maxsize=1)
+def _load_mapping() -> dict:
+    """Load the curated concordance once. Missing/broken file -> empty table (the
+    resolver then just falls back to the AI path), never a hard failure."""
+    try:
+        data = json.loads(_MAPPING_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:  # noqa: BLE001
+        logger.warning("cross-reference mapping unavailable (%s); using AI fallback only", exc)
+        return {}
+    # Keep only the act tables (drop `_meta` and any other bookkeeping keys).
+    return {act: data[act] for act in ("BNS", "BNSS", "BSA") if isinstance(data.get(act), dict)}
+
+
+def mapping_size() -> int:
+    """Total number of curated (act, section_code) mappings — for logs/diagnostics."""
+    return sum(len(tbl) for tbl in _load_mapping().values())
+
+
+def lookup_curated(act: str, code: str) -> dict | None:
+    """Deterministic cross-reference from the curated table, or None if absent."""
+    entry = _load_mapping().get(act, {}).get(str(code))
+    if not isinstance(entry, dict) or not entry.get("framework") or not entry.get("provision"):
+        return None
+    out = {
+        "framework": str(entry["framework"]),
+        "provision": str(entry["provision"]),
+        "source": "curated",
+    }
+    title = str(entry.get("title", "")).strip()
+    if title:
+        out["title"] = title
+    return out
+
+
+def resolve_cross_reference(act: str, code: str, llm_raw) -> dict | None:
+    """Resolution order (never a cross-reference without provenance):
+      1. curated table  -> source="curated"
+      2. sanitised LLM  -> source="ai_suggested"
+      3. neither        -> None
+    """
+    curated = lookup_curated(act, code)
+    if curated is not None:
+        return curated
+    ai = _sanitize_cross_reference(llm_raw)
+    if ai is not None:
+        return {**ai, "source": "ai_suggested"}
+    return None
 
 
 def validate_selections(
@@ -154,6 +264,7 @@ def validate_selections(
                 "triggering_phrase": phrase,
                 "reason": sel.get("reason", ""),
                 "confidence": sel.get("confidence"),
+                "cross_reference": resolve_cross_reference(act, code, sel.get("cross_reference")),
             }
         )
     return validated, rejected
