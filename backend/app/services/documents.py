@@ -71,6 +71,16 @@ def _load_registry() -> dict:
     return mod.REGISTRY
 
 
+def _load_labels() -> dict:
+    """Load templates/_labels.py by path -> {lang: {label_key: text}} (EN/HI/GU)."""
+    spec = importlib.util.spec_from_file_location(
+        "doc_labels", TEMPLATES_DIR / "_labels.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod.LABELS
+
+
 def _fmt_dt(dt: datetime | None) -> str | None:
     return dt.strftime("%d/%m/%Y at %H:%M hrs") if dt else None
 
@@ -109,8 +119,15 @@ def _first(persons: list[Person], role: PersonRole) -> Person | None:
     return next((p for p in persons if p.role == role), None)
 
 
-def _build_context(db: Session, case: Case, user: User) -> dict:
-    """Assemble the full merge context from the case pool. All JSON-safe."""
+def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dict:
+    """Assemble the full merge context from the case pool. All JSON-safe.
+
+    `lang` ('en'|'hi'|'gu') selects the boilerplate label set (`L`) and the language of
+    the identifier-embedding sentence fields, so one template renders in any language.
+    Identifiers (names, numbers, codes, dates) are substituted verbatim regardless of lang.
+    """
+    labels_all = _load_labels()
+    L = labels_all.get((lang or "en").lower(), labels_all["en"])
     persons = db.query(Person).filter(Person.case_id == case.id).order_by(Person.id).all()
     seized = db.query(SeizedItem).filter(SeizedItem.case_id == case.id).order_by(SeizedItem.id).all()
     statements = db.query(Statement).filter(Statement.case_id == case.id).all()
@@ -192,7 +209,37 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
            if statements else "Recording of witness statements is in progress.")
     )
 
+    # Identifier-embedding boilerplate sentences: assembled per-language from the label
+    # dict, with identifiers substituted verbatim (names stay exactly as in the pool).
+    io_name_val = user.full_name or user.username
+    acc_fmt = {
+        "accused_name": (accused.full_name if accused else "") or "",
+        "accused_father": (accused.father_name if accused else "") or "",
+        "accused_age": (accused.age if accused else "") or "",
+        "accused_address": (accused.address if accused else "") or "",
+    }
+    _role_key = {"accused": "role_accused", "victim": "role_victim",
+                 "complainant": "role_complainant"}.get(subject_role)
+    subject_role_label = L.get(_role_key, "") if _role_key else ""
+    seized_intro = L["seized_intro_S"].format(io_name=io_name_val or "")
+    panch_intro = L["panch_intro_S"].format(io_name=io_name_val or "")
+    accused_line = L["accused_line_S"].format(**acc_fmt)
+    remand_clause1 = L["remand_c1_S"].format(**acc_fmt)
+    med_body = L["med_body_S"].format(
+        subject_name=(subject.full_name if subject else "") or "",
+        subject_role=subject_role_label,
+    )
+    hospital = f"{L['hospital_civil']}, {district}" if district else L["hospital_govt"]
+
     return {
+        # boilerplate labels for the active language (template renders {{ L.key }})
+        "L": L,
+        # identifier-embedding sentences (assembled above, per language)
+        "seized_intro": seized_intro,
+        "panch_intro": panch_intro,
+        "accused_line": accused_line,
+        "remand_clause1": remand_clause1,
+        "med_body": med_body,
         # case
         "case_number": case.case_number,
         "title": case.title,
@@ -247,7 +294,7 @@ def _build_context(db: Session, case: Case, user: User) -> dict:
             "evidence or influencing witnesses if not taken into custody."
         ),
         # medical
-        "hospital": f"Civil Hospital, {district}" if district else "the Government Hospital",
+        "hospital": hospital,
         "subject_name": subject.full_name if subject else None,
         "subject_role": subject_role,
         "examination_purpose": exam_purpose,
@@ -368,7 +415,7 @@ def generate_document(
         if settings.DEMO_MODE else None
     )
     if context is None:
-        context = _build_context(db, case, user)
+        context = _build_context(db, case, user, lang=lang_key)
         # Translate this doc type's free-text clauses (only) for a non-English language.
         if lang_key != "en":
             for field in _TRANSLATABLE_BY_DOC.get(doc_type.value, []):

@@ -30,10 +30,10 @@ GUJARATI_FONT = "Noto Sans Gujarati"
 # next available face in this documented chain (all cover the Gujarati block U+0A80–U+0AFF).
 FONT_FALLBACK_CHAIN = [GUJARATI_FONT, "Nirmala UI", "Shruti", "Arial Unicode MS"]
 
-# Placeholders whose merged value is translated to Gujarati/Hindi in a non-English doc
-# (mirror of services/documents.py `_TRANSLATABLE_BY_DOC` — keep the two in sync). Their
-# runs hold a Latin `{{ ... }}` tag at build time but render to Indic text, so they must be
-# pinned as Indic even though _has_indic() sees only Latin now.
+# Placeholders whose merged value is Gujarati/Hindi in a non-English doc. Their runs hold a
+# Latin `{{ ... }}` tag at build time but render to Indic text, so they must be pinned as
+# Indic even though _has_indic() sees only Latin now. This covers the LLM-translated
+# narratives AND the identifier-embedding sentence fields assembled from the label dict.
 INDIC_BOUND_FIELDS = (
     "proceedings_narrative",
     "investigation_done",
@@ -41,6 +41,11 @@ INDIC_BOUND_FIELDS = (
     "grounds_for_custody",
     "examination_purpose",
     "complaint_narrative",
+    "seized_intro",
+    "panch_intro",
+    "accused_line",
+    "remand_clause1",
+    "med_body",
 )
 
 
@@ -59,7 +64,14 @@ def _pin_run(run):
     Latin run  -> only w:cs, so ascii/hAnsi keep the document's original Latin face.
     """
     text = run.text
-    is_indic = _has_indic(text) or any(field in text for field in INDIC_BOUND_FIELDS)
+    # Any `{{ L.* }}` label renders to Gujarati/Hindi, as do the sentence fields above and
+    # any run already holding Indic characters.
+    is_indic = (
+        _has_indic(text)
+        or "{{ L." in text
+        or "L." in text and "{{" in text
+        or any(field in text for field in INDIC_BOUND_FIELDS)
+    )
     rfonts = run._element.get_or_add_rPr().get_or_add_rFonts()
     if is_indic:
         for slot in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
@@ -175,42 +187,38 @@ def _blank_box(doc, lines=3):
 def build_seizure_receipt():
     """CCTNS Form IF4 — Property Seizure Memo layout (uses existing pool fields only)."""
     doc = Document()
-    _title(doc, "FORM IF4 — PROPERTY SEIZURE MEMO / જપ્તી પંચનામું")
-    _line(doc, "(Crime & Criminal Tracking Network and Systems · Bharatiya Nagarik Suraksha Sanhita, 2023)")
+    _title(doc, "{{ L.heading_seizure }}")
+    _line(doc, "{{ L.subtitle_seizure }}")
     doc.add_paragraph()
 
     # District / PS / Year / FIR header
     hdr = doc.add_table(rows=2, cols=2)
     hdr.style = "Table Grid"
-    hdr.rows[0].cells[0].text = "District: {{ district }}"
-    hdr.rows[0].cells[1].text = "Police Station: {{ police_station }}"
-    hdr.rows[1].cells[0].text = "Year: {{ fir_year }}    FIR No.: {{ fir_number }}"
-    hdr.rows[1].cells[1].text = "Crime / Case No.: {{ case_number }}    FIR Date: {{ fir_date }}"
+    hdr.rows[0].cells[0].text = "{{ L.district }}: {{ district }}"
+    hdr.rows[0].cells[1].text = "{{ L.police_station }}: {{ police_station }}"
+    hdr.rows[1].cells[0].text = "{{ L.year }}: {{ fir_year }}    {{ L.fir_no }}: {{ fir_number }}"
+    hdr.rows[1].cells[1].text = "{{ L.crime_case_no }}: {{ case_number }}    {{ L.fir_date }}: {{ fir_date }}"
     doc.add_paragraph()
 
-    _line(doc, "Acts & Sections: {{ acts_sections_line }}", bold=True)
+    _line(doc, "{{ L.acts_sections }}: {{ acts_sections_line }}", bold=True)
     doc.add_paragraph()
-    _line(doc, "Date & time of seizure: {{ seizure_datetime }}")
-    _line(doc, "Place of seizure: {{ seizure_location }}")
+    _line(doc, "{{ L.seizure_datetime_label }}: {{ seizure_datetime }}")
+    _line(doc, "{{ L.seizure_place_label }}: {{ seizure_location }}")
     doc.add_paragraph()
 
     # Person from whom property seized
-    _line(doc, "Person from whom property seized:", bold=True)
-    _line(doc, "Name: {{ accused_name }}    S/o: {{ accused_father }}    Age: {{ accused_age }}")
-    _line(doc, "Address: {{ accused_address }}")
+    _line(doc, "{{ L.person_seized_from }}", bold=True)
+    _line(doc, "{{ L.name }}: {{ accused_name }}    {{ L.son_of }}: {{ accused_father }}    {{ L.age }}: {{ accused_age }}")
+    _line(doc, "{{ L.address }}: {{ accused_address }}")
     doc.add_paragraph()
 
-    _line(
-        doc,
-        "The property described below was seized by {{ io_name }}, Investigating Officer, in "
-        "the presence of the two independent panch witnesses named below, and each article was "
-        "thereafter packed and sealed:",
-    )
+    # Identifier-embedding sentence assembled per-language in _build_context.
+    _line(doc, "{{ seized_intro }}")
     # Seized-property table. (The est.-value column carries its own 'Rs.' prefix, so the
     # header drops the redundant '(Rs.)'.)
     _looped_table(
         doc,
-        ["Sr.", "Description of property", "Qty", "Est. value"],
+        ["{{ L.col_sr }}", "{{ L.col_desc_property }}", "{{ L.col_qty }}", "{{ L.col_est_value }}"],
         "{%tr for item in seized_items %}",
         [
             "{{ loop.index }}",
@@ -222,145 +230,114 @@ def build_seizure_receipt():
     doc.add_paragraph()
 
     # Two independent panch witness blocks
-    _line(doc, "Independent panch witnesses:", bold=True)
-    _line(doc, "1. Name: {{ witness1.full_name }}    S/o: {{ witness1.father_name }}")
-    _line(doc, "   Address: {{ witness1.address }}          Signature: ____________________")
-    _line(doc, "2. Name: {{ witness2.full_name }}    S/o: {{ witness2.father_name }}")
-    _line(doc, "   Address: {{ witness2.address }}          Signature: ____________________")
+    _line(doc, "{{ L.indep_panch_label }}", bold=True)
+    _line(doc, "1. {{ L.name }}: {{ witness1.full_name }}    {{ L.son_of }}: {{ witness1.father_name }}")
+    _line(doc, "   {{ L.address }}: {{ witness1.address }}          {{ L.signature }}: ____________________")
+    _line(doc, "2. {{ L.name }}: {{ witness2.full_name }}    {{ L.son_of }}: {{ witness2.father_name }}")
+    _line(doc, "   {{ L.address }}: {{ witness2.address }}          {{ L.signature }}: ____________________")
     doc.add_paragraph()
 
     # Seizing / Investigating Officer signature block (rank + buckle number)
-    _line(doc, "Seizing / Investigating Officer:", bold=True)
-    _line(doc, "Name: {{ io_name }}    Rank: {{ io_rank }}    Buckle (Badge) No.: {{ io_badge_no }}")
-    _line(doc, "Police Station: {{ police_station }}          Signature: ____________________")
+    _line(doc, "{{ L.seizing_officer_label }}", bold=True)
+    _line(doc, "{{ L.name }}: {{ io_name }}    {{ L.rank }}: {{ io_rank }}    {{ L.buckle_no }}: {{ io_badge_no }}")
+    _line(doc, "{{ L.police_station }}: {{ police_station }}          {{ L.signature }}: ____________________")
     doc.add_paragraph()
-    _line(doc, "NOTE: Draft generated by CrimeGPT — to be verified and signed by the officer.")
+    _line(doc, "{{ L.note_draft }}")
     _apply_fonts(doc)
     doc.save(HERE / "seizure_receipt.docx")
 
 
 def build_panchnama():
     doc = Document()
-    _title(doc, "PANCHNAMA / પંચનામું")
+    _title(doc, "{{ L.heading_panchnama }}")
     doc.add_paragraph()
-    _line(doc, "Police Station: {{ police_station }}    District: {{ district }}")
-    _line(doc, "Case / FIR No.: {{ case_number }}  (FIR No. {{ fir_number }})")
-    _line(doc, "Date: {{ panchnama_date }}    Place: {{ panchnama_place }}")
+    _line(doc, "{{ L.police_station }}: {{ police_station }}    {{ L.district }}: {{ district }}")
+    _line(doc, "{{ L.case_fir_no }}: {{ case_number }}  ({{ L.fir_no }} {{ fir_number }})")
+    _line(doc, "{{ L.date }}: {{ panchnama_date }}    {{ L.place }}: {{ panchnama_place }}")
     doc.add_paragraph()
-    _line(
-        doc,
-        "Before me, {{ io_name }}, Investigating Officer of the above case, the panch "
-        "witnesses named below were called and the purpose of this panchnama was explained "
-        "to them. In their presence the following proceedings were carried out:",
-    )
-    _line(doc, "Panch witnesses:", bold=True)
+    _line(doc, "{{ panch_intro }}")
+    _line(doc, "{{ L.panch_witnesses_label }}", bold=True)
     _looped_table(
         doc,
-        ["No.", "Name", "Father's name", "Address"],
+        ["{{ L.col_no }}", "{{ L.name }}", "{{ L.father_name }}", "{{ L.address }}"],
         "{%tr for w in witnesses %}",
         ["{{ loop.index }}", "{{ w.full_name }}", "{{ w.father_name }}", "{{ w.address }}"],
     )
     doc.add_paragraph()
-    _line(doc, "Accused:", bold=True)
-    _line(
-        doc,
-        "{{ accused_name }}, son of {{ accused_father }}, age {{ accused_age }}, "
-        "residing at {{ accused_address }}.",
-    )
+    _line(doc, "{{ L.accused_label }}", bold=True)
+    _line(doc, "{{ accused_line }}")
     doc.add_paragraph()
-    _line(doc, "Narrative of proceedings:", bold=True)
+    _line(doc, "{{ L.narrative_label }}", bold=True)
     _line(doc, "{{ proceedings_narrative }}")
     doc.add_paragraph()
-    _line(doc, "Articles found / seized during the proceedings:", bold=True)
+    _line(doc, "{{ L.articles_label }}", bold=True)
     _looped_table(
         doc,
-        ["No.", "Description", "Quantity", "Estimated value"],
+        ["{{ L.col_no }}", "{{ L.col_description }}", "{{ L.col_quantity }}", "{{ L.col_est_value2 }}"],
         "{%tr for item in seized_items %}",
         ["{{ loop.index }}", "{{ item.description }}", "{{ item.quantity }}", "{{ item.estimated_value }}"],
     )
     doc.add_paragraph()
-    _line(
-        doc,
-        "The above panchnama was read over and explained to the panchas, who admitted it "
-        "to be correct and signed below.",
-    )
-    _sig_block(doc, "Panch witnesses (sign)", "{{ io_name }}\nInvestigating Officer")
-    _line(doc, "NOTE: Draft generated by CrimeGPT — to be verified and signed by the officer.")
+    _line(doc, "{{ L.panchnama_closing }}")
+    _sig_block(doc, "{{ L.panch_sign_label }}", "{{ io_name }}\n{{ L.io_designation }}")
+    _line(doc, "{{ L.note_draft }}")
     _apply_fonts(doc)
     doc.save(HERE / "panchnama.docx")
 
 
 def build_remand_request():
     doc = Document()
-    _line(doc, "To,")
-    _line(doc, "The Hon'ble Court of the Learned Judicial Magistrate,")
+    _line(doc, "{{ L.to }}")
+    _line(doc, "{{ L.remand_court_line2 }}")
     _line(doc, "{{ district }}.")
     doc.add_paragraph()
-    _title(doc, "APPLICATION FOR POLICE CUSTODY REMAND")
-    _line(doc, "(Under Section 187 of the Bharatiya Nagarik Suraksha Sanhita, 2023)")
+    _title(doc, "{{ L.heading_remand }}")
+    _line(doc, "{{ L.remand_subtitle }}")
     doc.add_paragraph()
-    _line(doc, "Police Station: {{ police_station }}    District: {{ district }}")
-    _line(doc, "Case / FIR No.: {{ case_number }}  (FIR No. {{ fir_number }} dated {{ fir_date }})")
+    _line(doc, "{{ L.police_station }}: {{ police_station }}    {{ L.district }}: {{ district }}")
+    _line(doc, "{{ L.case_fir_no }}: {{ case_number }}  ({{ L.fir_no }} {{ fir_number }} {{ L.dated }} {{ fir_date }})")
     doc.add_paragraph()
-    _line(doc, "Respectfully showeth:", bold=True)
-    _line(
-        doc,
-        "1. That the accused {{ accused_name }}, son of {{ accused_father }}, age "
-        "{{ accused_age }}, residing at {{ accused_address }}, has been arrested in "
-        "connection with the above case.",
-    )
-    _line(doc, "2. That the following sections of law have been applied in this case:")
+    _line(doc, "{{ L.respectfully }}", bold=True)
+    _line(doc, "{{ remand_clause1 }}")
+    _line(doc, "{{ L.remand_c2 }}")
     _looped_table(
         doc,
-        ["Act", "Section", "Title"],
+        ["{{ L.col_act }}", "{{ L.col_section }}", "{{ L.col_title }}"],
         "{%tr for s in sections_applied %}",
         ["{{ s.act }}", "{{ s.section_code }}", "{{ s.section_title }}"],
     )
-    _line(doc, "3. Investigation carried out so far:")
+    _line(doc, "{{ L.remand_c3 }}")
     _line(doc, "{{ investigation_done }}")
-    _line(doc, "4. Investigation still pending:")
+    _line(doc, "{{ L.remand_c4 }}")
     _line(doc, "{{ pending_investigation }}")
-    _line(doc, "5. Grounds for seeking police custody:")
+    _line(doc, "{{ L.remand_c5 }}")
     _line(doc, "{{ grounds_for_custody }}")
     doc.add_paragraph()
-    _line(
-        doc,
-        "It is therefore prayed that the accused be remanded to police custody to enable "
-        "completion of the investigation.",
-    )
-    _sig_block(doc, "Place: {{ police_station }}", "{{ io_name }}\nInvestigating Officer")
-    _line(doc, "NOTE: Draft generated by CrimeGPT — to be verified and signed by the officer.")
+    _line(doc, "{{ L.remand_prayer }}")
+    _sig_block(doc, "{{ L.place }}: {{ police_station }}", "{{ io_name }}\n{{ L.io_designation }}")
+    _line(doc, "{{ L.note_draft }}")
     _apply_fonts(doc)
     doc.save(HERE / "remand_request.docx")
 
 
 def build_medical_letter():
     doc = Document()
-    _line(doc, "To,")
-    _line(doc, "The Medical Officer,")
+    _line(doc, "{{ L.to }}")
+    _line(doc, "{{ L.medical_to2 }}")
     _line(doc, "{{ hospital }}.")
     doc.add_paragraph()
-    _title(doc, "REQUEST FOR MEDICAL EXAMINATION")
+    _title(doc, "{{ L.heading_medical }}")
     doc.add_paragraph()
-    _line(doc, "From: {{ io_name }}, Investigating Officer, {{ police_station }}, {{ district }}.")
-    _line(doc, "Case / FIR No.: {{ case_number }}  (FIR No. {{ fir_number }})")
+    _line(doc, "{{ L.from_label }} {{ io_name }}, {{ L.io_designation }}, {{ police_station }}, {{ district }}.")
+    _line(doc, "{{ L.case_fir_no }}: {{ case_number }}  ({{ L.fir_no }} {{ fir_number }})")
     doc.add_paragraph()
-    _line(doc, "Sir / Madam,")
-    _line(
-        doc,
-        "In connection with the above case, {{ subject_name }} ({{ subject_role }}) is being "
-        "produced before you. You are requested to conduct the medical examination of the said "
-        "person for the following purpose:",
-    )
-    _line(doc, "Purpose of examination: {{ examination_purpose }}")
+    _line(doc, "{{ L.sir_madam }}")
+    _line(doc, "{{ med_body }}")
+    _line(doc, "{{ L.purpose_label }} {{ examination_purpose }}")
     doc.add_paragraph()
-    _line(
-        doc,
-        "You are further requested to furnish the medical examination report and certificate "
-        "to this office at the earliest for the purpose of investigation.",
-    )
-    _sig_block(doc, "Place: {{ police_station }}", "{{ io_name }}\nInvestigating Officer")
-    _line(doc, "NOTE: Draft generated by CrimeGPT — to be verified and signed by the officer.")
+    _line(doc, "{{ L.med_closing }}")
+    _sig_block(doc, "{{ L.place }}: {{ police_station }}", "{{ io_name }}\n{{ L.io_designation }}")
+    _line(doc, "{{ L.note_draft }}")
     _apply_fonts(doc)
     doc.save(HERE / "medical_letter.docx")
 
@@ -373,19 +350,19 @@ def build_medical_letter():
 # are blank fields the officer fills per request.
 def _lers_common_header(doc, title):
     _title(doc, title)
-    _line(doc, "COMPLIANT LAW-ENFORCEMENT REQUEST TEMPLATE — not a live platform API integration.", bold=True)
+    _line(doc, "{{ L.lers_compliant_note }}", bold=True)
     doc.add_paragraph()
-    _line(doc, "To: The Law Enforcement Response Team,")
-    _line(doc, "Platform: ____________________  (Meta / WhatsApp / Instagram)")
+    _line(doc, "{{ L.lers_to }}")
+    _line(doc, "{{ L.lers_platform }} ____________________  (Meta / WhatsApp / Instagram)")
     doc.add_paragraph()
-    _line(doc, "Requesting agency: {{ police_station }}, {{ district }} (India)")
-    _line(doc, "Case / FIR No.: {{ case_number }}  (FIR No. {{ fir_number }} dated {{ fir_date }})")
-    _line(doc, "Investigating Officer: {{ io_name }}, {{ io_rank }}, Badge/Buckle No. {{ io_badge_no }}")
+    _line(doc, "{{ L.lers_agency }} {{ police_station }}, {{ district }} (India)")
+    _line(doc, "{{ L.case_fir_no }}: {{ case_number }}  ({{ L.fir_no }} {{ fir_number }} {{ L.dated }} {{ fir_date }})")
+    _line(doc, "{{ L.lers_io }} {{ io_name }}, {{ io_rank }}, {{ L.lers_badge }} {{ io_badge_no }}")
     doc.add_paragraph()
-    _line(doc, "Legal basis: Under Section ________ of the Bharatiya Nagarik Suraksha Sanhita, 2023 (BNSS),")
-    _line(doc, "in connection with an offence under {{ acts_sections_line }}.")
+    _line(doc, "{{ L.lers_legal_basis_a }}")
+    _line(doc, "{{ L.lers_legal_basis_b }} {{ acts_sections_line }}.")
     doc.add_paragraph()
-    _line(doc, "Target identifier (account ID / phone number / profile URL):", bold=True)
+    _line(doc, "{{ L.lers_target }}", bold=True)
     _line(doc, "________________________________________________________________")
     doc.add_paragraph()
 
@@ -394,34 +371,23 @@ def _lers_footer(doc):
     doc.add_paragraph()
     _sig_block(
         doc,
-        "Place: {{ police_station }}\nDate: ____________",
-        "{{ io_name }}\n{{ io_rank }} · Badge {{ io_badge_no }}\nInvestigating Officer",
+        "{{ L.place }}: {{ police_station }}\n{{ L.date }}: ____________",
+        "{{ io_name }}\n{{ io_rank }} · {{ L.buckle_no }} {{ io_badge_no }}\n{{ L.io_designation }}",
     )
-    _line(
-        doc,
-        "NOTE: Compliant request template generated by CrimeGPT — to be verified and signed "
-        "by the officer. This is not a live platform API integration.",
-    )
+    _line(doc, "{{ L.lers_note }}")
 
 
 def build_lers_preservation_request():
     doc = Document()
-    _lers_common_header(doc, "DATA PRESERVATION REQUEST / માહિતી જાળવણી વિનંતી")
-    _line(doc, "Data to be PRESERVED (do not disclose at this stage):", bold=True)
-    _line(doc, "  [ ] Subscriber / registration information     [ ] Login IP history")
-    _line(doc, "  [ ] Message / call metadata                   [ ] Media and stored content")
-    _line(doc, "  Other: ______________________________________________________")
+    _lers_common_header(doc, "{{ L.lers_pres_heading }}")
+    _line(doc, "{{ L.lers_pres_data }}", bold=True)
+    _line(doc, "  [ ] {{ L.lers_opt_subscriber }}     [ ] {{ L.lers_opt_iphist }}")
+    _line(doc, "  [ ] {{ L.lers_opt_metadata }}     [ ] {{ L.lers_opt_content }}")
+    _line(doc, "  {{ L.lers_other }} ______________________________________________________")
     doc.add_paragraph()
-    _line(doc, "Period for which data is to be preserved: from ____________ to ____________")
+    _line(doc, "{{ L.lers_pres_period }}")
     doc.add_paragraph()
-    _line(
-        doc,
-        "PRESERVATION STATEMENT: Pursuant to a lawful investigation, you are requested to "
-        "PRESERVE and NOT delete or alter the data described above associated with the "
-        "identifier(s) above for a period of ninety (90) days, extendable on further request, "
-        "pending service of formal legal process for its disclosure. This is a preservation "
-        "request only — no disclosure of data is sought at this stage.",
-    )
+    _line(doc, "{{ L.lers_pres_statement }}")
     _lers_footer(doc)
     _apply_fonts(doc)
     doc.save(HERE / "lers_preservation_request.docx")
@@ -429,22 +395,15 @@ def build_lers_preservation_request():
 
 def build_lers_records_request():
     doc = Document()
-    _lers_common_header(doc, "RECORDS DISCLOSURE REQUEST / રેકોર્ડ જાહેર કરવાની વિનંતી")
-    _line(doc, "Records / data SOUGHT for disclosure:", bold=True)
-    _line(doc, "  [ ] Basic subscriber information              [ ] Login / IP logs")
-    _line(doc, "  [ ] Transactional / message metadata         [ ] Stored content (where lawfully permitted)")
-    _line(doc, "  Other: ______________________________________________________")
+    _lers_common_header(doc, "{{ L.lers_rec_heading }}")
+    _line(doc, "{{ L.lers_rec_data }}", bold=True)
+    _line(doc, "  [ ] {{ L.lers_opt_basic }}     [ ] {{ L.lers_opt_iplogs }}")
+    _line(doc, "  [ ] {{ L.lers_opt_txn }}     [ ] {{ L.lers_opt_stored }}")
+    _line(doc, "  {{ L.lers_other }} ______________________________________________________")
     doc.add_paragraph()
-    _line(doc, "Date range of records requested: from ____________ to ____________")
+    _line(doc, "{{ L.lers_rec_daterange }}")
     doc.add_paragraph()
-    _line(
-        doc,
-        "DISCLOSURE STATEMENT: Pursuant to the legal basis stated above, you are requested to "
-        "DISCLOSE the records described above for the identifier(s) and period specified, "
-        "certified as true records, in a machine-readable format, to the requesting officer "
-        "through the platform's Law Enforcement Response System. Please cite the Case / FIR "
-        "number above in your response.",
-    )
+    _line(doc, "{{ L.lers_rec_statement }}")
     _lers_footer(doc)
     _apply_fonts(doc)
     doc.save(HERE / "lers_records_request.docx")
