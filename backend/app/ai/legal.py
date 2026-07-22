@@ -33,10 +33,14 @@ _MAPPING_FILE = Path(__file__).resolve().parents[3] / "data" / "mappings" / "old
 SELECTION_SCHEMA = {
     "selected": [
         {
+            # triggering_phrase FIRST, on purpose: the model fills JSON in field order, so
+            # quoting the narrative before naming a section enforces the quote-first workflow
+            # in _build_prompt and curbs the "name a section, then quote its definition" habit.
+            "triggering_phrase": "exact run of words copied verbatim from the NARRATIVE (the "
+            "complainant's own words) — never from a candidate section's legal definition",
             "act": "one of the candidate acts (BNS | BNSS | BSA)",
             "section_code": "must be one of the provided candidate section_codes",
-            "triggering_phrase": "exact substring quoted verbatim from the narrative",
-            "reason": "short reason this section applies",
+            "reason": "short reason this quote proves this section",
             "confidence": "float 0.0-1.0",
             "cross_reference": (
                 "the pre-2024 equivalent provision, or null. Object: "
@@ -160,17 +164,38 @@ def _format_candidates(candidates: list[dict]) -> str:
 
 
 def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
+    # QUOTE-FIRST design: previously the model chose a section and then hunted for a phrase,
+    # which on plain-language complaints (hurt, intimidation) led it to quote the candidate's
+    # statutory DEFINITION — the grounding validator then rejected it and the case fell to
+    # no_grounded_match. Here the model must first COPY the complainant's own words, then label
+    # each quote with a section. Grounding is UNCHANGED; only the prompt/field order changed.
     return (
-        f"A crime complaint (language: {language}) is given below, followed by a list of CANDIDATE "
-        "legal sections retrieved from the bare acts.\n\n"
-        "Select ONLY the candidate sections that genuinely apply to this narrative. "
-        "You MUST NOT invent a section number — only choose from the candidate section_codes below.\n\n"
-        "For each selected section provide:\n"
-        "  - triggering_phrase: a run of words copied character-for-character FROM THE NARRATIVE "
-        "below (the complaint text). It MUST appear verbatim in that narrative. Do NOT paraphrase, "
-        "do NOT copy the candidate section definitions, and do NOT invent words. If you cannot find "
-        "a supporting phrase in the narrative itself, omit that section.\n"
-        "  - reason: a short reason it applies.\n"
+        f"You are mapping a crime complaint (language: {language}) to the legal sections that "
+        "apply. Below is the NARRATIVE (the complainant's own account) followed by a list of "
+        "CANDIDATE sections retrieved from the bare acts.\n\n"
+        "WORK IN THIS ORDER — quote first, label second. Do NOT pick a section and then hunt "
+        "for words to justify it:\n"
+        "  STEP 1 — Read the NARRATIVE and find the specific runs of words where the complainant "
+        "describes WHAT HAPPENED: the acts, threats, injuries, losses, deception. These are the "
+        "complainant's OWN plain words — e.g. \"hit me hard on my head\", \"he will beat me and "
+        "my workers if I stop paying\", \"collected the day's cash ... but never deposited it\", "
+        "\"our television ... missing\".\n"
+        "  STEP 2 — For each such quote, choose the ONE candidate section whose offence that "
+        "quote proves. Pick section_code ONLY from the CANDIDATE SECTIONS list — never invent "
+        "one. If several candidates could fit, choose the one that MOST SPECIFICALLY matches the "
+        "facts (e.g. property entrusted to a person who then keeps it is criminal breach of "
+        "trust, not ordinary theft; entry into a house at night to take things is house-breaking "
+        "as well as theft).\n\n"
+        "For each (quote, section) output an object with:\n"
+        "  - triggering_phrase: the exact words copied character-for-character FROM THE NARRATIVE. "
+        "It MUST appear verbatim in the narrative below. It is the COMPLAINANT'S description of "
+        "the event — NEVER the wording of a candidate section's legal definition. Statutory "
+        "phrases like 'voluntarily causing hurt', 'criminal intimidation', 'dishonestly', 'means "
+        "of transportation' do NOT appear in the narrative; if you are about to quote wording "
+        "like that, STOP and quote the everyday sentence in the narrative that shows the same "
+        "thing. If no narrative phrase proves a section, DROP that section.\n"
+        "  - act, section_code: from the candidate list.\n"
+        "  - reason: a short reason the quote proves this section.\n"
         "  - confidence: 0.0-1.0.\n"
         "  - cross_reference: the PRE-2024 provision this new-law section replaces. The BNS, BNSS "
         "and BSA (2023) renumbered most pre-existing offences from the IPC / CrPC / Indian Evidence "
@@ -181,22 +206,10 @@ def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
         "IPC 420; BNS 115 (voluntarily causing hurt) -> IPC 323; BNS 309 (robbery) -> IPC 392. "
         "Set cross_reference to null ONLY for a genuinely NEW offence with no pre-2024 predecessor. "
         "Do NOT guess a random number — give the established equivalent or null.\n\n"
-        f"NARRATIVE (quote triggering_phrase from HERE):\n\"\"\"{narrative}\"\"\"\n\n"
-        f"CANDIDATE SECTIONS (choose section_code from HERE):\n{_format_candidates(candidates)}\n"
-        # Reinforcement of the existing triggering_phrase rule (grounding UNCHANGED — still
-        # candidate-set + verbatim-from-narrative). Widening retrieval via the query-expansion
-        # union crowds the candidate list with several near-duplicate theft definitions, which
-        # tempts the 7B model to quote a section DEFINITION as the phrase; the validator then
-        # correctly rejects it and a valid section is lost. Spelling the rule out with concrete
-        # examples keeps the model quoting the officer's own words. See map_sections / union.
-        "\n\nHARD RULE ON triggering_phrase — READ CAREFULLY:\n"
-        "The triggering_phrase must be copied from the NARRATIVE (the complaint/statement text), "
-        "NOT from the CANDIDATE SECTIONS list. The candidate section definitions (words like "
-        "'dishonestly', 'movable property', 'means of transportation', 'intending to take') are "
-        "NOT part of the narrative — never quote them. Quote the officer's plain-language words "
-        "that describe the act (e.g. 'stole a gold chain and cash', 'the scooter was missing "
-        "from the parking'). If the only phrase you can find comes from a section definition, "
-        "you have the wrong phrase — find the everyday wording in the narrative instead.\n"
+        f"NARRATIVE (quote triggering_phrase from HERE — the complainant's own words):\n"
+        f"\"\"\"{narrative}\"\"\"\n\n"
+        f"CANDIDATE SECTIONS (choose section_code from HERE; do NOT quote their text):\n"
+        f"{_format_candidates(candidates)}\n"
     )
 
 
@@ -351,6 +364,43 @@ def validate_selections(
     return validated, rejected
 
 
+_REPAIR_SCHEMA = {"triggering_phrase": "a run of words copied verbatim from the narrative"}
+
+
+def _repair_phrase(narrative: str, candidate: dict) -> str | None:
+    """One-shot phrase repair for an already-chosen section.
+
+    When a selection is grounding-rejected because its triggering_phrase is not in the
+    narrative (the section itself is a valid candidate), ask the LLM ONCE for a corrected
+    verbatim phrase supporting THAT SAME section — section choice is not re-opened. Returns a
+    phrase that literally appears in the narrative, or None (then the caller drops it, as before).
+    """
+    title = candidate.get("title", "")
+    code = candidate.get("section_code", "")
+    definition = (candidate.get("text") or "").strip().replace("\n", " ")[:200]
+    prompt = (
+        "The offence below has already been identified as applicable to this complaint. Quote "
+        "the SHORT run of words FROM THE NARRATIVE — the complainant's own description of what "
+        "happened — that proves this offence. Copy it character-for-character from the narrative; "
+        "it MUST appear verbatim there. Do NOT quote the legal definition; quote the "
+        "complainant's plain words.\n\n"
+        f"OFFENCE: section {code} — {title}\n"
+        f"(definition, for your understanding only — do NOT quote it: {definition})\n\n"
+        f"NARRATIVE:\n\"\"\"{narrative}\"\"\""
+    )
+    try:
+        out = call_llm(prompt, system=_SYSTEM, json_schema=_REPAIR_SCHEMA)
+    except Exception as exc:  # noqa: BLE001 — repair is best-effort; never fatal
+        logger.warning("repair phrase call failed for section %s (%s)", code, exc)
+        return None
+    if not isinstance(out, dict):
+        return None
+    phrase = (out.get("triggering_phrase") or "").strip()
+    if phrase and (phrase in narrative or phrase.lower() in narrative.lower()):
+        return phrase
+    return None
+
+
 # Minimum retrieval similarity a validated section must clear to be kept. This is a
 # RELEVANCE gate, not a grounding gate: the k=12 union window can admit a catch-all
 # section (e.g. BNS 125 "act endangering life by a rash/negligent act") that is genuinely
@@ -395,6 +445,46 @@ def map_sections(narrative: str, language: str = "EN", k: int = 12) -> dict:
 
     validated, rejected = validate_selections(selections, candidates, narrative)
 
+    # Repair pass: a selection rejected ONLY because its phrase was not verbatim (the section
+    # itself IS a valid candidate) gets ONE shot at a corrected narrative phrase. Section choice
+    # is never re-opened, hallucinated-section rejections are never repaired, and each section is
+    # attempted at most once. Grounding is unchanged — the repaired phrase is re-validated the
+    # same way, so a bad repair is still dropped.
+    by_key = {(c["act"], str(c["section_code"])): c for c in candidates}
+    attempted: set = set()
+    resolved: set = set()
+    still_rejected: list[dict] = []
+    for rej in rejected:
+        key = (rej.get("act", ""), str(rej.get("section_code", "")))
+        if key in resolved:
+            continue  # section already recovered via repair — drop the stale rejection
+        if (rej.get("rejection_reason") != "triggering_phrase not found verbatim in narrative"
+                or key in attempted or key not in by_key):
+            still_rejected.append(rej)
+            continue
+        attempted.add(key)
+        phrase = _repair_phrase(narrative, by_key[key])
+        orig = next(
+            (s for s in selections
+             if s.get("act") == rej.get("act")
+             and str(s.get("section_code")) == str(rej.get("section_code"))),
+            {},
+        )
+        fixed, _ = validate_selections(
+            [{"act": rej.get("act"), "section_code": rej.get("section_code"),
+              "triggering_phrase": phrase or "", "reason": orig.get("reason", ""),
+              "confidence": orig.get("confidence"),
+              "cross_reference": orig.get("cross_reference")}],
+            candidates, narrative,
+        ) if phrase else ([], [])
+        if fixed:
+            validated.extend(fixed)
+            resolved.add(key)
+            logger.info("REPAIR ok: %s %s phrase corrected to %r", key[0], key[1], phrase)
+        else:
+            still_rejected.append(rej)
+    rejected = still_rejected
+
     # Relevance floor — drop grounded-but-weakly-related sections (see RELEVANCE_THRESHOLD).
     # Uses the retrieval similarity score already carried on each candidate by rag.search().
     score_by_key = {(c["act"], str(c["section_code"])): c.get("score") for c in candidates}
@@ -417,6 +507,17 @@ def map_sections(narrative: str, language: str = "EN", k: int = 12) -> dict:
         else:
             relevant.append(s)
     validated = relevant
+
+    # De-duplicate by (act, section_code), keeping the highest-confidence instance. The LLM can
+    # emit the same section several times (once per supporting phrase); the officer should see
+    # each charge once. First-occurrence order is preserved; only the kept instance may change.
+    deduped: dict[tuple, dict] = {}
+    for s in validated:
+        key = (s["act"], str(s["section_code"]))
+        cur = deduped.get(key)
+        if cur is None or (s.get("confidence") or 0) > (cur.get("confidence") or 0):
+            deduped[key] = s
+    validated = list(deduped.values())
 
     logger.info(
         "validated %d, rejected %d of %d selections",
