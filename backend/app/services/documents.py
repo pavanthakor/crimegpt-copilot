@@ -17,7 +17,6 @@ from docxtpl import DocxTemplate
 from sqlalchemy.orm import Session
 
 from app import demo_cache
-from app.ai.translate import translate
 from app.core import runtime
 
 from app.models import (
@@ -42,13 +41,18 @@ from app.models.enums import (
     SectionStatus,
 )
 
-# Free-text narrative clauses per doc type that are drafted (not identifiers) and may be
-# translated. Scoped per doc so we only translate clauses the template actually renders
-# (translating unused context fields would multiply latency for nothing).
-_TRANSLATABLE_BY_DOC = {
-    "PANCHNAMA": ["proceedings_narrative"],
-    "REMAND": ["investigation_done", "pending_investigation", "grounds_for_custody"],
-    "MEDICAL_LETTER": ["examination_purpose"],
+# Fields per doc type that still need machine translation. Now EMPTY: the document
+# narratives that used to live here (panchnama proceedings, the remand investigation/
+# pending/grounds clauses, the medical purpose) are no longer drafted in English and
+# translated — they are deterministic per-language sentence templates in
+# templates/_labels.py, assembled with verbatim identifiers in _build_context. Document
+# generation therefore makes NO LLM call. Retained (empty) because app.demo_cache_build
+# still imports it; a rebuild of the demo cache should build per-language contexts instead
+# (see the note in generate_document).
+_TRANSLATABLE_BY_DOC: dict[str, list[str]] = {
+    "PANCHNAMA": [],
+    "REMAND": [],
+    "MEDICAL_LETTER": [],
     "SEIZURE_RECEIPT": [],
 }
 
@@ -175,16 +179,6 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         else "victim" if subject is victim and victim
         else "complainant" if subject else None
     )
-    if subject is accused and accused:
-        exam_purpose = (
-            "Medical examination of the accused to record the physical condition and any "
-            "injuries prior to production before the Hon'ble Court."
-        )
-    else:
-        exam_purpose = (
-            "Medical examination and treatment of the person named above and issuance of the "
-            "medical certificate for the purpose of investigation."
-        )
 
     district = case.district or ""
     # Numbered, semicolon-separated so item boundaries stay clear even though individual
@@ -200,14 +194,6 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         f"{s['act']} {s['section_code']}" for s in sections_applied
     )
     fir_year = case.fir_date.year if case.fir_date else ""
-    investigation_done = (
-        f"The complaint was registered vide FIR No. {case.fir_number or '—'} "
-        f"dated {_fmt_date(case.fir_date) or '—'} at {case.police_station or '—'}. "
-        + (f"The accused {accused.full_name} has been arrested. " if accused else "")
-        + f"The following article(s) have been seized during investigation: {item_list}. "
-        + (f"Statement(s) of {len(statements)} witness(es)/person(s) have been recorded."
-           if statements else "Recording of witness statements is in progress.")
-    )
 
     # Identifier-embedding boilerplate sentences: assembled per-language from the label
     # dict, with identifiers substituted verbatim (names stay exactly as in the pool).
@@ -230,6 +216,39 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         subject_role=subject_role_label,
     )
     hospital = f"{L['hospital_civil']}, {district}" if district else L["hospital_govt"]
+
+    # Document narrative sentences — assembled per-language from the label templates
+    # (templates/_labels.py), identifiers substituted verbatim. Previously drafted in
+    # English and machine-translated; that mistranslated "seized" as "looted" (લૂટ) in
+    # Gujarati and truncated the Hindi, so these now never touch the LLM. Officer-entered
+    # content (complaint narrative, statements, item descriptions) is rendered verbatim.
+    accused_name_or_above = (accused.full_name if accused else None) or L["accused_named_above"]
+
+    proceedings_narrative = L["panch_narrative_S"].format(case_number=case.case_number)
+
+    _inv_parts = [
+        L["remand_inv_fir_S"].format(
+            fir_number=case.fir_number or "—",
+            fir_date=_fmt_date(case.fir_date) or "—",
+            police_station=case.police_station or "—",
+        )
+    ]
+    if accused:
+        _inv_parts.append(L["remand_inv_arrested_S"].format(accused_name=accused.full_name or ""))
+    _inv_parts.append(L["remand_inv_seized_S"].format(item_list=item_list))
+    _inv_parts.append(
+        L["remand_inv_stmts_S"].format(statement_count=len(statements))
+        if statements else L["remand_inv_stmts_progress"]
+    )
+    investigation_done = " ".join(_inv_parts)
+
+    pending_investigation = L["remand_pending_S"]
+    grounds_for_custody = L["remand_grounds_S"].format(accused_name=accused_name_or_above)
+
+    examination_purpose = (
+        L["med_purpose_accused_S"] if (subject is accused and accused)
+        else L["med_purpose_general_S"]
+    )
 
     return {
         # boilerplate labels for the active language (template renders {{ L.key }})
@@ -274,30 +293,16 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
             else (case.fir_date or datetime.now(timezone.utc).date())
         ),
         "panchnama_place": case.incident_location or case.police_station,
-        "proceedings_narrative": (
-            f"In connection with case {case.case_number}, the place and the articles connected "
-            "with the offence were examined in the presence of the panch witnesses. On "
-            "examination the article(s) described below were found and seized as per law."
-        ),
-        # remand narratives
+        "proceedings_narrative": proceedings_narrative,
+        # remand narratives (assembled from _labels.py above)
         "investigation_done": investigation_done,
-        "pending_investigation": (
-            "Recovery of the remaining case property, verification of the antecedents of the "
-            "accused, identification of any associates, and recording of further statements "
-            "remain to be completed."
-        ),
-        "grounds_for_custody": (
-            f"The custodial interrogation of the accused "
-            f"{accused.full_name if accused else 'named above'} is necessary to recover the "
-            "remaining case property, to identify the associates involved in the offence, and "
-            "to complete the investigation. There is a likelihood of the accused tampering with "
-            "evidence or influencing witnesses if not taken into custody."
-        ),
+        "pending_investigation": pending_investigation,
+        "grounds_for_custody": grounds_for_custody,
         # medical
         "hospital": hospital,
         "subject_name": subject.full_name if subject else None,
         "subject_role": subject_role,
-        "examination_purpose": exam_purpose,
+        "examination_purpose": examination_purpose,
         # CCTNS Form IF4 (Property Seizure Memo)
         "fir_year": fir_year,
         "acts_sections_line": acts_sections_line,
@@ -385,9 +390,9 @@ def generate_document(
 ) -> Document:
     """Generate one document for a case and persist it as a DRAFT.
 
-    `lang` ('gu'|'hi'|'en') controls the output language: when it is a non-English
-    language, the free-text narrative clauses are translated (names/numbers/dates/section
-    codes stay verbatim per translate()'s rules); identifiers are never touched.
+    `lang` ('gu'|'hi'|'en') selects the output language: _build_context assembles every
+    boilerplate narrative from the per-language label templates and substitutes identifiers
+    verbatim, so there is no LLM/translation step in document generation.
 
     Raises ValueError with the missing field list rather than rendering blanks.
     """
@@ -408,19 +413,18 @@ def generate_document(
     lang_key = (lang or "en").lower()
     doc_language = _LANG_ENUM.get(lang_key, case.complaint_language)
 
-    # DEMO_MODE (runtime-toggleable): serve the pre-generated (already-translated) context
-    # and skip the LLM. On a cache miss, fall through to the live build+translate below.
+    # DEMO_MODE (runtime-toggleable): serve the pre-generated context if present. Document
+    # generation is deterministic now, so a miss simply falls through to the live build below.
     context = (
         demo_cache.load_document(case_id, doc_type.value, lang_key)
         if runtime.get_demo_mode() else None
     )
     if context is None:
+        # Fully deterministic: _build_context assembles every narrative from the
+        # per-language label templates (templates/_labels.py), so document generation makes
+        # no LLM call and needs no translation pass. Officer-entered content (complaint
+        # narrative, statements, item descriptions) is rendered verbatim.
         context = _build_context(db, case, user, lang=lang_key)
-        # Translate this doc type's free-text clauses (only) for a non-English language.
-        if lang_key != "en":
-            for field in _TRANSLATABLE_BY_DOC.get(doc_type.value, []):
-                if context.get(field):
-                    context[field] = translate(context[field], target=lang_key)
 
     missing = _missing_required(context, entry["required_fields"])
     if missing:

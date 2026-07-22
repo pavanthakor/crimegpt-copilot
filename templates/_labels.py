@@ -101,6 +101,22 @@ LABELS = {
         "med_body_S": "In connection with the above case, {subject_name} ({subject_role}) is being produced before you. You are requested to conduct the medical examination of the said person for the following purpose:",
         "purpose_label": "Purpose of examination:",
         "med_closing": "You are further requested to furnish the medical examination report and certificate to this office at the earliest for the purpose of investigation.",
+        # -- document narrative sentences (moved OUT of the LLM translation path) --
+        # These were previously drafted in English in services/documents.py and machine-
+        # translated for HI/GU — which mistranslated "seized" as "looted" (લૂટ) in Gujarati
+        # and truncated the Hindi mid-word. They are now hand-written per language with
+        # {placeholder} slots for identifiers, exactly like the other `_S` sentences.
+        "accused_named_above": "named above",
+        "panch_narrative_S": "In connection with case {case_number}, the place and the articles connected with the offence were examined in the presence of the panch witnesses. On examination the article(s) described below were found and seized as per law.",
+        "remand_inv_fir_S": "The complaint was registered vide FIR No. {fir_number} dated {fir_date} at {police_station}.",
+        "remand_inv_arrested_S": "The accused {accused_name} has been arrested.",
+        "remand_inv_seized_S": "The following article(s) have been seized during investigation: {item_list}.",
+        "remand_inv_stmts_S": "Statement(s) of {statement_count} witness(es)/person(s) have been recorded.",
+        "remand_inv_stmts_progress": "Recording of witness statements is in progress.",
+        "remand_pending_S": "Recovery of the remaining case property, verification of the antecedents of the accused, identification of any associates, and recording of further statements remain to be completed.",
+        "remand_grounds_S": "The custodial interrogation of the accused {accused_name} is necessary to recover the remaining case property, to identify the associates involved in the offence, and to complete the investigation. There is a likelihood of the accused tampering with evidence or influencing witnesses if not taken into custody.",
+        "med_purpose_accused_S": "Medical examination of the accused to record the physical condition and any injuries prior to production before the Hon'ble Court.",
+        "med_purpose_general_S": "Medical examination and treatment of the person named above and issuance of the medical certificate for the purpose of investigation.",
         # -- LERS (shared + per-type) --
         "lers_compliant_note": "COMPLIANT LAW-ENFORCEMENT REQUEST TEMPLATE — not a live platform API integration.",
         "lers_to": "To: The Law Enforcement Response Team,",
@@ -204,6 +220,20 @@ LABELS = {
         "med_body_S": "उपरोक्त केस के संबंध में, {subject_name} ({subject_role}) को आपके समक्ष प्रस्तुत किया जा रहा है। आपसे अनुरोध है कि उक्त व्यक्ति का निम्नलिखित प्रयोजन हेतु चिकित्सा परीक्षण करें:",
         "purpose_label": "परीक्षण का प्रयोजन:",
         "med_closing": "आपसे यह भी अनुरोध है कि जाँच के प्रयोजन हेतु चिकित्सा परीक्षण रिपोर्ट एवं प्रमाणपत्र शीघ्रातिशीघ्र इस कार्यालय को प्रस्तुत करें।",
+        # -- document narrative sentences (hand-written Hindi; see the EN note above). No
+        #    reviewed Hindi exists, so the formal-legal phrasing is tagged TODO_HI for a
+        #    native-speaker pass; it renders as normal Hindi (no marker leaks into the .docx).
+        "accused_named_above": "उपर्युक्त नामित",
+        "panch_narrative_S": "उपरोक्त केस {case_number} के संबंध में, अपराध से संबंधित स्थान एवं वस्तुओं का पंच गवाहों की उपस्थिति में निरीक्षण किया गया। निरीक्षण के दौरान नीचे वर्णित वस्तु(एँ) पाई गईं एवं कानून के अनुसार जब्त की गईं।",  # TODO_HI: confirm legal phrasing
+        "remand_inv_fir_S": "शिकायत एफ.आई.आर. नं. {fir_number} दिनांक {fir_date} को {police_station} में पंजीकृत की गई।",
+        "remand_inv_arrested_S": "आरोपी {accused_name} को गिरफ्तार किया गया है।",
+        "remand_inv_seized_S": "जाँच के दौरान निम्नलिखित वस्तु(एँ) जब्त की गई हैं: {item_list}।",
+        "remand_inv_stmts_S": "{statement_count} साक्षी/व्यक्ति के बयान दर्ज किए गए हैं।",
+        "remand_inv_stmts_progress": "साक्षियों के बयान दर्ज किए जा रहे हैं।",
+        "remand_pending_S": "शेष मुद्दामाल की बरामदगी, आरोपी के पूर्ववृत्त का सत्यापन, किसी सहयोगी की पहचान, तथा आगे के बयान दर्ज करना शेष है।",  # TODO_HI: confirm legal phrasing
+        "remand_grounds_S": "बाकी मुद्दामाल की बरामदगी हेतु, अपराध में संलिप्त सहयोगियों की पहचान हेतु तथा जाँच पूर्ण करने हेतु आरोपी {accused_name} से हिरासत में पूछताछ आवश्यक है। यदि आरोपी को हिरासत में नहीं लिया गया तो उसके द्वारा साक्ष्य से छेड़छाड़ करने अथवा साक्षियों को प्रभावित करने की संभावना है।",  # TODO_HI: confirm legal phrasing
+        "med_purpose_accused_S": "माननीय न्यायालय के समक्ष प्रस्तुत करने से पूर्व आरोपी की शारीरिक स्थिति एवं किसी भी चोट को अभिलिखित करने हेतु आरोपी का चिकित्सा परीक्षण।",  # TODO_HI: confirm legal phrasing
+        "med_purpose_general_S": "जाँच के प्रयोजन हेतु उपर्युक्त नामित व्यक्ति का चिकित्सा परीक्षण एवं उपचार तथा चिकित्सा प्रमाणपत्र जारी करना।",  # TODO_HI: confirm legal phrasing
         "lers_compliant_note": "अनुपालनयुक्त विधि-प्रवर्तन अनुरोध टेम्पलेट — यह किसी लाइव प्लेटफ़ॉर्म API एकीकरण नहीं है।",
         "lers_to": "सेवा में: विधि प्रवर्तन प्रतिक्रिया दल,",
         "lers_platform": "प्लेटफ़ॉर्म:",
@@ -306,6 +336,26 @@ LABELS = {
         "med_body_S": "ઉપરોક્ત કેસના સંદર્ભમાં, {subject_name} ({subject_role}) ને આપની સમક્ષ રજૂ કરવામાં આવે છે. આપને વિનંતી છે કે ઉક્ત વ્યક્તિની નીચેના હેતુ માટે તબીબી તપાસ કરાવો:",
         "purpose_label": "તપાસનો હેતુ:",
         "med_closing": "આપને વધુમાં વિનંતી છે કે તપાસના હેતુ માટે તબીબી તપાસ અહેવાલ અને પ્રમાણપત્ર વહેલી તકે આ કચેરીને મોકલી આપો.",
+        # -- document narrative sentences (GU). Strings marked "reviewed_gu" are the human-
+        #    corrected text from demo_cache/reviewed_gu.json, templatized by swapping the
+        #    baked-in identifier for a {placeholder}; the rest are hand-written and tagged
+        #    TODO_GU for a native-speaker pass. All say "જપ્ત" (seized), never "લૂટ" (looted).
+        "accused_named_above": "ઉપર જણાવેલ",  # TODO_GU: confirm
+        # reviewed_gu (1_PANCHNAMA_gu.proceedings_narrative), {case_number} templatized:
+        "panch_narrative_S": "કેસ નં. {case_number} ના સંદર્ભમાં, ગુના સાથે સંબંધિત સ્થળ તથા વસ્તુઓની પંચ સાક્ષીઓની હાજરીમાં તપાસ કરવામાં આવી હતી. તપાસ દરમિયાન નીચે વર્ણવેલ વસ્તુ(ઓ) મળી આવી હતી અને કાયદા મુજબ જપ્ત કરવામાં આવી હતી.",
+        # remand_inv_* split out of reviewed_gu (1_REMAND_gu.investigation_done):
+        "remand_inv_fir_S": "{police_station} ખાતે તારીખ {fir_date} ના રોજ ફરિયાદ એફ.આઈ.આર. નં. {fir_number} થી નોંધવામાં આવી હતી.",  # TODO_GU: confirm split grammar
+        "remand_inv_arrested_S": "આરોપી {accused_name} ની ધરપકડ કરવામાં આવી છે.",  # TODO_GU: genitive when name is Latin-script
+        "remand_inv_seized_S": "તપાસ દરમિયાન નીચે મુજબની વસ્તુ(ઓ) જપ્ત કરવામાં આવી છે: {item_list}.",  # reviewed_gu wording (જપ્ત = seized)
+        "remand_inv_stmts_S": "{statement_count} સાક્ષી/ઈસમનાં નિવેદન નોંધવામાં આવ્યાં છે.",  # TODO_GU: confirm split grammar
+        "remand_inv_stmts_progress": "સાક્ષીઓનાં નિવેદન નોંધવાની કાર્યવાહી ચાલુ છે.",  # TODO_GU: new (no reviewed source)
+        # reviewed_gu (1_REMAND_gu.pending_investigation) verbatim (no identifiers):
+        "remand_pending_S": "બાકીના મુદ્દામાલની વસૂલાત, આરોપીના પૂર્વ ઇતિહાસની ચકાસણી, સાથીદારોની ઓળખ તથા વધુ નિવેદનો નોંધવાનું કામ બાકી છે.",
+        # reviewed_gu (1_REMAND_gu.grounds_for_custody), {accused_name} templatized:
+        "remand_grounds_S": "બાકીના મુદ્દામાલની વસૂલાત કરવા, ગુનામાં સંડોવાયેલા સાથીદારોની ઓળખ કરવા તથા તપાસ પૂર્ણ કરવા માટે આરોપી {accused_name} ની પોલીસ કસ્ટડીમાં પૂછપરછ કરવી જરૂરી છે. જો આરોપીને કસ્ટડીમાં લેવામાં નહીં આવે તો તે પુરાવા સાથે ચેડાં કરે અથવા સાક્ષીઓને પ્રભાવિત કરે તેવી શક્યતા છે.",
+        # reviewed_gu (1_MEDICAL_LETTER_gu.examination_purpose) verbatim:
+        "med_purpose_accused_S": "નામદાર અદાલત સમક્ષ રજૂ કરતાં પહેલાં આરોપીની શારીરિક સ્થિતિ તથા ઈજાઓની નોંધ કરવા માટે તબીબી તપાસ કરાવવા બાબત.",
+        "med_purpose_general_S": "તપાસના હેતુ માટે ઉપર જણાવેલ વ્યક્તિની તબીબી તપાસ તથા સારવાર અને તબીબી પ્રમાણપત્ર આપવા બાબત.",  # TODO_GU: new (no reviewed source)
         "lers_compliant_note": "સુસંગત કાયદા-અમલીકરણ વિનંતી ટેમ્પલેટ — આ કોઈ જીવંત પ્લેટફોર્મ API સંકલન નથી.",  # TODO_GU: technical phrasing
         "lers_to": "પ્રતિ: લો એન્ફોર્સમેન્ટ રિસ્પોન્સ ટીમ,",
         "lers_platform": "પ્લેટફોર્મ:",
