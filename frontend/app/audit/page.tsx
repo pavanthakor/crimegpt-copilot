@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { CaseSelect, useCasePicker } from "@/components/CasePicker";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { formatUpdated } from "@/lib/cases";
+import { PayloadSummary } from "@/components/PayloadSummary";
 
 // The audit trail is a named PS requirement (CLAUDE.md §4 Tier 1 "Search & Audit",
 // §7 audit): every create/update/delete on a case is written to audit_log, and this
@@ -318,13 +319,46 @@ function ChangeCell({
                 <span className="text-on-surface font-medium">{show(v.new)}</span>
               </>
             ) : (
-              <span className="text-on-surface">{show(changes![k])}</span>
+              <ValueView v={changes![k]} />
             )}
           </li>
         );
       })}
     </ul>
   );
+}
+
+function isPayload(v: unknown): v is Record<string, unknown> {
+  return (
+    !!v && typeof v === "object" && !Array.isArray(v) &&
+    ("IIF-1" in (v as object) || "IIF-4" in (v as object))
+  );
+}
+
+// Renders one audit value. The CCTNS export writes the whole iif_payload here; rather
+// than a JSON wall, it renders as the labelled PayloadSummary. Any other large object is
+// collapsed behind a disclosure instead of being stringified whole. Scalars render plainly.
+function ValueView({ v }: { v: unknown }) {
+  const { t } = useI18n();
+  if (v && typeof v === "object") {
+    if (isPayload(v)) return <PayloadSummary payload={v} />;
+    const json = JSON.stringify(v, null, 2);
+    if (json.length > 80) {
+      const n = Array.isArray(v) ? v.length : Object.keys(v as object).length;
+      return (
+        <details className="inline-block align-top">
+          <summary className="cursor-pointer font-mono-sm text-on-surface-variant hover:text-primary">
+            {t("audit.objectCollapsed", { n })}
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto rounded border border-outline-variant bg-surface-container-low p-2 text-xs whitespace-pre-wrap break-words">
+            {json}
+          </pre>
+        </details>
+      );
+    }
+  }
+  const s = fmt(v);
+  return <span className="text-on-surface">{s === "(empty)" ? t("audit.empty.value") : s}</span>;
 }
 
 function fmt(v: unknown): string {

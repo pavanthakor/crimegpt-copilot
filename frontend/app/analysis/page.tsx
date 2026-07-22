@@ -29,6 +29,7 @@ type Judgment = {
   citation: string | null;
   court: string | null;
   relevance_reason: string | null;
+  source_url: string | null;
 };
 type Inconsistency = {
   field: string;
@@ -185,6 +186,17 @@ export default function AnalysisPage() {
                       <p className="font-body-md text-on-surface mt-1.5 leading-relaxed">
                         {j.relevance_reason}
                       </p>
+                    )}
+                    {j.source_url && (
+                      <a
+                        href={j.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 font-label-caps text-[10px] text-on-surface-variant hover:text-primary"
+                      >
+                        <span className="material-symbols-outlined text-[13px] leading-none">open_in_new</span>
+                        {t("legal.judgments.verify")}
+                      </a>
                     )}
                   </li>
                 ))}

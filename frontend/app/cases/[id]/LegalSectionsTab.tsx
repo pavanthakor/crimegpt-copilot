@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { api } from "@/lib/api";
 import { reasonRestatesTitle } from "@/lib/cases";
 import { useI18n, type TKey } from "@/lib/i18n";
+import { InfoTip } from "@/components/InfoTip";
 
 // Pre-2024 equivalent (IPC / CrPC / Evidence Act) the new-law section replaces, or
 // null when none is known. `source` records provenance: "curated" comes from the
@@ -184,6 +185,9 @@ export default function LegalSectionsTab({
           <h2 className="font-headline-md text-primary">{t("legal.title")}</h2>
           <p className="font-body-md text-on-surface-variant">
             {t("legal.subtitle")}
+            <span className="ml-1">
+              <InfoTip term="BNS / BNSS / BSA" text={t("glossary.BNS")} />
+            </span>
           </p>
         </div>
         <AnalyzeButton onClick={analyze} label={t("legal.reanalyse")} secondary />
@@ -734,6 +738,17 @@ function JudgmentsPanel({ caseId }: { caseId: number }) {
                       </span>
                       {j.relevance_reason}
                     </p>
+                  )}
+                  {j.source_url && (
+                    <a
+                      href={j.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 font-label-caps text-[10px] text-on-surface-variant hover:text-primary"
+                    >
+                      <span className="material-symbols-outlined text-[13px] leading-none">open_in_new</span>
+                      {t("legal.judgments.verify")}
+                    </a>
                   )}
                 </li>
               );

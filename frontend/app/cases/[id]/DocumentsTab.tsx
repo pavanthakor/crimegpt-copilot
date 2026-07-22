@@ -5,6 +5,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import { api } from "@/lib/api";
 import { formatUpdated } from "@/lib/cases";
 import { useI18n, type TKey } from "@/lib/i18n";
+import { InfoTip } from "@/components/InfoTip";
+import { PayloadSummary } from "@/components/PayloadSummary";
 
 // Fan-out: one case entry visibly produces many documents. The rows stagger in ~120ms
 // apart when the list (re)renders after a generation. Respects prefers-reduced-motion.
@@ -47,13 +49,15 @@ type BatchOutcome =
   | { docType: string; state: "skipped"; missing: string[] | null; message: string };
 
 // The six registered document types (matches templates/_registry.py).
-const DOC_TYPES: { key: string; label: string; note?: string; icon: string }[] = [
-  { key: "SEIZURE_RECEIPT", label: "Seizure Receipt", note: "Form IF4", icon: "receipt_long" },
+// `glossary` (when set) attaches an InfoTip explaining the acronym at its first
+// appearance on this screen (the acronym otherwise only shows inside these buttons).
+const DOC_TYPES: { key: string; label: string; note?: string; icon: string; glossary?: string }[] = [
+  { key: "SEIZURE_RECEIPT", label: "Seizure Receipt", note: "Form IF4", icon: "receipt_long", glossary: "IF4" },
   { key: "PANCHNAMA", label: "Panchnama", icon: "history_edu" },
   { key: "REMAND", label: "Remand Request", icon: "gavel" },
   { key: "CUSTODY_LETTER", label: "Custody Letter", icon: "account_balance" },
   { key: "MEDICAL_LETTER", label: "Medical Letter", icon: "medical_services" },
-  { key: "LERS_PRESERVATION_REQUEST", label: "LERS Preservation Request", icon: "lock_clock" },
+  { key: "LERS_PRESERVATION_REQUEST", label: "LERS Preservation Request", icon: "lock_clock", glossary: "LERS" },
   { key: "LERS_RECORDS_REQUEST", label: "LERS Records Request", icon: "folder_data" },
 ];
 const NOTE: Record<string, string | undefined> = Object.fromEntries(
@@ -260,25 +264,31 @@ export default function DocumentsTab({
           {DOC_TYPES.map((d) => {
             const busy = generating === d.key;
             return (
-              <button
-                key={d.key}
-                type="button"
-                onClick={() => generate(d.key)}
-                disabled={generating !== null}
-                className="flex items-center gap-3 border border-outline-variant rounded px-4 py-3 text-left hover:border-primary hover:bg-surface-container-low transition-colors disabled:opacity-60"
-              >
-                <span className="material-symbols-outlined text-on-surface-variant">
-                  {busy ? "progress_activity" : d.icon}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-body-md text-primary">
-                    {busy ? t("docs.generating") : docLabel(d.key)}
+              <div key={d.key} className="relative">
+                <button
+                  type="button"
+                  onClick={() => generate(d.key)}
+                  disabled={generating !== null}
+                  className="w-full h-full flex items-center gap-3 border border-outline-variant rounded px-4 py-3 text-left hover:border-primary hover:bg-surface-container-low transition-colors disabled:opacity-60"
+                >
+                  <span className="material-symbols-outlined text-on-surface-variant">
+                    {busy ? "progress_activity" : d.icon}
                   </span>
-                  {d.note && (
-                    <span className="block font-mono-sm text-on-surface-variant">{d.note}</span>
-                  )}
-                </span>
-              </button>
+                  <span className="min-w-0">
+                    <span className="block font-body-md text-primary">
+                      {busy ? t("docs.generating") : docLabel(d.key)}
+                    </span>
+                    {d.note && (
+                      <span className="block font-mono-sm text-on-surface-variant">{d.note}</span>
+                    )}
+                  </span>
+                </button>
+                {d.glossary && (
+                  <span className="absolute top-1.5 right-1.5">
+                    <InfoTip term={d.glossary} text={t(`glossary.${d.glossary}` as TKey)} />
+                  </span>
+                )}
+              </div>
             );
           })}
         </div>
@@ -525,8 +535,12 @@ function CctnsExport({ caseId }: { caseId: number }) {
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-on-surface-variant">cloud_upload</span>
             <h2 className="font-headline-md text-primary">{t("cctns.title")}</h2>
+            <InfoTip term="CCTNS" text={t("glossary.CCTNS")} />
           </div>
-          <p className="font-body-md text-on-surface-variant mt-1">{t("cctns.subtitle")}</p>
+          <p className="font-body-md text-on-surface-variant mt-1">
+            {t("cctns.subtitle")}
+            <span className="ml-1"><InfoTip term="IIF" text={t("glossary.IIF")} /></span>
+          </p>
           {/* Unmistakable mock label — must not imply a live government link. */}
           <span className="mt-3 inline-flex items-center gap-1 font-label-caps text-[10px] text-on-secondary-container bg-secondary-container rounded px-2 py-0.5">
             <span className="material-symbols-outlined text-sm">science</span>
@@ -589,83 +603,6 @@ function CctnsExport({ caseId }: { caseId: number }) {
         </div>
       )}
     </section>
-  );
-}
-
-// Renders a labelled key/value list, skipping empty values. An officer reads
-// "District: Ahmedabad", never raw JSON.
-function PayloadRows({ items }: { items: Array<[string, unknown]> }) {
-  const shown = items.filter(
-    ([, v]) => v != null && String(v).trim() !== "",
-  );
-  if (shown.length === 0) return null;
-  return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5">
-      {shown.map(([label, value]) => (
-        <div key={label} className="contents">
-          <dt className="font-label-caps text-[10px] text-on-surface-variant self-center">
-            {label}
-          </dt>
-          <dd className="font-body-md text-on-surface break-words">{String(value)}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-// Human-readable view of the CCTNS IIF payload (IIF-1 case header + IIF-4 seizure
-// block), replacing the raw JSON dump. Reuses existing field tokens where they exist.
-function PayloadSummary({ payload }: { payload: Record<string, unknown> }) {
-  const { t } = useI18n();
-  const h = (payload["IIF-1"] ?? {}) as Record<string, any>;
-  const s = (payload["IIF-4"] ?? {}) as Record<string, any>;
-  const occurrence = (h.occurrence ?? {}) as Record<string, any>;
-
-  const acts: any[] = Array.isArray(h.acts_sections) ? h.acts_sections : [];
-  const actsText = acts.length
-    ? acts.map((a) => `${a.act} ${a.section}`).join(", ")
-    : null;
-  const accused: any[] = Array.isArray(h.accused) ? h.accused : [];
-  const accusedText =
-    accused.map((a) => a?.name).filter(Boolean).join(", ") || null;
-  const props: any[] = Array.isArray(s.properties) ? s.properties : [];
-  const propsText = props.map((p) => p?.description).filter(Boolean).join(", ") || null;
-  const witnesses: any[] = Array.isArray(s.witnesses) ? s.witnesses : [];
-  const witnessText = witnesses.map((w) => w?.name).filter(Boolean).join(", ") || null;
-
-  const headerRows: Array<[string, unknown]> = [
-    [t("newCase.field.district"), h.district],
-    [t("newCase.field.policeStation"), h.police_station],
-    [t("newCase.field.caseNumber"), h.crime_no],
-    [t("newCase.field.firNumber"), h.fir_no],
-    [t("newCase.field.firDate"), h.fir_date],
-    [t("newCase.field.incidentLocation"), occurrence.location],
-    [t("cctns.summary.acts"), actsText],
-    [t("person.COMPLAINANT.one"), h.complainant?.name],
-    [t("person.ACCUSED.one"), accusedText],
-  ];
-  const seizureRows: Array<[string, unknown]> = [
-    [t("evidence.field.seizureDatetime"), s.seizure_datetime],
-    [t("evidence.field.seizurePlace"), s.seizure_location],
-    [t("evidence.seized.title"), propsText],
-    [t("workspace.stat.witnesses"), witnessText],
-  ];
-
-  return (
-    <div className="mt-3 rounded border border-outline-variant bg-surface-container-low p-4 space-y-4">
-      <div>
-        <h3 className="font-label-caps text-[10px] text-primary mb-2">
-          {t("cctns.summary.header")}
-        </h3>
-        <PayloadRows items={headerRows} />
-      </div>
-      <div>
-        <h3 className="font-label-caps text-[10px] text-primary mb-2">
-          {t("cctns.summary.seizure")}
-        </h3>
-        <PayloadRows items={seizureRows} />
-      </div>
-    </div>
   );
 }
 
