@@ -23,7 +23,20 @@ from datetime import date, datetime
 
 from app.core.db import SessionLocal
 from app.core.security import hash_password
-from app.models import Case, CaseDiaryEntry, Person, SeizedItem, Statement, User
+from app.models import (
+    AuditLog,
+    Case,
+    CaseDiaryEntry,
+    Document,
+    DocumentVersion,
+    Evidence,
+    Judgment,
+    LegalSection,
+    Person,
+    SeizedItem,
+    Statement,
+    User,
+)
 from app.models.enums import (
     ActivityType,
     CaseStatus,
@@ -374,17 +387,10 @@ def _get_or_create_user(db, data) -> tuple[User, bool]:
     return user, True
 
 
-def _seed_case(db, spec: dict, owner: User) -> tuple[Case, bool]:
-    """Create one case and its pool. Idempotent per case_number."""
-    case_number = spec["case"]["case_number"]
-    existing = db.query(Case).filter(Case.case_number == case_number).first()
-    if existing is not None:
-        return existing, False
-
-    case = Case(**spec["case"], created_by=owner.id)
-    db.add(case)
-    db.flush()
-
+def _populate_children(db, case: Case, spec: dict, owner: User) -> None:
+    """Insert the pool (persons, seized items, statements) and the seeded diary for `case`
+    from its spec. Assumes the case row already exists and currently has no children
+    (either a fresh create or a reset that just cleared them)."""
     people: dict[str, Person] = {}
     for key, fields in spec["persons"].items():
         person = Person(case_id=case.id, **fields)
@@ -422,7 +428,56 @@ def _seed_case(db, spec: dict, owner: User) -> tuple[Case, bool]:
             **fields,
         ))
 
+
+def _seed_case(db, spec: dict, owner: User) -> tuple[Case, bool]:
+    """Create one case and its pool. Idempotent per case_number."""
+    case_number = spec["case"]["case_number"]
+    existing = db.query(Case).filter(Case.case_number == case_number).first()
+    if existing is not None:
+        return existing, False
+
+    case = Case(**spec["case"], created_by=owner.id)
+    db.add(case)
+    db.flush()
+    _populate_children(db, case, spec, owner)
     return case, True
+
+
+# Every table that hangs off a case, deletable by a `case_id == cid` filter. Ordered so a
+# child is removed before the parent it points at (persons last — items/statements/diary
+# reference them). document_versions has no case_id (it references document_id) and is
+# handled separately in _reset_case.
+_CASE_CHILDREN = (LegalSection, Judgment, Document, Evidence, Statement,
+                  SeizedItem, CaseDiaryEntry, AuditLog, Person)
+
+
+def _reset_case(db, spec: dict, owner: User) -> Case | None:
+    """Wipe every child row of an already-seeded demo case and rebuild it to the EXACT seed
+    baseline, preserving the case row's id (the DEMO_MODE cache is keyed by case_id, so a
+    fresh id would break every cached lookup). Returns the case, or None if it was never
+    seeded (nothing to reset)."""
+    case_number = spec["case"]["case_number"]
+    case = db.query(Case).filter(Case.case_number == case_number).first()
+    if case is None:
+        return None
+    cid = case.id
+
+    # document_versions first (FK -> documents), then the case_id-keyed children.
+    doc_ids = [row[0] for row in db.query(Document.id).filter(Document.case_id == cid).all()]
+    if doc_ids:
+        db.query(DocumentVersion).filter(
+            DocumentVersion.document_id.in_(doc_ids)
+        ).delete(synchronize_session=False)
+    for model in _CASE_CHILDREN:
+        db.query(model).filter(model.case_id == cid).delete(synchronize_session=False)
+    db.flush()
+
+    # Restore any case fields a demo run may have PATCHed (e.g. status), then rebuild the
+    # pool + diary. created_by is left untouched so ownership (the RBAC demo) is preserved.
+    for field, value in spec["case"].items():
+        setattr(case, field, value)
+    _populate_children(db, case, spec, owner)
+    return case
 
 
 def seed() -> None:
@@ -465,5 +520,59 @@ def seed() -> None:
         db.close()
 
 
+def reset() -> None:
+    """Reset the two demo cases to their exact seed baseline: every child row (legal
+    sections, judgments, documents + versions, evidence, statements, seized items, diary,
+    audit) is wiped and the pool + seeded diary are rebuilt. Case rows and users are kept
+    (ids preserved). Use before a demo when test runs have accumulated diary/section/doc
+    rows.  Run:  python -m app.seed --reset"""
+    db = SessionLocal()
+    try:
+        # Owners must exist to rebuild the children; reuse the idempotent user seeding.
+        users: dict[str, User] = {}
+        for data in DEMO_USERS:
+            user, _ = _get_or_create_user(db, data)
+            users[data["username"]] = user
+
+        summary = []
+        for spec in DEMO_CASES:
+            case = _reset_case(db, spec, users[spec["owner"]])
+            if case is None:
+                summary.append(
+                    f"{spec['case']['case_number']}: NOT FOUND — run `python -m app.seed` first"
+                )
+                continue
+            db.flush()
+            diary_n = (
+                db.query(CaseDiaryEntry).filter(CaseDiaryEntry.case_id == case.id).count()
+            )
+            sect_n = db.query(LegalSection).filter(LegalSection.case_id == case.id).count()
+            doc_n = db.query(Document).filter(Document.case_id == case.id).count()
+            summary.append(
+                f"{case.case_number} (id={case.id}): reset — {diary_n} diary entry(ies), "
+                f"{sect_n} legal section(s), {doc_n} document(s)"
+            )
+
+        db.commit()
+        print("Reset demo cases to seed baseline:")
+        for s in summary:
+            print("  -", s)
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
-    seed()
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Seed or reset the CrimeGPT demo database.")
+    ap.add_argument(
+        "--reset",
+        action="store_true",
+        help="wipe the two demo cases' child rows and rebuild them to the seed baseline "
+        "(preserves case ids and users)",
+    )
+    args = ap.parse_args()
+    if args.reset:
+        reset()
+    else:
+        seed()
