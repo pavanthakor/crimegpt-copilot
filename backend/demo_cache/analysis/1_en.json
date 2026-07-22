@@ -1,21 +1,21 @@
 {
- "status": "ok",
- "sections": [
-  {
-   "act": "BNS",
-   "section_code": "305",
-   "section_title": "Theft in a dwelling house, or means of transportation or place of worship, etc",
-   "citation": "BNS Section 305",
-   "triggering_phrase": "stole a gold chain and cash of Rs. 25,000 from the cupboard",
-   "reason": "Theft in a dwelling house",
-   "confidence": 1.0,
-   "cross_reference": {
-    "framework": "IPC",
-    "provision": "380",
-    "source": "curated",
-    "title": "Theft in dwelling house, etc."
-   }
-  }
- ],
- "rejected": []
+  "status": "ok",
+  "sections": [
+    {
+      "act": "BNS",
+      "section_code": "305",
+      "section_title": "Theft in a dwelling house, or means of transportation or place of worship, etc",
+      "citation": "BNS Section 305",
+      "triggering_phrase": "stole a gold chain and cash of Rs. 25,000 from the cupboard",
+      "reason": "Theft in dwelling house",
+      "confidence": 1.0,
+      "cross_reference": {
+        "framework": "IPC",
+        "provision": "380",
+        "source": "curated",
+        "title": "Theft in dwelling house, etc."
+      }
+    }
+  ],
+  "rejected": []
 }

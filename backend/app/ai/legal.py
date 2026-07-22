@@ -59,6 +59,17 @@ _SYSTEM = (
     "You must be strictly grounded: only ever select from the candidate sections given to you."
 )
 
+# Complaints are written in everyday language ("the scooter was missing", "push it out
+# and ride away") that shares almost no vocabulary with the bare-act text ("dishonestly",
+# "moves that property"), so semantic retrieval on the raw narrative misses the correct
+# offence. This system prompt drives a one-shot restatement into statutory terms whose
+# ONLY use is to widen retrieval (see `expand_query` / `retrieve_offences_union`).
+_EXPANSION_SYSTEM = (
+    "You convert a police complaint written in everyday language into a SHORT list of the "
+    "criminal offences it describes, phrased in formal statutory terms. Output only the "
+    "offence phrases, comma-separated — no explanation, no section numbers, no punishments."
+)
+
 
 # ---------------------------------------------------------------------------
 # Purpose-scoped retrieval — each legal question searches only its own act, so
@@ -80,6 +91,62 @@ def retrieve_procedure(query: str, k: int = 8) -> list[dict]:
 def retrieve_evidence(query: str, k: int = 8) -> list[dict]:
     """Candidate evidence-law sections (BSA)."""
     return rag.search(query, k=k, act="BSA")
+
+
+def expand_query(narrative: str) -> str | None:
+    """Restate the complaint in statutory-offence terms to bridge the lay/legal vocabulary
+    gap before retrieval.
+
+    Returns a short comma-separated phrase, or None on ANY failure (so a broken/slow LLM
+    degrades to raw-narrative retrieval rather than breaking analysis). The result is used
+    ONLY to widen retrieval — it is never shown to the officer, never persisted, and never
+    reaches the grounding validator (selections are still quoted from and validated against
+    the raw narrative).
+    """
+    prompt = (
+        "Restate the following complaint as a SHORT, comma-separated list of the criminal "
+        "offences it describes, in formal legal terminology. Example output: 'theft of a "
+        "motor vehicle from a public parking area; removal of a two-wheeler without the "
+        "owner's consent'. Keep it under 30 words. Do NOT include section numbers, "
+        "punishments or prose.\n\n"
+        f'COMPLAINT:\n"""{narrative}"""'
+    )
+    try:
+        out = call_llm(prompt, system=_EXPANSION_SYSTEM)
+    except Exception as exc:  # noqa: BLE001 — expansion is best-effort; never fatal
+        logger.warning("query expansion failed (%s); using raw-narrative retrieval only", exc)
+        return None
+    if not isinstance(out, str):
+        return None
+    out = out.strip()
+    return out or None
+
+
+def retrieve_offences_union(narrative: str, k: int = 12) -> tuple[list[dict], str | None]:
+    """BNS offence candidates for the raw narrative UNIONED with an LLM statutory
+    restatement, de-duplicated by (act, section_code).
+
+    Expansion can only ADD candidates: raw-narrative hits are inserted first, so a section
+    the raw query found is never displaced. Returns (candidates, expanded_query); the
+    second element is None when expansion was skipped/failed and exists only for logging.
+    """
+    raw_hits = retrieve_offences(narrative, k=k)
+    expanded = expand_query(narrative)
+
+    by_key: dict[tuple[str, str], dict] = {}
+    for h in raw_hits:
+        by_key.setdefault((h["act"], str(h["section_code"])), h)
+
+    if expanded:
+        for h in retrieve_offences(expanded, k=k):
+            by_key.setdefault((h["act"], str(h["section_code"])), h)
+
+    candidates = list(by_key.values())
+    logger.debug(
+        "offence retrieval union: raw_query=%r expanded_query=%r raw_hits=%d union=%d",
+        narrative[:160], expanded, len(raw_hits), len(candidates),
+    )
+    return candidates, expanded
 
 
 def _format_candidates(candidates: list[dict]) -> str:
@@ -116,6 +183,20 @@ def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
         "Do NOT guess a random number — give the established equivalent or null.\n\n"
         f"NARRATIVE (quote triggering_phrase from HERE):\n\"\"\"{narrative}\"\"\"\n\n"
         f"CANDIDATE SECTIONS (choose section_code from HERE):\n{_format_candidates(candidates)}\n"
+        # Reinforcement of the existing triggering_phrase rule (grounding UNCHANGED — still
+        # candidate-set + verbatim-from-narrative). Widening retrieval via the query-expansion
+        # union crowds the candidate list with several near-duplicate theft definitions, which
+        # tempts the 7B model to quote a section DEFINITION as the phrase; the validator then
+        # correctly rejects it and a valid section is lost. Spelling the rule out with concrete
+        # examples keeps the model quoting the officer's own words. See map_sections / union.
+        "\n\nHARD RULE ON triggering_phrase — READ CAREFULLY:\n"
+        "The triggering_phrase must be copied from the NARRATIVE (the complaint/statement text), "
+        "NOT from the CANDIDATE SECTIONS list. The candidate section definitions (words like "
+        "'dishonestly', 'movable property', 'means of transportation', 'intending to take') are "
+        "NOT part of the narrative — never quote them. Quote the officer's plain-language words "
+        "that describe the act (e.g. 'stole a gold chain and cash', 'the scooter was missing "
+        "from the parking'). If the only phrase you can find comes from a section definition, "
+        "you have the wrong phrase — find the everyday wording in the narrative instead.\n"
     )
 
 
@@ -270,7 +351,18 @@ def validate_selections(
     return validated, rejected
 
 
-def map_sections(narrative: str, language: str = "EN", k: int = 8) -> dict:
+# Minimum retrieval similarity a validated section must clear to be kept. This is a
+# RELEVANCE gate, not a grounding gate: the k=12 union window can admit a catch-all
+# section (e.g. BNS 125 "act endangering life by a rash/negligent act") that is genuinely
+# in the candidate set with a genuinely verbatim phrase, yet is only weakly related to the
+# narrative — grounding cannot catch that. Empirically the correct charge retrieves well
+# above this floor (case 1 BNS 305 ~0.39, case 2 BNS 303 ~0.47–0.49) while an off-topic
+# catch-all on contentless input lands far below it (BNS 125 ~0.06); 0.25 sits comfortably
+# in that gap (real cases clear by +0.14/+0.22, the catch-all is excluded by −0.19).
+RELEVANCE_THRESHOLD = 0.25
+
+
+def map_sections(narrative: str, language: str = "EN", k: int = 12) -> dict:
     """Grounded offence (BNS) charge mapping.
 
     Returns a UI-ready result:
@@ -284,9 +376,15 @@ def map_sections(narrative: str, language: str = "EN", k: int = 8) -> dict:
     show an explicit "no confident match — review manually" state instead of a
     fabricated section.
     """
-    candidates = retrieve_offences(narrative, k=k)
-    logger.info("retrieved %d BNS candidate sections", len(candidates))
+    candidates, expanded = retrieve_offences_union(narrative, k=k)
+    logger.info(
+        "retrieved %d BNS candidate sections (raw + %s expansion, k=%d)",
+        len(candidates), "no" if expanded is None else "1", k,
+    )
 
+    # The expanded query only widened retrieval; the prompt and validator below still use
+    # the RAW narrative, so triggering phrases are quoted from and checked against the
+    # officer's own words — grounding discipline is unchanged.
     prompt = _build_prompt(narrative, candidates, language)
     llm_out = call_llm(prompt, system=_SYSTEM, json_schema=SELECTION_SCHEMA)
 
@@ -296,6 +394,30 @@ def map_sections(narrative: str, language: str = "EN", k: int = 8) -> dict:
     logger.info("LLM returned %d raw selections", len(selections))
 
     validated, rejected = validate_selections(selections, candidates, narrative)
+
+    # Relevance floor — drop grounded-but-weakly-related sections (see RELEVANCE_THRESHOLD).
+    # Uses the retrieval similarity score already carried on each candidate by rag.search().
+    score_by_key = {(c["act"], str(c["section_code"])): c.get("score") for c in candidates}
+    relevant: list[dict] = []
+    for s in validated:
+        score = score_by_key.get((s["act"], str(s["section_code"])))
+        if score is None or score < RELEVANCE_THRESHOLD:
+            logger.warning(
+                "REJECT section %s %s — retrieval score %s below relevance threshold %.2f",
+                s["act"], s["section_code"], score, RELEVANCE_THRESHOLD,
+            )
+            rejected.append(
+                {
+                    "act": s["act"],
+                    "section_code": s["section_code"],
+                    "triggering_phrase": s.get("triggering_phrase", ""),
+                    "rejection_reason": "below relevance threshold",
+                }
+            )
+        else:
+            relevant.append(s)
+    validated = relevant
+
     logger.info(
         "validated %d, rejected %d of %d selections",
         len(validated), len(rejected), len(selections),
