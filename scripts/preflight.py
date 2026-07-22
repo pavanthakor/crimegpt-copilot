@@ -211,7 +211,7 @@ def check_chroma() -> bool:
                f"{COLLECTION_NAME}={n} docs")
     else:
         record(f"Chroma collection = {EXPECTED_CHROMA_DOCS}", FAIL,
-               f"{COLLECTION_NAME}={n} docs — run: python -m app.ai.ingest_corpus")
+               f"{COLLECTION_NAME}={n} docs — run: python -m app.ai.rag")
         return False
     return check_judgments_collection()
 

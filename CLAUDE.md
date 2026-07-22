@@ -365,8 +365,8 @@ crimegpt-copilot/
       models/      SQLAlchemy models (= schema §5) + enums.py
       schemas/     Pydantic (case.py, …)
       api/         auth, cases, pool, legal, documents, audit, integrations   (diary + transcribe live in pool.py)
-      ai/          llm.py (call_llm), prompts.py, rag.py, legal.py, judgments.py, weak_charge.py,
-                   translate.py (Qwen), transcribe.py (faster-whisper, CPU-only), ingest_corpus.py (RAG loader)
+      ai/          llm.py (call_llm), prompts.py, rag.py (RAG loader + corpus ingest), legal.py,
+                   judgments.py, weak_charge.py, translate.py (Qwen), transcribe.py (faster-whisper, CPU-only)
       services/    documents.py (generation + version-aware archive), consistency.py, cctns.py
       storage/     audio/  chroma/ (ChromaDB)  documents/  evidence/  whisper/ (downloaded models)
       demo_cache.py  demo_cache_build.py  demo_cache_reviewed.py   <- DEMO_MODE cache tooling
@@ -406,7 +406,8 @@ pip install -r requirements.txt
 #         chromadb sentence-transformers faster-whisper pillow requests
 alembic upgrade head
 python -m app.seed                      # demo users + 2 demo cases
-python -m app.ai.ingest_corpus          # FRESH CLONE: build the Chroma RAG collection (~1,059 chunks)
+python -m app.ai.rag                    # FRESH CLONE: build the Chroma RAG collection (~1,059 chunks)
+python -m app.ai.judgments              # FRESH CLONE: build the judgments collection (41)
 python -m uvicorn app.main:app --reload # NOTE: `python -m uvicorn`, NOT bare `uvicorn`
 # → http://localhost:8000  (Swagger at /docs)
 
@@ -432,7 +433,7 @@ WHISPER_MODEL_GU=gujarati-medium-ct2    # Gujarati CT2 checkpoint under backend/
 - **Docker up first** — no Postgres, no app.
 - **Whisper stays on the CPU (int8).** Qwen owns the 8 GB GPU; a Whisper model sharing it risks an OOM kill mid-demo. `transcribe.py` pins `device="cpu"` and asserts it. Models are configured via `WHISPER_MODEL` (general) + `WHISPER_MODEL_GU` (Gujarati CT2 dir under `storage/whisper/`), not code.
 - **Noto Sans Gujarati installed system-wide** is required for `.docx` generation to render Gujarati — Word/LibreOffice substitute tofu boxes otherwise. The TTF is checked in under `fonts/`.
-- **Fresh clone:** run `python -m app.ai.ingest_corpus` once, or `/analyze` returns nothing (the RAG collection is empty). `scripts/preflight.py` fails until the collection holds ~1,059 chunks.
+- **Fresh clone:** run `python -m app.ai.rag` once, or `/analyze` returns nothing (the RAG collection is empty). `scripts/preflight.py` fails until the collection holds ~1,059 chunks.
 
 **Team fallback:** non-GPU devs set `FORCE_API=true` with a `FALLBACK_API_KEY`, or point `OLLAMA_HOST` at the GPU machine's IP.
 
