@@ -309,6 +309,17 @@ def update_section_status(
             performed_by=user.id,
         )
     )
+    verb = "accepted" if body.status == SectionStatus.ACCEPTED else "rejected"
+    db.add(
+        CaseDiaryEntry(
+            case_id=case_id,
+            entry_datetime=datetime.now(timezone.utc),
+            activity_type=ActivityType.OTHER,
+            description=f"Legal section {section.act.value} {section.section_code} {verb}.",
+            auto_generated=True,
+            created_by=user.id,
+        )
+    )
     db.commit()
     db.refresh(section)
     return section

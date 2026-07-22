@@ -121,6 +121,13 @@ def _apply_patch(db, obj, body, entity_type, case_id, user):
         field_changes[key] = {"old": _json_safe(getattr(obj, key)), "new": changes_json[key]}
         setattr(obj, key, new_value)
     _audit(db, case_id, entity_type, obj.id, AuditAction.UPDATE, field_changes, user)
+    label = entity_type.replace("_", " ")
+    _diary(
+        db, case_id, ActivityType.OTHER,
+        f"{label.capitalize()} updated ({', '.join(field_changes)}).",
+        user,
+        related_person_id=obj.id if entity_type == "person" else None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +383,16 @@ def add_statement(
     db.add(stmt)
     db.flush()
     _audit(db, case_id, "statement", stmt.id, AuditAction.CREATE, body.model_dump(mode="json"), user)
+    person = db.get(Person, body.person_id)
+    who = (person.full_name or person.alias) if person else None
+    who = who or f"person #{body.person_id}"
+    _diary(
+        db, case_id,
+        ActivityType.WITNESS_EXAM if body.statement_type == StatementType.WITNESS else ActivityType.OTHER,
+        f"{body.statement_type.value.capitalize()} statement recorded for {who}.",
+        user,
+        related_person_id=body.person_id,
+    )
     db.commit()
     db.refresh(stmt)
     return stmt
