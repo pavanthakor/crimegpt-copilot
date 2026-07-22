@@ -39,6 +39,13 @@ type VersionEntry = {
   } | null;
 };
 
+// Per-document state within a "Generate Full Case File" batch. A skipped document
+// (usually missing pool fields -> 400) does not abort the batch; the rest continue.
+type BatchOutcome =
+  | { docType: string; state: "generating" }
+  | { docType: string; state: "done" }
+  | { docType: string; state: "skipped"; missing: string[] | null; message: string };
+
 // The six registered document types (matches templates/_registry.py).
 const DOC_TYPES: { key: string; label: string; note?: string; icon: string }[] = [
   { key: "SEIZURE_RECEIPT", label: "Seizure Receipt", note: "Form IF4", icon: "receipt_long" },
@@ -112,6 +119,10 @@ export default function DocumentsTab({
   const [genError, setGenError] = useState<{ docType: string; missing: string[] | null; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyDoc, setBusyDoc] = useState<number | null>(null);
+  // "Generate Full Case File" batch state.
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchDone, setBatchDone] = useState(false);
+  const [batchItems, setBatchItems] = useState<BatchOutcome[]>([]);
 
   const load = useCallback(() => {
     api
@@ -139,6 +150,43 @@ export default function DocumentsTab({
     } finally {
       setGenerating(null);
     }
+  }
+
+  // Frontend-only orchestration: loop the existing single-document endpoint over every
+  // registered doc type, in the selected language. Each result lands as it completes
+  // (the docs table re-fans on every refresh); a missing-fields 400 skips that document
+  // and the batch continues rather than failing as a whole.
+  async function generateAll() {
+    if (generating !== null || batchRunning) return;
+    setBatchRunning(true);
+    setBatchDone(false);
+    setBatchItems([]);
+    setGenError(null);
+    setError(null);
+    for (const d of DOC_TYPES) {
+      setGenerating(d.key); // drives the matching grid button's spinner + disables all
+      setBatchItems((prev) => [...prev, { docType: d.key, state: "generating" }]);
+      try {
+        await api.post(`/api/cases/${caseId}/documents/${d.key}?lang=${lang}`);
+        setBatchItems((prev) =>
+          prev.map((it) => (it.docType === d.key ? { docType: d.key, state: "done" } : it))
+        );
+        load(); // table grows live, re-triggering the fan-out stagger for each document
+      } catch (e: any) {
+        const detail: string | undefined = e?.response?.data?.detail;
+        setBatchItems((prev) =>
+          prev.map((it) =>
+            it.docType === d.key
+              ? { docType: d.key, state: "skipped", missing: parseMissing(detail), message: detail ?? t("docs.genFailed") }
+              : it
+          )
+        );
+      }
+    }
+    setGenerating(null);
+    setBatchRunning(false);
+    setBatchDone(true);
+    onDocsChanged();
   }
 
   return (
@@ -176,6 +224,36 @@ export default function DocumentsTab({
             </div>
           </div>
         </div>
+
+        {/* One click -> every applicable document, in the selected language. The
+            per-document buttons below remain as the single-document fallback. */}
+        <button
+          type="button"
+          onClick={generateAll}
+          disabled={generating !== null || batchRunning}
+          className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary px-4 py-3 rounded font-label-caps text-[12px] hover:bg-inverse-surface disabled:opacity-60 transition-colors"
+        >
+          <span className={"material-symbols-outlined text-base" + (batchRunning ? " animate-spin" : "")}>
+            {batchRunning ? "progress_activity" : "auto_awesome_motion"}
+          </span>
+          {batchRunning ? t("docs.batch.running") : t("docs.batch.button")}
+        </button>
+
+        {(batchRunning || batchItems.length > 0) && (
+          <BatchPanel
+            items={batchItems}
+            running={batchRunning}
+            done={batchDone}
+            onDismiss={() => {
+              setBatchItems([]);
+              setBatchDone(false);
+            }}
+          />
+        )}
+
+        <p className="mt-6 mb-3 font-label-caps text-[10px] text-on-surface-variant">
+          {t("docs.batch.orIndividual")}
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {DOC_TYPES.map((d) => {
@@ -287,6 +365,121 @@ export default function DocumentsTab({
 
       {/* CCTNS mock export — IO/SHO only (LEGAL_ADVISOR is blocked server-side too). */}
       {role !== "LEGAL_ADVISOR" && <CctnsExport caseId={caseId} />}
+    </div>
+  );
+}
+
+// ---- Full-case-file batch progress -----------------------------------------
+// Live per-document progress for "Generate Full Case File". Each row reuses the
+// existing fan-out row animation, so as the batch walks the list the documents
+// appear one after another; generating -> done (check) or skipped (reason inline).
+function BatchPanel({
+  items,
+  running,
+  done,
+  onDismiss,
+}: {
+  items: BatchOutcome[];
+  running: boolean;
+  done: boolean;
+  onDismiss: () => void;
+}) {
+  const { t } = useI18n();
+  const reduce = useReducedMotion();
+  const docLabel = (key: string) => t(`docs.type.${key}` as TKey);
+  const generatedCount = items.filter((i) => i.state === "done").length;
+  const skipped = items.filter(
+    (i): i is Extract<BatchOutcome, { state: "skipped" }> => i.state === "skipped"
+  );
+  const allSkipsMissing = skipped.length > 0 && skipped.every((s) => s.missing);
+  const summaryKey =
+    skipped.length === 0
+      ? "docs.batch.summaryClean"
+      : allSkipsMissing
+        ? "docs.batch.summaryMissing"
+        : "docs.batch.summary";
+
+  return (
+    <div className="mt-4 border border-outline-variant rounded bg-surface-container-low p-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="font-label-caps text-[10px] text-on-surface-variant">
+          {running ? t("docs.batch.running") : t("docs.batch.title")}
+        </p>
+        {done && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="font-label-caps text-[10px] text-primary hover:underline"
+          >
+            {t("docs.batch.dismiss")}
+          </button>
+        )}
+      </div>
+
+      <ul className="space-y-2">
+        {items.map((it) => (
+          <motion.li
+            key={it.docType}
+            variants={DOC_ROW_VARIANTS}
+            initial={reduce ? "show" : "hidden"}
+            animate="show"
+            className="flex items-start gap-3"
+          >
+            <span
+              className={
+                "material-symbols-outlined text-base " +
+                (it.state === "generating"
+                  ? "text-primary animate-spin"
+                  : it.state === "done"
+                    ? "text-success"
+                    : "text-error")
+              }
+            >
+              {it.state === "generating"
+                ? "progress_activity"
+                : it.state === "done"
+                  ? "check_circle"
+                  : "report"}
+            </span>
+            <span className="min-w-0">
+              <span className="block font-body-md text-on-surface">
+                {docLabel(it.docType)}
+                <span className="ml-2 font-label-caps text-[10px] text-on-surface-variant">
+                  {it.state === "generating"
+                    ? t("docs.generating")
+                    : it.state === "done"
+                      ? t("docs.batch.generated")
+                      : t("docs.batch.skipped")}
+                </span>
+              </span>
+              {it.state === "skipped" && (
+                <span className="block font-body-md text-on-surface-variant mt-0.5">
+                  {it.missing ? it.missing.map(friendly).join("  ·  ") : it.message}
+                </span>
+              )}
+            </span>
+          </motion.li>
+        ))}
+      </ul>
+
+      {done && (
+        <div className="mt-4 pt-4 border-t border-outline-variant">
+          <p className="font-body-lg text-primary">
+            {t(summaryKey as TKey, { generated: generatedCount, skipped: skipped.length })}
+          </p>
+          {skipped.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {skipped.map((s) => (
+                <li key={s.docType} className="font-body-md text-on-surface-variant">
+                  <span className="text-on-surface">{docLabel(s.docType)}</span>
+                  {"  —  "}
+                  {s.missing ? s.missing.map(friendly).join("  ·  ") : s.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
