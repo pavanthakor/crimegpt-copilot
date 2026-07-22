@@ -30,6 +30,9 @@ export default function TopBar() {
 
       {/* Right cluster never wraps (shrink-0); the search yields space, not this. */}
       <div className="flex items-center gap-4 shrink-0">
+        {/* DEMO_MODE toggle (SHO only) — always shows which mode is active at a glance. */}
+        <DemoModeControl />
+
         {/* Language selector: EN | हिं | ગુ — drives the whole interface + AI lang param */}
         <div
           className="flex items-center rounded border border-outline-variant overflow-hidden"
@@ -89,6 +92,72 @@ export default function TopBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+/* ---------------- DEMO_MODE toggle (SHO only) ---------------- */
+
+// Shows the current inference mode unmistakably and toggles it at runtime (no backend
+// restart). "Cached demo" = pre-generated instant outputs; "Live AI" = real model calls.
+// The two states differ in colour, icon and label so the active mode is never ambiguous.
+function DemoModeControl() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const [cached, setCached] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const isSho = user?.role === "SHO";
+
+  useEffect(() => {
+    if (!isSho) return;
+    api
+      .get<{ demo_mode: boolean }>("/api/system/demo-mode")
+      .then((r) => setCached(r.data.demo_mode))
+      .catch(() => setCached(null));
+  }, [isSho]);
+
+  // Not an SHO, or state not yet known -> render nothing (IO/Legal never see it).
+  if (!isSho || cached === null) return null;
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await api.patch<{ demo_mode: boolean }>("/api/system/demo-mode", {
+        demo_mode: !cached,
+      });
+      setCached(r.data.demo_mode);
+    } catch {
+      /* leave the displayed state unchanged on failure */
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy}
+      aria-pressed={cached}
+      title={cached ? t("demo.switchToLive") : t("demo.switchToCached")}
+      className={
+        "flex items-center gap-2 rounded px-3 py-1.5 font-label-caps text-[10px] transition-colors disabled:opacity-60 " +
+        (cached
+          ? "bg-secondary-container text-on-secondary-container"
+          : "bg-primary text-on-primary")
+      }
+    >
+      <span
+        className={
+          "inline-block w-1.5 h-1.5 rounded-full " +
+          (cached ? "bg-on-secondary-container" : "bg-surface-bright")
+        }
+      />
+      <span className="material-symbols-outlined text-sm">
+        {cached ? "inventory_2" : "bolt"}
+      </span>
+      {cached ? t("demo.cached") : t("demo.live")}
+    </button>
   );
 }
 

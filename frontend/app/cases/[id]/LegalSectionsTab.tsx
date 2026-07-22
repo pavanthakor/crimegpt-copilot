@@ -84,6 +84,9 @@ export default function LegalSectionsTab({
   const [stage, setStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
+  // True when cached mode was on but the analysis cache missed and ran live — surfaced
+  // so an officer is never misled into thinking a cached result was served.
+  const [cacheMissed, setCacheMissed] = useState(false);
 
   // Initial: load any already-persisted sections.
   useEffect(() => {
@@ -99,6 +102,7 @@ export default function LegalSectionsTab({
     setError(null);
     setStage(0);
     setAnalyzeStatus(null);
+    setCacheMissed(false);
     const timers = [
       window.setTimeout(() => setStage(1), 1500),
       window.setTimeout(() => setStage(2), 3000),
@@ -117,6 +121,7 @@ export default function LegalSectionsTab({
       setSections(list.data);
       setRejected(r.data.rejected ?? []);
       setAnalyzeStatus(r.data.status);
+      setCacheMissed(!!r.data.cache_miss);
       onSectionsChanged();
     } catch (e: any) {
       setError(e?.response?.data?.detail ?? t("legal.analyzeFailed"));
@@ -166,6 +171,7 @@ export default function LegalSectionsTab({
         </p>
         <AnalyzeButton onClick={analyze} label={t("legal.analyze")} />
         {error && <ErrorLine message={error} />}
+        {cacheMissed && <CacheMissNote label={t("legal.cacheMiss")} />}
       </div>
     );
   }
@@ -183,6 +189,7 @@ export default function LegalSectionsTab({
         <AnalyzeButton onClick={analyze} label={t("legal.reanalyse")} secondary />
       </div>
       {error && <ErrorLine message={error} />}
+      {cacheMissed && <CacheMissNote label={t("legal.cacheMiss")} />}
 
       {/* no_grounded_match — amber (khaki accent) review panel */}
       {analyzeStatus === "no_grounded_match" && sections.length === 0 && (
@@ -889,6 +896,17 @@ function ErrorLine({ message }: { message: string }) {
       <span className="material-symbols-outlined text-base">error</span>
       {message}
     </p>
+  );
+}
+
+// Honesty banner: cached mode was on but the cache missed, so this result came from a
+// live model call (khaki accent — a heads-up, not an error).
+function CacheMissNote({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 border border-accent/50 bg-accent/[0.12] rounded px-3 py-2">
+      <span className="material-symbols-outlined text-accent-strong text-base">bolt</span>
+      <p className="font-body-md text-accent-strong">{label}</p>
+    </div>
   );
 }
 

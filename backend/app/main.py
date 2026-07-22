@@ -10,6 +10,7 @@ from app.api.documents import router as documents_router
 from app.api.integrations import router as integrations_router
 from app.api.legal import router as legal_router
 from app.api.pool import router as pool_router
+from app.api.system import router as system_router
 from app.core.db import get_db
 
 app = FastAPI(title="CrimeGPT Copilot")
@@ -30,6 +31,7 @@ app.include_router(documents_router)
 app.include_router(pool_router)
 app.include_router(audit_router)
 app.include_router(integrations_router)
+app.include_router(system_router)
 
 
 @app.get("/health")

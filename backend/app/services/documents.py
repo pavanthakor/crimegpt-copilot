@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app import demo_cache
 from app.ai.translate import translate
-from app.core.config import settings
+from app.core import runtime
 
 from app.models import (
     AuditLog,
@@ -408,11 +408,11 @@ def generate_document(
     lang_key = (lang or "en").lower()
     doc_language = _LANG_ENUM.get(lang_key, case.complaint_language)
 
-    # DEMO_MODE: serve the pre-generated (already-translated) context and skip the LLM.
-    # On a cache miss, fall through to the live build+translate below rather than erroring.
+    # DEMO_MODE (runtime-toggleable): serve the pre-generated (already-translated) context
+    # and skip the LLM. On a cache miss, fall through to the live build+translate below.
     context = (
         demo_cache.load_document(case_id, doc_type.value, lang_key)
-        if settings.DEMO_MODE else None
+        if runtime.get_demo_mode() else None
     )
     if context is None:
         context = _build_context(db, case, user, lang=lang_key)

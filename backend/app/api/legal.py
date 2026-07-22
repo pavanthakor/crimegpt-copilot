@@ -22,7 +22,7 @@ from app.ai import legal as ai_legal
 from app.ai import weak_charge as ai_weak_charge
 from app.ai.translate import translate
 from app import demo_cache
-from app.core.config import settings
+from app.core import runtime
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.db import get_db
@@ -73,6 +73,9 @@ class AnalyzeResult(BaseModel):
     status: str  # "ok" | "no_grounded_match"
     sections: list[LegalSectionOut]
     rejected: list[RejectedOut]
+    # Cache-mode honesty: where this result came from, and whether cached mode missed.
+    source: str = "live"  # "cache" | "live"
+    cache_miss: bool = False  # DEMO_MODE was on but the cache missed -> ran live
 
 
 class SectionStatusUpdate(BaseModel):
@@ -152,9 +155,13 @@ def analyze_case(
 ):
     case = _get_visible_case(db, user, case_id)
 
-    # DEMO_MODE: serve pre-generated analysis (already translated) and skip the LLM.
-    # On a cache miss, fall through to the live pipeline below rather than erroring.
-    payload = demo_cache.load_analysis(case_id, lang) if settings.DEMO_MODE else None
+    # DEMO_MODE (runtime-toggleable): serve pre-generated analysis and skip the LLM. On a
+    # cache miss we fall through to the live pipeline, but flag it so the client can say so
+    # rather than silently pretending a cached result was served.
+    demo_on = runtime.get_demo_mode()
+    payload = demo_cache.load_analysis(case_id, lang) if demo_on else None
+    served_from = "cache" if payload is not None else "live"
+    cache_miss = demo_on and payload is None
     if payload is not None:
         status_val = payload["status"]
         sections_data = payload["sections"]
@@ -248,6 +255,8 @@ def analyze_case(
         status=status_val,
         sections=[LegalSectionOut.model_validate(r) for r in persisted],
         rejected=[RejectedOut(**r) for r in rejected],
+        source=served_from,
+        cache_miss=cache_miss,
     )
 
 

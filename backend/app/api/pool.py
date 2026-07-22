@@ -35,6 +35,7 @@ from fastapi.responses import FileResponse
 from app.api.auth import get_current_user, require_role
 from app.api.cases import _get_visible_case
 from app.core.config import settings
+from app.core import runtime
 from app.core.db import get_db
 from app.schemas.case import DiaryEntryOut
 from app.models import (
@@ -600,7 +601,7 @@ async def transcribe_audio(
     translation_model = None
     # DEMO_MODE: serve a pre-generated transcript keyed by the audio filename so a
     # slow/stalled model never breaks the demo. Miss -> fall through to live.
-    cached = demo_cache.load_transcript(safe_name) if settings.DEMO_MODE else None
+    cached = demo_cache.load_transcript(safe_name) if runtime.get_demo_mode() else None
     if cached is not None:
         transcript = cached.get("transcript", "")
         detected = cached.get("language", lang)

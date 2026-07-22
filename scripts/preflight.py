@@ -16,12 +16,14 @@ Checks, in dependency order:
     6. Noto Sans Gujarati          the bundled font for Gujarati rendering
     6b. Whisper voice model        faster-whisper importable + `small` weights on disk (CPU)
     7. Demo cache populated        every doc type x EN/GU, reviewed strings intact
+    8. Single backend on :8000     exactly one listener (no orphaned uvicorn --reload workers)
 
 Exit code 0 if all required checks pass, 1 otherwise.
 """
 from __future__ import annotations
 
 import argparse
+import platform
 import subprocess
 import sys
 import time
@@ -45,6 +47,7 @@ EXPECTED_JUDGMENT_DOCS = 41
 FONT_FILE = REPO_ROOT / "fonts" / "NotoSansGujarati-Regular.ttf"
 DEMO_CASE_ID = 1
 REQUIRED_LANGS = ["en", "gu"]
+BACKEND_PORT = 8000
 
 PASS, FAIL, WARN = "PASS", "FAIL", "WARN"
 
@@ -337,6 +340,64 @@ def check_demo_cache() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# 8. Single backend process (no orphaned uvicorn --reload workers)
+# ---------------------------------------------------------------------------
+def _listening_pids(port: int) -> list[int] | None:
+    """Distinct PIDs LISTENING on `port`, or None if we can't determine them.
+
+    Repeated `uvicorn --reload` restarts can leave orphaned worker processes bound to the
+    same port via a shared socket; more than one means requests round-robin across
+    possibly-different code versions — a confusing, hard-to-diagnose failure.
+    """
+    try:
+        if platform.system() == "Windows":
+            out = _run(["netstat", "-ano", "-p", "TCP"], timeout=15).stdout
+            pids: set[int] = set()
+            for line in out.splitlines():
+                parts = line.split()
+                # Proto  Local-Address  Foreign-Address  State  PID
+                if (
+                    len(parts) >= 5
+                    and parts[3].upper() == "LISTENING"
+                    and parts[1].endswith(f":{port}")
+                    and parts[-1].isdigit()
+                ):
+                    pids.add(int(parts[-1]))
+            return sorted(pids)
+        # POSIX: lsof lists one PID per line for listening sockets on the port.
+        out = _run(["lsof", "-ti", f"tcp:{port}", "-sTCP:LISTEN"], timeout=15).stdout
+        return sorted({int(x) for x in out.split() if x.strip().isdigit()})
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None
+
+
+def check_single_backend() -> bool:
+    """FAIL if more than one process is listening on the backend port (orphaned workers)."""
+    name = f"Single backend on :{BACKEND_PORT}"
+    pids = _listening_pids(BACKEND_PORT)
+    if pids is None:
+        record(name, WARN, "could not determine listeners (netstat/lsof unavailable) — skipped")
+        return True
+    if len(pids) == 0:
+        record(name, PASS, "no process bound yet — start ONE uvicorn before the demo")
+        return True
+    if len(pids) == 1:
+        record(name, PASS, f"exactly one process (PID {pids[0]})")
+        return True
+    kill = (
+        f"taskkill /F /PID {' '.join(map(str, pids))}"
+        if platform.system() == "Windows"
+        else f"kill -9 {' '.join(map(str, pids))}"
+    )
+    record(
+        name, FAIL,
+        f"{len(pids)} processes listening (PIDs {', '.join(map(str, pids))}) — orphaned "
+        f"uvicorn --reload workers. Kill them then start ONE: {kill}",
+    )
+    return False
+
+
+# ---------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser(description="Cold-start preflight for the demo.")
     ap.add_argument("--no-start", action="store_true",
@@ -360,6 +421,7 @@ def main() -> int:
     check_font()
     check_whisper()
     check_demo_cache()
+    check_single_backend()
     elapsed = time.perf_counter() - t0
 
     width = max(len(name) for name, _, _ in _results)
