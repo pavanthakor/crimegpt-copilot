@@ -527,6 +527,7 @@ These are real and worth stating plainly — the judges will find them anyway.
 - **The CCTNS integration is a mock.** `/export/cctns` builds a real IIF payload and POSTs it to a local mock receiver that returns a fabricated FIR id. There is no live CCTNS/ICJS/BharatPol connection.
 - **Golden Hour is seams only.** `case_type`, the template registry, and a pluggable-SOP intent exist (§10); no cyber-vertical workflow, timers, or money-trail logic is built.
 - **Documents export as `.docx` only** (no PDF), and Gujarati rendering depends on Noto Sans Gujarati being installed on the machine that opens the file (§12).
+- **Person/evidence deletes are guarded in the application layer, not the schema (roadmap).** The FKs that point at `persons` and `evidence` — `case_diary_entries.related_person_id` / `related_evidence_id`, `seized_items.seized_from`, `evidence.linked_person_id` — have no `ON DELETE` rule. `delete_person` / `delete_evidence` compensate by nulling those references (so the diary/item records survive) and returning a clean 409 when a person still has statements. The proper fix is a migration adding `ON DELETE SET NULL` (and `RESTRICT` for statements) so the DB is self-consistent regardless of code path; deferred to avoid a schema change close to the demo.
 
 ---
 

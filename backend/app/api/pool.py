@@ -298,6 +298,28 @@ def delete_person(
     person = db.get(Person, pid)
     if person is None or person.case_id != case_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Person not found")
+
+    # A statement is meaningless without the person who gave it — refuse the delete
+    # rather than silently orphaning it (409, officer-facing message).
+    if db.query(Statement).filter(Statement.person_id == pid).count():
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Cannot delete — this person has recorded statements. Remove the statements first.",
+        )
+
+    # These records should SURVIVE the person with the reference cleared: the diary entry
+    # is a log of what happened, and a seized item / evidence is still valid case property.
+    # Null the FKs so the delete doesn't raise a ForeignKeyViolation.
+    db.query(CaseDiaryEntry).filter(CaseDiaryEntry.related_person_id == pid).update(
+        {CaseDiaryEntry.related_person_id: None}, synchronize_session=False
+    )
+    db.query(SeizedItem).filter(SeizedItem.seized_from == pid).update(
+        {SeizedItem.seized_from: None}, synchronize_session=False
+    )
+    db.query(Evidence).filter(Evidence.linked_person_id == pid).update(
+        {Evidence.linked_person_id: None}, synchronize_session=False
+    )
+
     _audit(db, case_id, "person", pid, AuditAction.DELETE,
            {"full_name": person.full_name, "role": _json_safe(person.role)}, user)
     db.delete(person)
@@ -512,6 +534,39 @@ def get_evidence_file(
     if not ev.file_path or not Path(ev.file_path).exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Evidence file missing on disk")
     return FileResponse(ev.file_path)
+
+
+@router.delete("/{case_id}/evidence/{eid}", status_code=204)
+def delete_evidence(
+    case_id: int,
+    eid: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(*_WRITE_ROLES)),
+):
+    _get_visible_case(db, user, case_id)
+    ev = db.get(Evidence, eid)
+    if ev is None or ev.case_id != case_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Evidence not found")
+
+    # The diary entry logging this collection should SURVIVE with the reference cleared.
+    # case_diary_entries.related_evidence_id is the ONLY FK pointing at evidence, so nulling
+    # it is sufficient to avoid a ForeignKeyViolation on delete.
+    db.query(CaseDiaryEntry).filter(CaseDiaryEntry.related_evidence_id == eid).update(
+        {CaseDiaryEntry.related_evidence_id: None}, synchronize_session=False
+    )
+
+    _audit(db, case_id, "evidence", eid, AuditAction.DELETE,
+           {"description": ev.description, "file_hash": ev.file_hash}, user)
+    stored = ev.file_path
+    db.delete(ev)
+    db.commit()
+
+    # Best-effort removal of the stored file after the row is gone (a missing file is not fatal).
+    if stored:
+        try:
+            Path(stored).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 class DiaryEntryCreate(BaseModel):
