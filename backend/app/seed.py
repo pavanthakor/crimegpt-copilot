@@ -447,8 +447,13 @@ def _seed_case(db, spec: dict, owner: User) -> tuple[Case, bool]:
 # child is removed before the parent it points at (persons last — items/statements/diary
 # reference them). document_versions has no case_id (it references document_id) and is
 # handled separately in _reset_case.
-_CASE_CHILDREN = (LegalSection, Judgment, Document, Evidence, Statement,
-                  SeizedItem, CaseDiaryEntry, AuditLog, Person)
+# Deletion order is FK-safe: the referencing rows go first, then the rows they point at.
+# CaseDiaryEntry (related_person_id / related_evidence_id) and AuditLog must be deleted
+# BEFORE Evidence and Person, or a leftover diary entry blocks the delete. Person is last
+# because seized_items.seized_from, evidence.linked_person_id and statements.person_id all
+# reference it.
+_CASE_CHILDREN = (CaseDiaryEntry, AuditLog, LegalSection, Judgment, Document,
+                  Evidence, Statement, SeizedItem, Person)
 
 
 def _reset_case(db, spec: dict, owner: User) -> Case | None:
