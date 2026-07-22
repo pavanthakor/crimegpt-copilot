@@ -255,7 +255,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "29",
-    "title": "Relevancy of entry in public record or an electronic record made in performance of duty. Relevancy of statements in maps, charts and plans",
+    "title": "Relevancy of entry in public record or an electronic record made in performance of duty",
     "text": "29. An entry in any public or other official book, register or record or an electronic\nrecord, stating a fact in issue or relevant fact, and made by a public servant in the discharge\nof his official duty, or by any other person in performance of a duty specially enjoined by\nthe law of the country in which such book, register or record or an electronic record, is kept,\nis itself a relevant fact.",
     "char_len": 397,
     "citation": "BSA Section 29"
@@ -264,7 +264,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "30",
-    "title": "Relevancy of statement as to fact of public nature contained in certain Acts or notifications",
+    "title": "Relevancy of statements in maps, charts and plans",
     "text": "30. Statements of facts in issue or relevant facts, made in published maps or charts\ngenerally offered for public sale, or in maps or plans made under the authority of the Central\nGovernment or any State Government, as to matters usually represented or stated in such\nmaps, charts or plans, are themselves relevant facts.",
     "char_len": 321,
     "citation": "BSA Section 30"
@@ -678,7 +678,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "76",
-    "title": "Proof of documents by production of certified copies. Proof of other official documents",
+    "title": "Proof of documents by production of certified copies",
     "text": "76. Such certified copies may be produced in proof of the contents of the public\ndocuments or parts of the public documents of which they purport to be copies.",
     "char_len": 159,
     "citation": "BSA Section 76"
@@ -687,7 +687,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "77",
-    "title": "Presumption as to genuineness of certified copies",
+    "title": "Proof of other official documents",
     "text": "77. The following public documents may be proved as follows:—\n(a) Acts, orders or notifications of the Central Government in any of its Ministries\nand Departments or of any State Government or any Department of any State\nGovernment or Union territory Administration—\n(i) by the records of the Departments, certified by the head of those\nDepartments respectively; or\n(ii) by any document purporting to be printed by order of any such\nGovernment;\n(b) the proceedings of Parliament or a State Legislature, by the journals of those\nbodies respectively, or by published Acts or abstracts, or by copies purporting to be\nprinted by order of the Government concerned;\n(c) proclamations, orders or Regulations issued by the President of India or the\nGovernor of a State or the Administrator or Lieutenant Governor of a Union territory,\nby copies or extracts contained in the Official Gazette;\n(d) the Acts of the Executive or the proceedings of the Legislature of a foreign\ncountry, by journals published by their authority, or commonly received in that country\nas such, or by a copy certified under the seal of the country or sovereign, or by a\nrecognition thereof in any Central Act;\n(e) the proceedings of a municipal or local body in a State, by a copy of such\nproceedings, certified by the legal keeper thereof, or by a printed book purporting to\nbe published by the authority of such body;\n(f) public documents of any other class in a foreign country, by the original or\nby a copy certified by the legal keeper thereof, with a certificate under the seal of a\nNotary Public, or of an Indian Consul or diplomatic agent, that the copy is duly\ncertified by the officer having the legal custody of the original, and upon proof of the\ncharacter of the document according to the law of the foreign country.\nPresumptions as to documents",
     "char_len": 1825,
     "citation": "BSA Section 77"
@@ -696,7 +696,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "78",
-    "title": "Presumption as to documents produced as record of evidence, etc",
+    "title": "Presumption as to genuineness of certified copies",
     "text": "78. (1) The Court shall presume to be genuine every document purporting to be a\ncertificate, certified copy or other document, which is by law declared to be admissible as\nevidence of any particular fact and which purports to be duly certified by any officer of the\nCentral Government or of a State Government:\nProvided that such document is substantially in the form and purports to be executed\nin the manner directed by law in that behalf.\n(2) The Court shall also presume that any officer by whom any such document\npurports to be signed or certified, held, when he signed it, the official character which he\nclaims in such paper.",
     "char_len": 632,
     "citation": "BSA Section 78"
@@ -732,7 +732,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "82",
-    "title": "Presumption as to maps or plans made by authority of Government. Presumption as to collections of laws and reports of decisions. Presumption as to powers- of-attorney",
+    "title": "Presumption as to maps or plans made by authority of Government",
     "text": "82. The Court shall presume that maps or plans purporting to be made by the authority\nof the Central Government or any State Government were so made, and are accurate; but\nmaps or plans made for the purposes of any cause must be proved to be accurate.",
     "char_len": 251,
     "citation": "BSA Section 82"
@@ -741,7 +741,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "83",
-    "title": "Presumption as to electronic agreements",
+    "title": "Presumption as to collections of laws and reports of decisions. Presumption as to powers- of-attorney",
     "text": "83. The Court shall presume the genuineness of, every book purporting to be printed\nor published under the authority of the Government of any country, and to contain any of\nthe laws of that country, and of every book purporting to contain reports of decisions of the\nCourts of such country.",
     "char_len": 290,
     "citation": "BSA Section 83"
@@ -750,7 +750,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "84",
-    "title": "Presumption as to electronic records and electronic signatures",
+    "title": "Presumption as to electronic agreements",
     "text": "84. The Court shall presume that every document purporting to be a\npower-of-attorney, and to have been executed before, and authenticated by, a Notary Public,\nor any Court, Judge, Magistrate, Indian Consul or Vice-Consul, or representative of the\nCentral Government, was so executed and authenticated.",
     "char_len": 301,
     "citation": "BSA Section 84"
@@ -813,7 +813,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "91",
-    "title": "Presumption as to due execution, etc., of documents not produced. Presumption as to documents thirty years old",
+    "title": "Presumption as to due execution, etc., of documents not produced",
     "text": "91. The Court shall presume that every document, called for and not produced after\nnotice to produce, was attested, stamped and executed in the manner required by law.",
     "char_len": 167,
     "citation": "BSA Section 91"
@@ -822,7 +822,7 @@
     "act": "BSA",
     "act_name": "Bharatiya Sakshya Adhiniyam, 2023",
     "section_code": "92",
-    "title": "Presumption as to electronic records five years old",
+    "title": "Presumption as to documents thirty years old",
     "text": "92. Where any document, purporting or proved to be thirty years old, is produced\nfrom any custody which the Court in the particular case considers proper, the Court may\npresume that the signature and every other part of such document, which purports to be in\nthe handwriting of any particular person, is in that person's handwriting, and, in the case of\na document executed or attested, that it was duly executed and attested by the persons by\nwhom it purports to be executed and attested.\nExplanation.—The Explanation to section 80 shall also apply to this section.\nIllustrations.\n(a) A has been in possession of landed property for a long time. He produces from\nhis custody deeds relating to the land showing his titles to it. The custody shall be proper.\n(b) A produces deeds relating to landed property of which he is the mortgagee. The\nmortgagor is in possession. The custody shall be proper.\n(c) A, a connection of B, produces deeds relating to lands in B's possession, which\nwere deposited with him by B for safe custody. The custody shall be proper.",
     "char_len": 1057,
     "citation": "BSA Section 92"

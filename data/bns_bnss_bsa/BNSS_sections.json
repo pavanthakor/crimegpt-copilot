@@ -192,7 +192,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "22",
-    "title": "Sentences which High Courts and Sessions Judges may pass. Sentences which Magistrates may pass",
+    "title": "Sentences which High Courts and Sessions Judges may pass",
     "text": "22. (1) A High Court may pass any sentence authorised by law.\n(2) A Sessions Judge or Additional Sessions Judge may pass any sentence authorised\nby law; but any sentence of death passed by any such Judge shall be subject to confirmation\nby the High Court.",
     "char_len": 255,
     "citation": "BNSS Section 22"
@@ -210,7 +210,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "24",
-    "title": "Sentence in cases of conviction of several offences at one trial",
+    "title": "Sentence of imprisonment in default of fine",
     "text": "24. (1) The Court of a Magistrate may award such term of imprisonment in default of\npayment of fine as is authorised by law:\nProvided that the term—\n(a) is not in excess of the powers of the Magistrate under section 23;\n(b) shall not, where imprisonment has been awarded as part of the substantive\nsentence, exceed one-fourth of the term of imprisonment which the Magistrate is\ncompetent to inflict as punishment for the offence otherwise than as imprisonment in\ndefault of payment of the fine.\n(2) The imprisonment awarded under this section may be in addition to a substantive\nsentence of imprisonment for the maximum term awardable by the Magistrate under section 23.",
     "char_len": 670,
     "citation": "BNSS Section 24"
@@ -219,7 +219,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "25",
-    "title": "Mode of conferring powers",
+    "title": "Sentence in cases of conviction of several offences at one trial",
     "text": "25. (1) When a person is convicted at one trial of two or more offences, the Court may,\nsubject to the provisions of section 9 of the Bharatiya Nyaya Sanhita, 2023, sentence him\nfor such offences, to the several punishments prescribed therefor which such Court is\ncompetent to inflict and the Court shall, considering the gravity of offences, order such\npunishments to run concurrently or consecutively.\n(2) In the case of consecutive sentences, it shall not be necessary for the Court by\nreason only of the aggregate punishment for the several offences being in excess of the\npunishment which it is competent to inflict on conviction of a single offence, to send the\noffender for trial before a higher Court:\nProvided that—\n(a) in no case shall such person be sentenced to imprisonment for a longer\nperiod than twenty years;\n(b) the aggregate punishment shall not exceed twice the amount of punishment\nwhich the Court is competent to inflict for a single offence.\n(3) For the purpose of appeal by a convicted person, the aggregate of the consecutive\nsentences passed against him under this section shall be deemed to be a single sentence.",
     "char_len": 1139,
     "citation": "BNSS Section 25"
@@ -228,7 +228,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "26",
-    "title": "Powers of officers appointed",
+    "title": "Mode of conferring powers",
     "text": "26. (1) In conferring powers under this Sanhita, the High Court or the State Government,\nas the case may be, may, by order, empower persons specially by name or in virtue of their\noffices or classes of officials generally be their official titles.\n(2) Every such order shall take effect from the date on which it is communicated to the\nperson so empowered.",
     "char_len": 356,
     "citation": "BNSS Section 26"
@@ -264,7 +264,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "30",
-    "title": "Powers of superior officers of police. Public when to assist Magistrates and police",
+    "title": "Powers of superior officers of police",
     "text": "30. Police officers superior in rank to an officer in charge of a police station may\nexercise the same powers, throughout the local area to which they are appointed, as may be\nexercised by such officer within the limits of his station.",
     "char_len": 235,
     "citation": "BNSS Section 30"
@@ -273,7 +273,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "31",
-    "title": "Aid to person, other than police officer, executing warrant. Public to give information of certain offences",
+    "title": "Public when to assist Magistrates and police",
     "text": "31. Every person is bound to assist a Magistrate or police officer reasonably demanding\nhis aid—\n(a) in the taking or preventing the escape of any other person whom such\nMagistrate or police officer is authorised to arrest; or\n(b) in the prevention or suppression of a breach of the peace; or\n(c) in the prevention of any injury attempted to be committed to any public\nproperty.",
     "char_len": 378,
     "citation": "BNSS Section 31"
@@ -498,7 +498,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "56",
-    "title": "Health and safety of arrested person. Person arrested to be taken before Magistrate or officer in charge of police station. Person arrested not to be detained more than twenty-four hours",
+    "title": "Health and safety of arrested person",
     "text": "56. It shall be the duty of the person having the custody of an accused to take\nreasonable care of the health and safety of the accused.",
     "char_len": 136,
     "citation": "BNSS Section 56"
@@ -507,7 +507,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "57",
-    "title": "Police to report apprehensions",
+    "title": "Person arrested to be taken before Magistrate or officer in charge of police station. Person arrested not to be detained more than twenty-four hours",
     "text": "57. A police officer making an arrest without warrant shall, without unnecessary\ndelay and subject to the provisions herein contained as to bail, take or send the person\narrested before a Magistrate having jurisdiction in the case, or before the officer in charge\nof a police station.",
     "char_len": 284,
     "citation": "BNSS Section 57"
@@ -534,7 +534,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "60",
-    "title": "Discharge of person apprehended. Power, on escape, to pursue and retake",
+    "title": "Discharge of person apprehended",
     "text": "60. No person who has been arrested by a police officer shall be discharged except\non his bond, or bail bond, or under the special order of a Magistrate.",
     "char_len": 153,
     "citation": "BNSS Section 60"
@@ -543,7 +543,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "61",
-    "title": "Arrest to be made strictly according to Sanhita",
+    "title": "Power, on escape, to pursue and retake",
     "text": "61. (1) If a person in lawful custody escapes or is rescued, the person from whose\ncustody he escaped or was rescued may immediately pursue and arrest him in any place in\nIndia.\n(2) The provisions of section 44 shall apply to arrests under sub-section (1) although\nthe person making any such arrest is not acting under a warrant and is not a police officer\nhaving authority to arrest.",
     "char_len": 384,
     "citation": "BNSS Section 61"
@@ -561,7 +561,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "63",
-    "title": "Summons how served",
+    "title": "Form of summons",
     "text": "63. Every summons issued by a Court under this Sanhita shall be,—\n(i) in writing, in duplicate, signed by the presiding officer of such Court or by\nsuch other officer as the High Court may, from time to time, by rule direct, and shall\nbear the seal of the Court; or\n(ii) in an encrypted or any other form of electronic communication and shall\nbear the image of the seal of the Court or digital signature.",
     "char_len": 404,
     "citation": "BNSS Section 63"
@@ -570,7 +570,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "64",
-    "title": "Service of summons on corporate bodies, firms, and societies",
+    "title": "Summons how served",
     "text": "64. (1) Every summons shall be served by a police officer, or subject to such rules as\nthe State Government may make in this behalf, by an officer of the Court issuing it or other\npublic servant:\nProvided that the police station or the registrar in the Court shall maintain a register to\nenter the address, email address, phone number and such other details as the State\nGovernment may, by rules, provide.\n(2) The summons shall, if practicable, be served personally on the person summoned,\nby delivering or tendering to him one of the duplicates of the summons:\nProvided that summons bearing the image of Court's seal may also be served by\nelectronic communication in such form and in such manner, as the State Government may,\nby rules, provide.\n(3) Every person on whom a summons is so served personally shall, if so required by\nthe serving officer, sign a receipt therefor on the back of the other duplicate.",
     "char_len": 910,
     "citation": "BNSS Section 64"
@@ -1389,7 +1389,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "155",
-    "title": "Penalty for failure to comply with section 154. Procedure where existence of public right is denied",
+    "title": "Penalty for failure to comply with section 154",
     "text": "155. If the person against whom an order is made under section 154 does not perform\nsuch act or appear and show cause, he shall be liable to the penalty specified in that behalf\nin section 223 of the Bharatiya Nyaya Sanhita, 2023, and the order shall be made absolute.",
     "char_len": 268,
     "citation": "BNSS Section 155"
@@ -1407,7 +1407,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "157",
-    "title": "Procedure where person against whom order is made under section 152 appears to show cause",
+    "title": "Where an order is made under section 152 for the purpose",
     "text": "157. (1) If the person against whom an order under section 152 is made appears and\nshows cause against the order, the Magistrate shall take evidence in the matter as in a\nsummons-case.\n(2) If the Magistrate is satisfied that the order, either as originally made or subject to\nsuch modification as he considers necessary, is reasonable and proper, the order shall be\nmade absolute without modification or, as the case may be, with such modification.\n(3) If the Magistrate is not so satisfied, no further proceedings shall be taken in the\ncase:\nProvided that the proceedings under this section shall be completed, as soon as\npossible, within a period of ninety days, which may be extended for the reasons to be\nrecorded in writing, to one hundred and twenty days.",
     "char_len": 761,
     "citation": "BNSS Section 157"
@@ -1425,7 +1425,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "159",
-    "title": "Procedure on order being made absolute and consequences of disobedience",
+    "title": "Power of Magistrate to direct local investigation and examination of an expert. Power of Magistrate to furnish written instructions, etc",
     "text": "159. (1) Where the Magistrate directs a local investigation by any person under\nsection 158, the Magistrate may—\n(a) furnish such person with such written instructions as may seem necessary\nfor his guidance;\n(b) declare by whom the whole or any part of the necessary expenses of the\nlocal investigation shall be paid.\n(2) The report of such person may be read as evidence in the case.\n(3) Where the Magistrate summons and examines an expert under section 158, the\nMagistrate may direct by whom the costs of such summoning and examination shall be\npaid.",
     "char_len": 552,
     "citation": "BNSS Section 159"
@@ -1434,7 +1434,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "160",
-    "title": "Injunction pending inquiry",
+    "title": "Procedure on order being made absolute and consequences of disobedience",
     "text": "160. (1) When an order has been made absolute under section 155 or section 157, the\nMagistrate shall give notice of the same to the person against whom the order was made,\nand shall further require him to perform the act directed by the order within the time to be\nfixed in the notice, and inform him that, in case of disobedience, he shall be liable to the\npenalty provided by section 223 of the Bharatiya Nyaya Sanhita, 2023.\n(2) If such act is not performed within the time fixed, the Magistrate may cause it to be\nperformed, and may recover the costs of performing it, either by the sale of any building,\ngoods or other property removed by his order, or by the distress and sale of any other\nmovable property of such person within or without such Magistrate's local jurisdiction, and\nif such other property is without such jurisdiction, the order shall authorise its attachment\nand sale when endorsed by the Magistrate within whose local jurisdiction the property to\nbe attached is found.\n(3) No suit shall lie in respect of anything done in good faith under this section.",
     "char_len": 1076,
     "citation": "BNSS Section 160"
@@ -1506,7 +1506,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "168",
-    "title": "Police to prevent cognizable offences. Information of design to commit cognizable offences",
+    "title": "Police to prevent cognizable offences",
     "text": "168. Every police officer may interpose for the purpose of preventing, and shall, to\nthe best of his ability, prevent, the commission of any cognizable offence.",
     "char_len": 160,
     "citation": "BNSS Section 168"
@@ -1515,7 +1515,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "169",
-    "title": "Arrest to prevent commission of cognizable offences",
+    "title": "Information of design to commit cognizable offences",
     "text": "169. Every police officer receiving information of a design to commit any cognizable\noffence shall communicate such information to the police officer to whom he is subordinate,\nand to any other officer whose duty it is to prevent or take cognizance of the commission of\nany such offence.",
     "char_len": 287,
     "citation": "BNSS Section 169"
@@ -1524,7 +1524,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "170",
-    "title": "Prevention of injury to public property. Persons bound to conform to lawful directions of police",
+    "title": "Arrest to prevent commission of cognizable offences",
     "text": "170. (1) A police officer knowing of a design to commit any cognizable offence may\narrest, without orders from a Magistrate and without a warrant, the person so designing, if\nit appears to such officer that the commission of the offence cannot be otherwise prevented.\n(2) No person arrested under sub-section (1) shall be detained in custody for a period\nexceeding twenty-four hours from the time of his arrest unless his further detention is\nrequired or authorised under any other provisions of this Sanhita or of any other law for the\ntime being in force.",
     "char_len": 557,
     "citation": "BNSS Section 170"
@@ -1533,7 +1533,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "171",
-    "title": "Information in cognizable cases",
+    "title": "Prevention of injury to public property. Persons bound to conform to lawful directions of police",
     "text": "171. A police officer may of his own authority interpose to prevent any injury attempted\nto be committed in his view to any public property, movable or immovable, or the removal or\ninjury of any public landmark, buoy or other mark used for navigation.",
     "char_len": 251,
     "citation": "BNSS Section 171"
@@ -2226,7 +2226,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "248",
-    "title": "Trial to be conducted by Public Prosecutor. Opening case for prosecution",
+    "title": "Trial to be conducted by Public Prosecutor",
     "text": "248. In every trial before a Court of Session, the prosecution shall be conducted by a\nPublic Prosecutor.",
     "char_len": 105,
     "citation": "BNSS Section 248"
@@ -2235,7 +2235,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "249",
-    "title": "Discharge",
+    "title": "Opening case for prosecution",
     "text": "249. When the accused appears or is brought before the Court, in pursuance of a\ncommitment of the case under section 232, or under any other law for the time being in force,\nthe prosecutor shall open his case by describing the charge brought against the accused\nand stating by what evidence he proposes to prove the guilt of the accused.",
     "char_len": 337,
     "citation": "BNSS Section 249"
@@ -2244,7 +2244,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "250",
-    "title": "Framing of charge",
+    "title": "Discharge",
     "text": "250. (1) The accused may prefer an application for discharge within a period of\nsixty days from the date of commitment of the case under section 232.\n(2) If, upon consideration of the record of the case and the documents submitted\ntherewith, and after hearing the submissions of the accused and the prosecution in this\nbehalf, the Judge considers that there is not sufficient ground for proceeding against the\naccused, he shall discharge the accused and record his reasons for so doing.",
     "char_len": 486,
     "citation": "BNSS Section 250"
@@ -2829,7 +2829,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "315",
-    "title": "Remarks respecting demeanour of witness. Record of examination of accused",
+    "title": "Remarks respecting demeanour of witness",
     "text": "315. When a presiding Judge or Magistrate has recorded the evidence of a witness,\nhe shall also record such remarks (if any) as he thinks material respecting the demeanour of\nsuch witness whilst under examination.",
     "char_len": 213,
     "citation": "BNSS Section 315"
@@ -2838,7 +2838,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "316",
-    "title": "Interpreter to be bound to interpret truthfully. Record in High Court",
+    "title": "Record of examination of accused",
     "text": "316. (1) Whenever the accused is examined by any Magistrate, or by a Court of\nSession, the whole of such examination, including every question put to him and every\nanswer given by him, shall be recorded in full by the presiding Judge or Magistrate himself\nor where he is unable to do so owing to a physical or other incapacity, under his direction\nand superintendence by an officer of the Court appointed by him in this behalf.\n(2) The record shall, if practicable, be in the language in which the accused is examined\nor, if that is not practicable, in the language of the Court.\n(3) The record shall be shown or read to the accused, or, if he does not understand the\nlanguage in which it is written, shall be interpreted to him in a language which he understands,\nand he shall be at liberty to explain or add to his answers.\n(4) It shall thereafter be signed by the accused and by the Magistrate or presiding\nJudge, who shall certify under his own hand that the examination was taken in his presence\nand hearing and that the record contains a full and true account of the statement made by\nthe accused:\nProvided that where the accused is in custody and is examined through electronic\ncommunication, his signature shall be taken within seventy-two hours of such examination.\n(5) Nothing in this section shall be deemed to apply to the examination of an accused\nperson in the course of a summary trial.",
     "char_len": 1401,
     "citation": "BNSS Section 316"
@@ -2847,7 +2847,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "317",
-    "title": "When attendance of witness may be dispensed with and commission issued",
+    "title": "Interpreter to be bound to interpret truthfully. Record in High Court",
     "text": "317. When the services of an interpreter are required by any Criminal Court for the\ninterpretation of any evidence or statement, he shall be bound to state the true interpretation\nof such evidence or statement.",
     "char_len": 210,
     "citation": "BNSS Section 317"
@@ -3054,7 +3054,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "340",
-    "title": "Right of person against whom proceedings are instituted to be defended. Legal aid to accused at State expense in certain cases",
+    "title": "Right of person against whom proceedings are instituted to be defended",
     "text": "340. Any person accused of an offence before a Criminal Court, or against whom\nproceedings are instituted under this Sanhita, may of right be defended by an advocate of\nhis choice.",
     "char_len": 180,
     "citation": "BNSS Section 340"
@@ -3063,7 +3063,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "341",
-    "title": "Procedure when corporation or registered society is an accused",
+    "title": "Legal aid to accused at State expense in certain cases",
     "text": "341. (1) Where, in a trial or appeal before a Court, the accused is not represented by\nan advocate, and where it appears to the Court that the accused has not sufficient means to\nengage an advocate, the Court shall assign an advocate for his defence at the expense of\nthe State.\n(2) The High Court may, with the previous approval of the State Government, make\nrules providing for—\n(a) the mode of selecting advocates for defence under sub-section (1);\n(b) the facilities to be allowed to such advocates by the Courts;\n(c) the fees payable to such advocates by the Government, and generally, for\ncarrying out the purposes of sub-section (1).\n(3) The State Government may, by notification, direct that, as from such date as may\nbe specified in the notification, the provisions of sub-sections (1) and (2) shall apply in\nrelation to any class of trials before other Courts in the State as they apply in relation to\ntrials before Courts of Session.",
     "char_len": 944,
     "citation": "BNSS Section 341"
@@ -3576,7 +3576,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "398",
-    "title": "Witness protection scheme. Compensation to persons groundlessly arrested",
+    "title": "Witness protection scheme",
     "text": "398. Every State Government shall prepare and notify a Witness Protection Scheme\nfor the State with a view to ensure protection of the witnesses.",
     "char_len": 145,
     "citation": "BNSS Section 398"
@@ -3585,7 +3585,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "399",
-    "title": "Order to pay costs in non- cognizable cases",
+    "title": "Compensation to persons groundlessly arrested",
     "text": "399. (1) Whenever any person causes a police officer to arrest another person, if it\nappears to the Magistrate by whom the case is heard that there was no sufficient ground for\ncausing such arrest, the Magistrate may award such compensation, not exceeding one\nthousand rupees, to be paid by the person so causing the arrest to the person so arrested,\nfor his loss of time and expenses in the matter, as the Magistrate thinks fit.\n(2) In such cases, if more persons than one are arrested, the Magistrate may, in like\nmanner, award to each of them such compensation, not exceeding one thousand rupees, as\nsuch Magistrate thinks fit.\n(3) All compensation awarded under this section may be recovered as if it were a fine,\nand, if it cannot be so recovered, the person by whom it is payable shall be sentenced to\nsimple imprisonment for such term not exceeding thirty days as the Magistrate directs,\nunless such sum is sooner paid.",
     "char_len": 926,
     "citation": "BNSS Section 399"
@@ -3594,7 +3594,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "400",
-    "title": "Order to release on probation of good conduct or after admonition",
+    "title": "Order to pay costs in non- cognizable cases",
     "text": "400. (1) Whenever any complaint of a non-cognizable offence is made to a Court, the\nCourt, if it convicts the accused, may, in addition to the penalty imposed upon him, order\nhim to pay to the complainant, in whole or in part, the cost incurred by him in the prosecution,\nand may further order that in default of payment, the accused shall suffer simple imprisonment\nfor a period not exceeding thirty days and such costs may include any expenses incurred in\nrespect of process-fees, witnesses and advocate's fees which the Court may consider\nreasonable.\n(2) An order under this section may also be made by an Appellate Court or by the\nHigh Court or Court of Session when exercising its powers of revision.",
     "char_len": 705,
     "citation": "BNSS Section 400"
@@ -4080,7 +4080,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "454",
-    "title": "Execution of sentence of death passed by High Court. Postponement of execution of sentence of death in case of appeal to Supreme Court",
+    "title": "Execution of sentence of death passed by High Court",
     "text": "454. When a sentence of death is passed by the High Court in appeal or in revision,\nthe Court of Session shall, on receiving the order of the High Court, cause the sentence to\nbe carried into effect by issuing a warrant.",
     "char_len": 220,
     "citation": "BNSS Section 454"
@@ -4089,7 +4089,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "455",
-    "title": "Commutation of sentence of death on pregnant woman",
+    "title": "Postponement of execution of sentence of death in case of appeal to Supreme Court",
     "text": "455. (1) Where a person is sentenced to death by the High Court and an appeal from\nits judgment lies to the Supreme Court under sub-clause (a) or sub-clause (b) of clause (1)\nof article 134 of the Constitution, the High Court shall order the execution of the sentence to\nbe postponed until the period allowed for preferring such appeal has expired, or if, an appeal\nis preferred within that period, until such appeal is disposed of.\n(2) Where a sentence of death is passed or confirmed by the High Court, and the\nperson sentenced makes an application to the High Court for the grant of a certificate under\narticle 132 or under sub-clause (c) of clause (1) of article 134 of the Constitution, the High\nCourt shall order the execution of the sentence to be postponed until such application is\ndisposed of by the High Court, or if a certificate is granted on such application, until the\nperiod allowed for preferring an appeal to the Supreme Court on such certificate has expired.\n(3) Where a sentence of death is passed or confirmed by the High Court, and the High\nCourt is satisfied that the person sentenced intends to present a petition to the Supreme\nCourt for the grant of special leave to appeal under article 136 of the Constitution, the High\nCourt shall order the execution of the sentence to be postponed for such period as it\nconsiders sufficient to enable him to present such petition.",
     "char_len": 1394,
     "citation": "BNSS Section 455"
@@ -4098,7 +4098,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "456",
-    "title": "Power to appoint place of imprisonment",
+    "title": "Commutation of sentence of death on pregnant woman",
     "text": "456. If a woman sentenced to death is found to be pregnant, the High Court shall\ncommute the sentence to imprisonment for life.\nB.—Imprisonment",
     "char_len": 143,
     "citation": "BNSS Section 456"
@@ -4125,7 +4125,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "459",
-    "title": "Direction of warrant for execution. Warrant with whom to be lodged",
+    "title": "Direction of warrant for execution",
     "text": "459. Every warrant for the execution of a sentence of imprisonment shall be directed\nto the officer in charge of the jail or other place in which the prisoner is, or is to be, confined.",
     "char_len": 185,
     "citation": "BNSS Section 459"
@@ -4134,7 +4134,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "460",
-    "title": "Warrant for levy of fine",
+    "title": "Warrant with whom to be lodged",
     "text": "460. When the prisoner is to be confined in a jail, the warrant shall be lodged with the\njailor.\nC.—Levy of fine",
     "char_len": 112,
     "citation": "BNSS Section 460"
@@ -4143,7 +4143,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "461",
-    "title": "Effect of such warrant",
+    "title": "Warrant for levy of fine",
     "text": "461. (1) When an offender has been sentenced to pay a fine, but no such payment\nhas been made, the Court passing the sentence may take action for the recovery of the fine\nin either or both of the following ways, that is to say, it may—\n(a) issue a warrant for the levy of the amount by attachment and sale of any\nmovable property belonging to the offender;\n(b) issue a warrant to the Collector of the district, authorising him to realise the\namount as arrears of land revenue from the movable or immovable property, or both,\nof the defaulter:\nProvided that, if the sentence directs that in default of payment of the fine, the\noffender shall be imprisoned, and if such offender has undergone the whole of such\nimprisonment in default, no Court shall issue such warrant unless, for special reasons to be\nrecorded in writing, it considers it necessary so to do, or unless it has made an order for the\npayment of expenses or compensation out of the fine under section 395.\n(2) The State Government may make rules regulating the manner in which warrants\nunder clause (a) of sub-section (1) are to be executed, and for the summary determination of\nany claims made by any person other than the offender in respect of any property attached\nin execution of such warrant.\n(3) Where the Court issues a warrant to the Collector under clause (b) of\nsub-section (1), the Collector shall realise the amount in accordance with the law relating to\nrecovery of arrears of land revenue, as if such warrant were a certificate issued under such law:\nProvided that no such warrant shall be executed by the arrest or detention in prison of\nthe offender.",
     "char_len": 1630,
     "citation": "BNSS Section 461"
@@ -4152,7 +4152,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "462",
-    "title": "Warrant for levy of fine issued by a Court in any territory to which this Sanhita does not extend",
+    "title": "Effect of such warrant",
     "text": "462. A warrant issued under clause (a) of sub-section (1) of section 461 by any Court\nmay be executed within the local jurisdiction of such Court, and it shall authorise the\nattachment and sale of any such property outside such jurisdiction, when it is endorsed by\nthe District Magistrate within whose local jurisdiction such property is found.",
     "char_len": 344,
     "citation": "BNSS Section 462"
@@ -4224,7 +4224,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "470",
-    "title": "Return of warrant on execution of sentence. Money ordered to be paid recoverable as a fine",
+    "title": "Return of warrant on execution of sentence",
     "text": "470. When a sentence has been fully executed, the officer executing it shall return the\nwarrant to the Court from which it is issued, with an endorsement under his hand certifying\nthe manner in which the sentence has been executed.",
     "char_len": 231,
     "citation": "BNSS Section 470"
@@ -4233,7 +4233,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "471",
-    "title": "Mercy petition in death sentence cases",
+    "title": "Money ordered to be paid recoverable as a fine",
     "text": "471. Any money (other than a fine) payable by virtue of any order made under this\nSanhita, and the method of recovery of which is not otherwise expressly provided for, shall\nbe recoverable as if it were a fine:\nProvided that section 461 shall, in its application to an order under section 400, by\nvirtue of this section, be construed as if in the proviso to sub-section (1) of section 461,\nafter the words and figures \"under section 395\", the words and figures \"or an order for\npayment of costs under section 400\" had been inserted.\nE.—Suspension, remission and commutation of sentences",
     "char_len": 586,
     "citation": "BNSS Section 471"
@@ -4386,7 +4386,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "488",
-    "title": "Power to order sufficient bail when that first taken is insufficient. Discharge of sureties",
+    "title": "Power to order sufficient bail when that first taken is insufficient",
     "text": "488. If, through mistake, fraud or otherwise, insufficient sureties have been accepted,\nor if they afterwards become insufficient, the Court may issue a warrant of arrest directing\nthat the person released on bail be brought before it and may order him to find sufficient\nsureties, and, on his failing so to do, may commit him to jail.",
     "char_len": 335,
     "citation": "BNSS Section 488"
@@ -4395,7 +4395,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "489",
-    "title": "Deposit instead of recognizance",
+    "title": "Discharge of sureties",
     "text": "489. (1) All or any sureties for the attendance and appearance of a person released on\nbail may at any time apply to a Magistrate to discharge the bond, either wholly or so far as\nrelates to the applicants.\n(2) On such application being made, the Magistrate shall issue his warrant of arrest\ndirecting that the person so released be brought before him.\n(3) On the appearance of such person pursuant to the warrant, or on his voluntary\nsurrender, the Magistrate shall direct the bond to be discharged either wholly or so far as\nrelates to the applicants, and shall call upon such person to find other sufficient sureties,\nand, if he fails to do so, may commit him to jail.",
     "char_len": 671,
     "citation": "BNSS Section 489"
@@ -4404,7 +4404,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "490",
-    "title": "Procedure when bond has been forfeited",
+    "title": "Deposit instead of recognizance",
     "text": "490. When any person is required by any Court or officer to execute a bond or bail\nbond, such Court or officer may, except in the case of a bond for good behaviour, permit him\nto deposit a sum of money or Government promissory notes to such amount as the Court or\nofficer may fix in lieu of executing such bond.",
     "char_len": 311,
     "citation": "BNSS Section 490"
@@ -4431,7 +4431,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "493",
-    "title": "Procedure in case of insolvency or death of surety or when a bond is forfeited. Bond required from child",
+    "title": "Procedure in case of insolvency or death of surety or when a bond is forfeited",
     "text": "493. When any surety to a bail bond under this Sanhita becomes insolvent or dies,\nor when any bond is forfeited under the provisions of section 491, the Court by whose order\nsuch bond was taken, or a Magistrate of the first class may order the person from whom\nsuch security was demanded to furnish fresh security in accordance with the directions of\nthe original order, and if such security is not furnished, such Court or Magistrate may\nproceed as if there had been a default in complying with such original order.",
     "char_len": 516,
     "citation": "BNSS Section 493"
@@ -4440,7 +4440,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "494",
-    "title": "Appeal from orders under section 491",
+    "title": "Bond required from child",
     "text": "494. When the person required by any Court, or officer to execute a bond is a child,\nsuch Court or officer may accept, in lieu thereof, a bond executed by a surety or sureties\nonly.",
     "char_len": 181,
     "citation": "BNSS Section 494"
@@ -4449,7 +4449,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "495",
-    "title": "Power to direct levy of amount due on certain recognizances",
+    "title": "Appeal from orders under section 491",
     "text": "495. All orders passed under section 491 shall be appealable,—\n(i) in the case of an order made by a Magistrate, to the Sessions Judge;\n(ii) in the case of an order made by a Court of Session, to the Court to which an\nappeal lies from an order made by such Court.",
     "char_len": 263,
     "citation": "BNSS Section 495"
@@ -4458,7 +4458,7 @@
     "act": "BNSS",
     "act_name": "Bharatiya Nagarik Suraksha Sanhita, 2023",
     "section_code": "496",
-    "title": "Order for custody and disposal of property pending trial in certain cases",
+    "title": "Power to direct levy of amount due on certain recognizances",
     "text": "496. The High Court or Court of Session may direct any Magistrate to levy the\namount due on a bond for appearance or attendance at such High Court or Court of Session.\nCHAPTER XXXVI\nDISPOSAL OF PROPERTY",
     "char_len": 202,
     "citation": "BNSS Section 496"
