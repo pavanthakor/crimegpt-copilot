@@ -1,4 +1,4 @@
-"""Generate the 4 CrimeGPT .docx templates (docxtpl / Jinja placeholders).
+"""Generate the CrimeGPT .docx templates (docxtpl / Jinja placeholders).
 
 Binary .docx are committed, but this script is the reproducible source of truth.
 Run from the repo root (or anywhere):  python templates/_build_templates.py
@@ -45,6 +45,7 @@ INDIC_BOUND_FIELDS = (
     "panch_intro",
     "accused_line",
     "remand_clause1",
+    "custody_clause1",
     "med_body",
 )
 
@@ -320,6 +321,40 @@ def build_remand_request():
     doc.save(HERE / "remand_request.docx")
 
 
+def build_custody_letter():
+    """Court Custody Letter — forwards the accused to judicial custody after police custody.
+    Addressed to the Judicial Magistrate under BNSS §187 (reuses the remand court line +
+    subtitle + sections clause + signature block; only the clauses and prayer differ)."""
+    doc = Document()
+    _line(doc, "{{ L.to }}")
+    _line(doc, "{{ L.remand_court_line2 }}")
+    _line(doc, "{{ district }}.")
+    doc.add_paragraph()
+    _title(doc, "{{ L.heading_custody }}")
+    _line(doc, "{{ L.remand_subtitle }}")  # (Under Section 187 of the BNSS, 2023)
+    doc.add_paragraph()
+    _line(doc, "{{ L.police_station }}: {{ police_station }}    {{ L.district }}: {{ district }}")
+    _line(doc, "{{ L.case_fir_no }}: {{ case_number }}  ({{ L.fir_no }} {{ fir_number }} {{ L.dated }} {{ fir_date }})")
+    doc.add_paragraph()
+    _line(doc, "{{ L.respectfully }}", bold=True)
+    _line(doc, "{{ custody_clause1 }}")
+    _line(doc, "{{ L.remand_c2 }}")
+    _looped_table(
+        doc,
+        ["{{ L.col_act }}", "{{ L.col_section }}", "{{ L.col_title }}"],
+        "{%tr for s in sections_applied %}",
+        ["{{ s.act }}", "{{ s.section_code }}", "{{ s.section_title }}"],
+    )
+    _line(doc, "{{ L.custody_c3 }}")
+    _line(doc, "{{ L.custody_c4 }}")
+    doc.add_paragraph()
+    _line(doc, "{{ L.custody_prayer }}")
+    _sig_block(doc, "{{ L.place }}: {{ police_station }}", "{{ io_name }}\n{{ L.io_designation }}")
+    _line(doc, "{{ L.note_draft }}")
+    _apply_fonts(doc)
+    doc.save(HERE / "custody_letter.docx")
+
+
 def build_medical_letter():
     doc = Document()
     _line(doc, "{{ L.to }}")
@@ -413,6 +448,7 @@ def main():
     build_seizure_receipt()
     build_panchnama()
     build_remand_request()
+    build_custody_letter()
     build_medical_letter()
     build_lers_preservation_request()
     build_lers_records_request()

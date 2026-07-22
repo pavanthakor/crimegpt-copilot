@@ -93,6 +93,14 @@ LABELS = {
         "remand_c4": "4. Investigation still pending:",
         "remand_c5": "5. Grounds for seeking police custody:",
         "remand_prayer": "It is therefore prayed that the accused be remanded to police custody to enable completion of the investigation.",
+        # -- custody letter (forwarding accused to judicial custody; addressed to the same
+        #    Judicial Magistrate as the remand, so it reuses remand_court_line2 /
+        #    remand_subtitle (BNSS §187) / remand_c2 / col_* / sig-block labels) --
+        "heading_custody": "APPLICATION FOR JUDICIAL CUSTODY REMAND",
+        "custody_c1_S": "1. That the accused {accused_name}, son of {accused_father}, age {accused_age}, residing at {accused_address}, has been arrested and is presently in custody in connection with the above case.",
+        "custody_c3": "3. That the accused was earlier remanded to police custody, and the period of police custody granted (from ____________ to ____________) has now been completed.",
+        "custody_c4": "4. That the investigation is continuing and the presence of the accused is required for the purposes of the investigation and trial; no further police custody of the accused is required at this stage.",
+        "custody_prayer": "It is therefore prayed that the accused be remanded to judicial custody and forwarded to the District Jail pending further proceedings.",
         # -- medical --
         "medical_to2": "The Medical Officer,",
         "heading_medical": "REQUEST FOR MEDICAL EXAMINATION",
@@ -213,6 +221,12 @@ LABELS = {
         "remand_c4": "4. शेष जाँच:",
         "remand_c5": "5. पुलिस कस्टडी हेतु आधार:",
         "remand_prayer": "अतः प्रार्थना है कि जाँच पूर्ण करने हेतु आरोपी को पुलिस कस्टडी में रिमांड किया जाए।",
+        # -- custody letter (hand-written Hindi; formal legal phrasing tagged TODO_HI) --
+        "heading_custody": "न्यायिक हिरासत रिमांड हेतु आवेदन",  # TODO_HI: confirm court-form wording
+        "custody_c1_S": "1. यह कि आरोपी {accused_name}, पिता {accused_father}, उम्र {accused_age}, निवासी {accused_address}, को उपरोक्त केस के संबंध में गिरफ्तार किया गया है तथा वर्तमान में हिरासत में है।",
+        "custody_c3": "3. यह कि आरोपी को पूर्व में पुलिस कस्टडी में रिमांड किया गया था, तथा दी गई पुलिस कस्टडी की अवधि (दिनांक ____________ से ____________ तक) अब पूर्ण हो चुकी है।",  # TODO_HI: confirm legal phrasing
+        "custody_c4": "4. यह कि जाँच जारी है तथा जाँच एवं विचारण हेतु आरोपी की उपस्थिति आवश्यक है; इस स्तर पर आरोपी की और पुलिस कस्टडी आवश्यक नहीं है।",  # TODO_HI: confirm legal phrasing
+        "custody_prayer": "अतः प्रार्थना है कि आरोपी को न्यायिक हिरासत में रिमांड कर आगे की कार्यवाही हेतु जिला कारागार भेजा जाए।",  # TODO_HI: confirm legal phrasing
         "medical_to2": "चिकित्सा अधिकारी,",
         "heading_medical": "चिकित्सा परीक्षण हेतु अनुरोध",
         "from_label": "प्रेषक:",
@@ -329,6 +343,12 @@ LABELS = {
         "remand_c4": "4. બાકી રહેલ તપાસ:",
         "remand_c5": "5. પોલીસ કસ્ટડી માંગવાનાં કારણો:",
         "remand_prayer": "આથી પ્રાર્થના છે કે તપાસ પૂર્ણ કરવા માટે આરોપીને પોલીસ કસ્ટડીમાં રિમાન્ડ આપવામાં આવે.",
+        # -- custody letter (hand-written Gujarati; formal legal phrasing tagged TODO_GU) --
+        "heading_custody": "ન્યાયિક કસ્ટડી રિમાન્ડ માટેની અરજી",  # TODO_GU: confirm court-form wording
+        "custody_c1_S": "1. કે આરોપી {accused_name}, પિતાનું નામ {accused_father}, ઉંમર {accused_age}, રહેઠાણ {accused_address}, ને ઉપરોક્ત કેસના સંદર્ભમાં ધરપકડ કરવામાં આવેલ છે અને હાલમાં કસ્ટડીમાં છે.",
+        "custody_c3": "3. કે આરોપીને અગાઉ પોલીસ કસ્ટડીમાં રિમાન્ડ આપવામાં આવેલ હતો, અને આપવામાં આવેલ પોલીસ કસ્ટડીની મુદત (તારીખ ____________ થી ____________ સુધી) હવે પૂર્ણ થઈ ગઈ છે.",  # TODO_GU: confirm legal phrasing
+        "custody_c4": "4. કે તપાસ ચાલુ છે અને તપાસ તથા વિચારણ માટે આરોપીની હાજરી જરૂરી છે; આ તબક્કે આરોપીની વધુ પોલીસ કસ્ટડી જરૂરી નથી.",  # TODO_GU: confirm legal phrasing
+        "custody_prayer": "આથી પ્રાર્થના છે કે આરોપીને ન્યાયિક કસ્ટડીમાં રિમાન્ડ કરી આગળની કાર્યવાહી માટે જિલ્લા જેલમાં મોકલવામાં આવે.",  # TODO_GU: confirm legal phrasing
         "medical_to2": "તબીબી અધિકારી,",
         "heading_medical": "તબીબી તપાસ માટેની વિનંતી",
         "from_label": "તરફથી:",

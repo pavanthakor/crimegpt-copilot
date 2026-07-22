@@ -211,6 +211,7 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
     panch_intro = L["panch_intro_S"].format(io_name=io_name_val or "")
     accused_line = L["accused_line_S"].format(**acc_fmt)
     remand_clause1 = L["remand_c1_S"].format(**acc_fmt)
+    custody_clause1 = L["custody_c1_S"].format(**acc_fmt)
     med_body = L["med_body_S"].format(
         subject_name=(subject.full_name if subject else "") or "",
         subject_role=subject_role_label,
@@ -258,6 +259,7 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         "panch_intro": panch_intro,
         "accused_line": accused_line,
         "remand_clause1": remand_clause1,
+        "custody_clause1": custody_clause1,
         "med_body": med_body,
         # case
         "case_number": case.case_number,

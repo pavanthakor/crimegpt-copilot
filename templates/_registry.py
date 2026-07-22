@@ -63,6 +63,18 @@ REGISTRY = {
             "examination_purpose",
         ],
     },
+    "CUSTODY_LETTER": {
+        "template_file": "custody_letter.docx",
+        "title": "Court Custody Letter (Judicial Custody)",
+        "required_fields": [
+            "case_number",
+            "fir_number",
+            "police_station",
+            "accused_name",
+            "sections_applied",
+            "custody_clause1",
+        ],
+    },
     "LERS_PRESERVATION_REQUEST": {
         "template_file": "lers_preservation_request.docx",
         "title": "LERS Data Preservation Request",

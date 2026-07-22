@@ -51,6 +51,7 @@ const DOC_TYPES: { key: string; label: string; note?: string; icon: string }[] =
   { key: "SEIZURE_RECEIPT", label: "Seizure Receipt", note: "Form IF4", icon: "receipt_long" },
   { key: "PANCHNAMA", label: "Panchnama", icon: "history_edu" },
   { key: "REMAND", label: "Remand Request", icon: "gavel" },
+  { key: "CUSTODY_LETTER", label: "Custody Letter", icon: "account_balance" },
   { key: "MEDICAL_LETTER", label: "Medical Letter", icon: "medical_services" },
   { key: "LERS_PRESERVATION_REQUEST", label: "LERS Preservation Request", icon: "lock_clock" },
   { key: "LERS_RECORDS_REQUEST", label: "LERS Records Request", icon: "folder_data" },
