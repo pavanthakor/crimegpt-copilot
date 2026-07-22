@@ -30,12 +30,15 @@ from app.demo_cache import DEMO_CACHE_DIR
 
 LOCKFILE = DEMO_CACHE_DIR / "reviewed_gu.json"
 
-# Which fields are hand-reviewable, per doc type. Mirrors services.documents
-# _TRANSLATABLE_BY_DOC: only translated free text is ever hand-corrected.
+# Which fields are hand-reviewable, per doc type. Only machine-translated free text is
+# ever hand-corrected — and document generation no longer translates anything (every
+# boilerplate narrative is a deterministic per-language template in templates/_labels.py
+# with verbatim identifiers), so NO document field is reviewable now. Retained empty: the
+# reviewed-string machinery still protects the machine-translated analysis reason below.
 REVIEWABLE_DOC_FIELDS = {
-    "PANCHNAMA": ["proceedings_narrative"],
-    "REMAND": ["investigation_done", "pending_investigation", "grounds_for_custody"],
-    "MEDICAL_LETTER": ["examination_purpose"],
+    "PANCHNAMA": [],
+    "REMAND": [],
+    "MEDICAL_LETTER": [],
     "SEIZURE_RECEIPT": [],
     "LERS_PRESERVATION_REQUEST": [],
     "LERS_RECORDS_REQUEST": [],

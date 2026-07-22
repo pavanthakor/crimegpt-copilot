@@ -8,11 +8,16 @@ directly); it does not consult DEMO_MODE.
     python -m app.demo_cache_build --case I-CR-...    # a different case number
     python -m app.demo_cache_build --langs en gu      # subset of languages
 
-HUMAN-REVIEWED STRINGS ARE PROTECTED. A handful of Gujarati strings were hand-corrected
-by a reviewer and are pinned in `demo_cache/reviewed_gu.json`. After building each
-payload this script overlays those strings back, so a rebuild refreshes everything
-except the reviewer's own words. The summary at the end reports exactly which strings
-were preserved. See app/demo_cache_reviewed.py.
+DOCUMENTS ARE DETERMINISTIC. Document generation makes no LLM call — every boilerplate
+narrative comes from the per-language label templates (templates/_labels.py) with verbatim
+identifiers — so this script builds each document context directly in its language and the
+cache is a byte-for-byte copy of live output. No translation, no reviewed-string overlay.
+
+HUMAN-REVIEWED ANALYSIS REASON IS PROTECTED. The one remaining machine-translated string
+is the Gujarati analysis reason, hand-corrected by a reviewer and pinned in
+`demo_cache/reviewed_gu.json`. This script overlays it back after building the analysis
+payload, so a rebuild refreshes everything except the reviewer's own words. The summary at
+the end reports which strings were preserved. See app/demo_cache_reviewed.py.
 
 NO DB RESIDUE. The remand/panchnama contexts read ACCEPTED legal sections from the
 case, so this script accepts the freshly-mapped sections inside its own transaction to
@@ -32,11 +37,7 @@ from app.api.legal import _build_narrative
 from app.core.db import SessionLocal
 from app.models import Case, LegalSection, Statement, User
 from app.models.enums import LegalAct, SectionStatus
-from app.services.documents import (
-    _TRANSLATABLE_BY_DOC,
-    _build_context,
-    _load_registry,
-)
+from app.services.documents import _build_context, _load_registry
 
 logger = logging.getLogger("crimegpt.demo_cache_build")
 
@@ -107,8 +108,6 @@ def build(case_number: str, langs: list[str]) -> None:
             n = _accept_sections(db, case, user, result["sections"])
             print(f"  staged {n} accepted section(s) for context (rolled back after)")
 
-        base_ctx = _build_context(db, case, user)
-
         for lang in langs:
             # --- analysis payload ---
             sections = []
@@ -131,20 +130,16 @@ def build(case_number: str, langs: list[str]) -> None:
             note = f" [{len(restored)} reviewed]" if restored else ""
             print(f"  analysis  [{lang}] cached ({len(sections)} section(s)){note}")
 
-            # --- document contexts (one per doc type; only its clauses translated) ---
+            # --- document contexts: built directly in this language. Document generation
+            # is fully deterministic now (every boilerplate narrative comes from the
+            # per-language label templates in templates/_labels.py), so there is no
+            # translation pass and no reviewed-string overlay — the cache is a byte-for-byte
+            # copy of what live generation produces. The context does not vary by doc type
+            # (each template renders a subset), so it is built once per language.
+            ctx = _build_context(db, case, user, lang=lang)
             for doc_type in DOC_TYPES:
-                ctx = dict(base_ctx)
-                if lang != "en":
-                    for field in _TRANSLATABLE_BY_DOC.get(doc_type, []):
-                        if ctx.get(field):
-                            ctx[field] = translate(ctx[field], target=lang)
-                restored = demo_cache_reviewed.apply_document(
-                    lock, case.id, doc_type, lang, ctx
-                )
-                preserved += [f"{doc_type}.{f} ({lang})" for f in restored]
                 demo_cache.save_document(case.id, doc_type, lang, ctx)
-                note = f" [{len(restored)} reviewed]" if restored else ""
-                print(f"  document  [{lang}] {doc_type} cached{note}")
+                print(f"  document  [{lang}] {doc_type} cached")
     finally:
         # Never persist the staged sections — the demo DB stays pristine.
         db.rollback()

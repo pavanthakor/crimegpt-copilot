@@ -1,35 +1,6 @@
 {
-  "_comment": "Human-reviewed Gujarati strings. app.demo_cache_build overlays these after rebuilding, so machine translation never overwrites them. Regenerate with: python -m app.demo_cache_reviewed --extract",
-  "documents": {
-    "1_PANCHNAMA_gu": {
-      "fields": {
-        "proceedings_narrative": "કેસ નં. I-CR-0142-2026 ના સંદર્ભમાં, ગુના સાથે સંબંધિત સ્થળ તથા વસ્તુઓની પંચ સાક્ષીઓની હાજરીમાં તપાસ કરવામાં આવી હતી. તપાસ દરમિયાન નીચે વર્ણવેલ વસ્તુ(ઓ) મળી આવી હતી અને કાયદા મુજબ જપ્ત કરવામાં આવી હતી."
-      },
-      "sha256": {
-        "proceedings_narrative": "2ee95c7a4ddcfc6ba019202373e12c99e15925ba895ce2113d1386b6447a8f8b"
-      }
-    },
-    "1_REMAND_gu": {
-      "fields": {
-        "investigation_done": "સેટેલાઇટ પોલીસ સ્ટેશન ખાતે તારીખ ૧૦/૦૭/૨૦૨૬ ના રોજ ફરિયાદ એફ.આઈ.આર. નં. 0142/2026 થી નોંધવામાં આવી હતી. આરોપી સુરેશ વાગેલાની ધરપકડ કરવામાં આવી છે. તપાસ દરમિયાન નીચે મુજબની વસ્તુઓ જપ્ત કરવામાં આવી છે: સોનાનો ચેન, આશરે ૧૮ ગ્રામ, પીળી ધાતુ; બારીનો કઠેડો તોડવા માટે વપરાયેલ લોખંડનું કોશ. ૧ સાક્ષી/ઈસમનું નિવેદન નોંધવામાં આવ્યું છે.",
-        "pending_investigation": "બાકીના મુદ્દામાલની વસૂલાત, આરોપીના પૂર્વ ઇતિહાસની ચકાસણી, સાથીદારોની ઓળખ તથા વધુ નિવેદનો નોંધવાનું કામ બાકી છે.",
-        "grounds_for_custody": "બાકીના મુદ્દામાલની વસૂલાત કરવા, ગુનામાં સંડોવાયેલા સાથીદારોની ઓળખ કરવા તથા તપાસ પૂર્ણ કરવા માટે આરોપી સુરેશ વાગેલાની પોલીસ કસ્ટડીમાં પૂછપરછ કરવી જરૂરી છે. જો આરોપીને કસ્ટડીમાં લેવામાં નહીં આવે તો તે પુરાવા સાથે ચેડાં કરે અથવા સાક્ષીઓને પ્રભાવિત કરે તેવી શક્યતા છે."
-      },
-      "sha256": {
-        "investigation_done": "ddff96c5e484e9ef01b032fee15510bd1c4ab5536ac96955561eca6156f7eb08",
-        "pending_investigation": "5edb849facd1244443a4f0b0e70af54af1d2ac025795bd8fdca0fc1e6b491a94",
-        "grounds_for_custody": "ac1cf5ca030af74fb62d9c3f688b93caaf2244f16aaf36d2e1011a6e24618d6d"
-      }
-    },
-    "1_MEDICAL_LETTER_gu": {
-      "fields": {
-        "examination_purpose": "નામદાર અદાલત સમક્ષ રજૂ કરતાં પહેલાં આરોપીની શારીરિક સ્થિતિ તથા ઈજાઓની નોંધ કરવા માટે તબીબી તપાસ કરાવવા બાબત."
-      },
-      "sha256": {
-        "examination_purpose": "2e842e9b86c8a761b9a36be194974b053b9556e80fb45f17cc751ad9b53ce060"
-      }
-    }
-  },
+  "_comment": "Human-reviewed Gujarati strings. app.demo_cache_build overlays these after rebuilding, so machine translation never overwrites them. Regenerate with: python -m app.demo_cache_reviewed --extract. NOTE: document boilerplate is no longer here — it became deterministic per-language templates in templates/_labels.py (with verbatim identifiers), so only the machine-translated analysis reason remains reviewable.",
+  "documents": {},
   "analysis": {
     "1_gu": {
       "sections": {
