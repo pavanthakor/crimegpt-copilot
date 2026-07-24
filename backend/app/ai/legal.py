@@ -163,6 +163,107 @@ def _format_candidates(candidates: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Ingredient-based cluster disambiguation (ADDITIVE; prompt + candidate-completion only).
+#
+# A concentrated failure mode is the BNS property/deception cluster: offences that sit in
+# adjacent sections and differ by ONE statutory ingredient (entrustment, personation,
+# already-stolen-when-received, nature-of-the-forged-document). When the retrieved
+# candidate set contains a member of such a cluster we (1) ensure its siblings are also
+# offered as candidates so the correct one is selectable, and (2) surface the single
+# distinguishing ingredient in the selection prompt so the model chooses on that element.
+#
+# This changes NOTHING about grounding, refusal, or retrieval of non-cluster sections.
+# Guidance is written from the BARE-ACT ingredient only (BNS 314/315/316/317/318/319/336/
+# 338) and names no complaint, fact, or eval case. Each rule is explicitly gated: "apply
+# only if the narrative shows the ingredient", so it cannot manufacture a charge or lower
+# the model's willingness to decline.
+# ---------------------------------------------------------------------------
+_CLUSTER_GUIDANCE: list[tuple[frozenset, str]] = [
+    (frozenset({"314", "315", "316"}),
+     "PROPERTY KEPT DISHONESTLY (314 vs 315 vs 316) — these differ ONLY by HOW the property "
+     "reached the accused:\n"
+     "    * 316 (criminal breach of trust): the property was ENTRUSTED to the accused, or "
+     "they were given DOMINION over it — handed to them to hold, keep, carry, invest, or use "
+     "for a stated purpose — and they then dishonestly kept or diverted it. Entrustment is the "
+     "defining ingredient; choose 316 whenever the owner GAVE the property to the accused for a "
+     "purpose and the accused broke that trust.\n"
+     "    * 314 (dishonest misappropriation): the property came into the accused's own "
+     "possession WITHOUT entrustment — e.g. found property, or property that reached them by "
+     "accident or mistake — which they then dishonestly kept. It is NOT property taken out of "
+     "the owner's possession (that would be theft).\n"
+     "    * 315: only where the property belonged to a DECEASED person and was misappropriated "
+     "before a lawful heir took possession."),
+    (frozenset({"318", "319"}),
+     "CHEATING (318 vs 319) — 319 (cheating by personation) applies ONLY when the accused "
+     "cheated by PRETENDING TO BE SOME OTHER PERSON: a different real or imaginary person, or a "
+     "holder of an office or position they do not actually hold. If the deception involved "
+     "impersonating someone, choose 319 (base cheating 318 also applies). If it did not involve "
+     "pretending to be another person, choose 318 alone."),
+    (frozenset({"314", "317"}),
+     "STOLEN PROPERTY (317 vs 314) — 317 applies when the property had ALREADY been obtained by "
+     "another through theft, extortion, robbery, cheating, misappropriation or breach of trust, "
+     "and the accused dishonestly RECEIVED or RETAINED it KNOWING (or having reason to believe) "
+     "it was stolen. 314 applies when the accused themselves came to possess the owner's "
+     "property without entrustment and kept it. Choose 317 when the accused knowingly took in "
+     "property that had been stolen by someone else."),
+    (frozenset({"336", "338"}),
+     "FORGERY (336 vs 338) — 338 applies when the forged document is a VALUABLE SECURITY, a "
+     "will, an authority to adopt, or a deed/instrument that transfers or creates a right in "
+     "property or money (e.g. a sale deed, cheque, bond, share certificate, or a receipt for "
+     "money/property). 336 is base forgery of any other document. If the forged document is such "
+     "a security/deed/will/financial instrument, choose 338 (base forgery 336 may also apply)."),
+]
+
+_CLUSTER_CODE_SETS = [codes for codes, _ in _CLUSTER_GUIDANCE]
+_ALL_CLUSTER_CODES = set().union(*_CLUSTER_CODE_SETS)
+
+
+def _cluster_guidance(candidate_codes: set) -> str:
+    """Disambiguation guidance for every cluster whose codes appear in the candidate set.
+    Returns '' when no cluster is present, so non-cluster complaints are unaffected."""
+    blocks = [text for codes, text in _CLUSTER_GUIDANCE if codes & candidate_codes]
+    if not blocks:
+        return ""
+    return (
+        "\n\nDISAMBIGUATION — some candidates are closely-related offences separated by a "
+        "SINGLE ingredient. Use the distinguishing ingredient below to pick the MOST SPECIFIC "
+        "applicable section. Apply a rule ONLY if the narrative actually shows its ingredient; "
+        "if the ingredient is absent, do not force the section.\n  - "
+        + "\n  - ".join(blocks)
+    )
+
+
+def _augment_cluster_candidates(candidates: list[dict]) -> list[dict]:
+    """If any member of a disambiguation cluster was retrieved, ensure ALL its siblings are
+    also offered as candidates so the model can actually choose the most specific one. Added
+    siblings inherit the best retrieval score among the present cluster members, so they clear
+    the relevance floor exactly when the cluster is genuinely relevant. Purely additive:
+    existing candidates are never removed, reordered, or rescored; non-cluster retrieval is
+    untouched."""
+    present = {str(c["section_code"]): c for c in candidates if c.get("act") == "BNS"}
+    present_codes = set(present)
+    if not (present_codes & _ALL_CLUSTER_CODES):
+        return candidates
+    additions: list[dict] = []
+    seen = set(present_codes)
+    for codes in _CLUSTER_CODE_SETS:
+        hit = codes & present_codes
+        if not hit:
+            continue
+        inherit = max((present[c].get("score") or 0.0) for c in hit)
+        for code in codes - seen:
+            rec = rag.get_section("BNS", code)
+            if rec is None:
+                continue
+            additions.append({**rec, "score": inherit, "cluster_added": True})
+            seen.add(code)
+    if additions:
+        logger.info("cluster-augmented candidates with %d sibling section(s): %s",
+                    len(additions), [a["section_code"] for a in additions])
+    return candidates + additions
+
+
 def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
     # QUOTE-FIRST design: previously the model chose a section and then hunted for a phrase,
     # which on plain-language complaints (hurt, intimidation) led it to quote the candidate's
@@ -210,6 +311,7 @@ def _build_prompt(narrative: str, candidates: list[dict], language: str) -> str:
         f"\"\"\"{narrative}\"\"\"\n\n"
         f"CANDIDATE SECTIONS (choose section_code from HERE; do NOT quote their text):\n"
         f"{_format_candidates(candidates)}\n"
+        + _cluster_guidance({str(c["section_code"]) for c in candidates})
     )
 
 
@@ -427,6 +529,9 @@ def map_sections(narrative: str, language: str = "EN", k: int = 12) -> dict:
     fabricated section.
     """
     candidates, expanded = retrieve_offences_union(narrative, k=k)
+    # Cluster completion: if a property/deception-cluster offence was retrieved, make sure its
+    # ingredient-distinguished siblings are also selectable (additive; §cluster-disambiguation).
+    candidates = _augment_cluster_candidates(candidates)
     logger.info(
         "retrieved %d BNS candidate sections (raw + %s expansion, k=%d)",
         len(candidates), "no" if expanded is None else "1", k,
