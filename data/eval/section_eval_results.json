@@ -1,0 +1,1469 @@
+{
+  "eval_file": "section_eval.json",
+  "runs_per_case": 3,
+  "elapsed_seconds": 543.2,
+  "headline": {
+    "runs_per_case": 3,
+    "n_cases": 21,
+    "n_inscope": 19,
+    "n_out_of_scope": 2,
+    "unverified_inscope_cases": 19,
+    "top1_accuracy": 0.47368421052631576,
+    "recall_micro": 0.3888888888888889,
+    "precision_micro": 0.4375,
+    "stability": 0.8253968253968254,
+    "refusal_rate_oos": 1.0,
+    "recall_macro": 0.40350877192982454,
+    "precision_macro": 0.45614035087719296,
+    "false_refusal_rate_inscope": 0.017543859649122806,
+    "false_positive_rate_oos": 0.0,
+    "pooled_tp": 28,
+    "pooled_fp": 36,
+    "pooled_fn": 44
+  },
+  "per_case": [
+    {
+      "id": "theft-01-shop",
+      "crime_type": "theft",
+      "primary": "303",
+      "expected": [
+        "303"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "303"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 12.97,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "303"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.72,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "303"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.08,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "303"
+      ]
+    },
+    {
+      "id": "theft-02-dwelling",
+      "crime_type": "theft",
+      "primary": "305",
+      "expected": [
+        "303",
+        "305"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "305",
+            "330"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 10.83,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 0.5
+        },
+        {
+          "run": 2,
+          "selected": [
+            "305",
+            "330"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.88,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 0.5
+        },
+        {
+          "run": 3,
+          "selected": [
+            "305",
+            "331"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.93,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 0.5
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 1.0,
+      "recall": 0.5,
+      "precision": 0.5,
+      "refusal_rate": 0.0,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "305",
+        "330"
+      ]
+    },
+    {
+      "id": "theft-03-snatching",
+      "crime_type": "theft",
+      "primary": "304",
+      "expected": [
+        "304"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "304"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.06,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "304"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.72,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 8.92,
+          "refused": true,
+          "top1": false,
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": null
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.6666666666666666,
+      "recall": 0.6666666666666666,
+      "precision": 1.0,
+      "refusal_rate": 0.3333333333333333,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "304"
+      ]
+    },
+    {
+      "id": "hurt-01-simple",
+      "crime_type": "hurt",
+      "primary": "115",
+      "expected": [
+        "115"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "117"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.12,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "117"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.68,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "117"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.28,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "117"
+      ]
+    },
+    {
+      "id": "hurt-02-grievous-weapon",
+      "crime_type": "hurt",
+      "primary": "118",
+      "expected": [
+        "117",
+        "118"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "118"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.24,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "118"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.36,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "118"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.35,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 1.0,
+      "recall": 0.5,
+      "precision": 1.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "118"
+      ]
+    },
+    {
+      "id": "trespass-01-house-trespass",
+      "crime_type": "house-trespass",
+      "primary": "329",
+      "expected": [
+        "329"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "330",
+            "333"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 10.18,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 2,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "330"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.75,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "330"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.79,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "330"
+      ]
+    },
+    {
+      "id": "trespass-02-house-breaking",
+      "crime_type": "house-trespass",
+      "primary": "331",
+      "expected": [
+        "330",
+        "331"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "305",
+            "330"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 12.97,
+          "refused": false,
+          "top1": false,
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 0.5
+        },
+        {
+          "run": 2,
+          "selected": [
+            "305",
+            "331"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.81,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 0.5
+        },
+        {
+          "run": 3,
+          "selected": [
+            "305"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 11.24,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 2,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.3333333333333333,
+      "recall": 0.3333333333333333,
+      "precision": 0.3333333333333333,
+      "refusal_rate": 0.0,
+      "stability": 0.3333333333333333,
+      "modal_selection": [
+        "305",
+        "330"
+      ]
+    },
+    {
+      "id": "cbt-01-money",
+      "crime_type": "criminal-breach-of-trust",
+      "primary": "316",
+      "expected": [
+        "316"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "315"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 12.25,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "315"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 10.76,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "315"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.04,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "315"
+      ]
+    },
+    {
+      "id": "cbt-02-goods",
+      "crime_type": "criminal-breach-of-trust",
+      "primary": "316",
+      "expected": [
+        "316"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "314"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.75,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "314"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.9,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "314"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.01,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "314"
+      ]
+    },
+    {
+      "id": "cheating-01-advance",
+      "crime_type": "cheating",
+      "primary": "318",
+      "expected": [
+        "318"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "335"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.07,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "335"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.1,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "340"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.44,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "335"
+      ]
+    },
+    {
+      "id": "cheating-02-personation",
+      "crime_type": "cheating",
+      "primary": "319",
+      "expected": [
+        "318",
+        "319"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "316"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.34,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 2,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "316"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.76,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 2,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "316"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.77,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 2,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "316"
+      ]
+    },
+    {
+      "id": "intimidation-01-threat",
+      "crime_type": "criminal-intimidation",
+      "primary": "351",
+      "expected": [
+        "351"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.36,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.7,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.29,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "351"
+      ]
+    },
+    {
+      "id": "intimidation-02-phone",
+      "crime_type": "criminal-intimidation",
+      "primary": "351",
+      "expected": [
+        "351"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.13,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.28,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.19,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "351"
+      ]
+    },
+    {
+      "id": "extortion-01-protection",
+      "crime_type": "extortion",
+      "primary": "308",
+      "expected": [
+        "308"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "308",
+            "321"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 10.47,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 1,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 0.5
+        },
+        {
+          "run": 2,
+          "selected": [
+            "351",
+            "120"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.21,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 2,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "351"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.4,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.3333333333333333,
+      "recall": 0.3333333333333333,
+      "precision": 0.16666666666666666,
+      "refusal_rate": 0.0,
+      "stability": 0.3333333333333333,
+      "modal_selection": [
+        "308",
+        "321"
+      ]
+    },
+    {
+      "id": "mischief-01-crop-fire",
+      "crime_type": "mischief",
+      "primary": "324",
+      "expected": [
+        "324"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "326"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.34,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "326"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.65,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "326"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 7.51,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "326"
+      ]
+    },
+    {
+      "id": "forgery-01-deed",
+      "crime_type": "forgery",
+      "primary": "336",
+      "expected": [
+        "336",
+        "338"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "336"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 9.17,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "322"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.56,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 2,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "336"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.13,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.6666666666666666,
+      "recall": 0.3333333333333333,
+      "precision": 0.6666666666666666,
+      "refusal_rate": 0.0,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "336"
+      ]
+    },
+    {
+      "id": "negligence-01-death",
+      "crime_type": "negligence-causing-death",
+      "primary": "106",
+      "expected": [
+        "106"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "281"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.58,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "106"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 10.06,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "106"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 10.22,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.6666666666666666,
+      "recall": 0.6666666666666666,
+      "precision": 0.6666666666666666,
+      "refusal_rate": 0.0,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "106"
+      ]
+    },
+    {
+      "id": "restraint-01-blocked",
+      "crime_type": "wrongful-restraint",
+      "primary": "126",
+      "expected": [
+        "126"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "126"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.85,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "126"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.4,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "126"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.65,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
+      "modal_selection": [
+        "126"
+      ]
+    },
+    {
+      "id": "stolen-prop-01-receiving",
+      "crime_type": "receiving-stolen-property",
+      "primary": "317",
+      "expected": [
+        "317"
+      ],
+      "expect_refusal": false,
+      "all_verified": false,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [
+            "314"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.86,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        {
+          "run": 2,
+          "selected": [
+            "317"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.26,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
+        },
+        {
+          "run": 3,
+          "selected": [
+            "314"
+          ],
+          "status": "ok",
+          "error": null,
+          "seconds": 8.02,
+          "refused": false,
+          "top1": false,
+          "tp": 0,
+          "fp": 1,
+          "fn": 1,
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": 0.3333333333333333,
+      "recall": 0.3333333333333333,
+      "precision": 0.3333333333333333,
+      "refusal_rate": 0.0,
+      "stability": 0.6666666666666666,
+      "modal_selection": [
+        "314"
+      ]
+    },
+    {
+      "id": "oos-01-passport",
+      "crime_type": "out-of-scope",
+      "primary": null,
+      "expected": [],
+      "expect_refusal": true,
+      "all_verified": true,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 6.22,
+          "refused": true,
+          "top1": null,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "recall": null,
+          "precision": null
+        },
+        {
+          "run": 2,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 5.21,
+          "refused": true,
+          "top1": null,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "recall": null,
+          "precision": null
+        },
+        {
+          "run": 3,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 5.17,
+          "refused": true,
+          "top1": null,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "recall": null,
+          "precision": null
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": null,
+      "recall": null,
+      "precision": null,
+      "refusal_rate": 1.0,
+      "stability": 1.0,
+      "modal_selection": []
+    },
+    {
+      "id": "oos-02-good-news",
+      "crime_type": "out-of-scope",
+      "primary": null,
+      "expected": [],
+      "expect_refusal": true,
+      "all_verified": true,
+      "runs": [
+        {
+          "run": 1,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 8.56,
+          "refused": true,
+          "top1": null,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "recall": null,
+          "precision": null
+        },
+        {
+          "run": 2,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 7.12,
+          "refused": true,
+          "top1": null,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "recall": null,
+          "precision": null
+        },
+        {
+          "run": 3,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 5.24,
+          "refused": true,
+          "top1": null,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "recall": null,
+          "precision": null
+        }
+      ],
+      "errored_runs": 0,
+      "top1_rate": null,
+      "recall": null,
+      "precision": null,
+      "refusal_rate": 1.0,
+      "stability": 1.0,
+      "modal_selection": []
+    }
+  ]
+}
