@@ -21,7 +21,7 @@
       "crime_type": "theft",
       "complaint": "I run a mobile phone shop. This afternoon while I was busy attending to a customer, an unknown man standing near the counter quietly picked up a new handset kept on display and walked out of the shop without paying for it. When I noticed, he had already left on a two-wheeler.",
       "primary": "303",
-      "expected": [{ "act": "BNS", "code": "303", "title": "Theft", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "303", "title": "Theft", "verified": true }],
       "expect_refusal": false,
       "notes": "Plain dishonest taking of movable property without consent -> BNS 303 theft."
     },
@@ -31,8 +31,8 @@
       "complaint": "In the afternoon our whole family had gone to a relative's wedding and the house was empty. A man entered our house through the open front door, went into the bedroom and took my wife's gold chain and about fifteen thousand rupees in cash kept in the almirah, and left. A neighbour saw an unknown man coming out of our house.",
       "primary": "305",
       "expected": [
-        { "act": "BNS", "code": "305", "title": "Theft in a dwelling house, or means of transportation or place of worship, etc", "verified": false },
-        { "act": "BNS", "code": "303", "title": "Theft", "verified": false }
+        { "act": "BNS", "code": "305", "title": "Theft in a dwelling house, or means of transportation or place of worship, etc", "verified": true },
+        { "act": "BNS", "code": "303", "title": "Theft", "verified": true }
       ],
       "expect_refusal": false,
       "notes": "Theft committed inside a dwelling house (no breaking) -> aggravated theft BNS 305; ordinary theft 303 also applies."
@@ -42,7 +42,7 @@
       "crime_type": "theft",
       "complaint": "I was walking home along the main road at about 8 in the evening. Two men came up fast behind me on a motorcycle, and the man riding pillion suddenly grabbed the gold chain from around my neck, pulled it off and they sped away before I could catch them.",
       "primary": "304",
-      "expected": [{ "act": "BNS", "code": "304", "title": "Snatching", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "304", "title": "Snatching", "verified": true }],
       "expect_refusal": false,
       "notes": "Sudden forcible grabbing of a chain from the person -> BNS 304 snatching (a defined offence distinct from ordinary theft). Watch whether the model returns 303 instead."
     },
@@ -51,7 +51,7 @@
       "crime_type": "hurt",
       "complaint": "There was an argument with my neighbour over parking. In anger he punched me hard on the face two or three times. My nose started bleeding and my lip was cut. I was treated at the local clinic and given some medicine.",
       "primary": "115",
-      "expected": [{ "act": "BNS", "code": "115", "title": "Voluntarily causing hurt", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "115", "title": "Voluntarily causing hurt", "verified": true }],
       "expect_refusal": false,
       "notes": "Simple bodily pain/bleeding caused intentionally, no weapon, not grievous -> BNS 115 voluntarily causing hurt."
     },
@@ -61,8 +61,8 @@
       "complaint": "My neighbour came to my door holding an iron rod. Over an old dispute he swung it at me and hit my left forearm with full force. The bone was fractured and I had to have a plaster cast put on at the hospital. The doctor said the arm is broken in two places.",
       "primary": "118",
       "expected": [
-        { "act": "BNS", "code": "118", "title": "Voluntarily causing hurt or grievous hurt by dangerous weapons or means", "verified": false },
-        { "act": "BNS", "code": "117", "title": "Voluntarily causing grievous hurt", "verified": false }
+        { "act": "BNS", "code": "118", "title": "Voluntarily causing hurt or grievous hurt by dangerous weapons or means", "verified": true },
+        { "act": "BNS", "code": "117", "title": "Voluntarily causing grievous hurt", "verified": true }
       ],
       "expect_refusal": false,
       "notes": "Fracture (grievous hurt) inflicted with a dangerous weapon (iron rod) -> BNS 118, and 117 voluntarily causing grievous hurt."
@@ -72,7 +72,7 @@
       "crime_type": "house-trespass",
       "complaint": "Late at night I heard a noise in my courtyard. When I went out with a torch I found an unknown man had come inside the compound of my house over the gate, without any permission, and was standing near the veranda in the dark. When I shouted he jumped over the wall and ran off.",
       "primary": "329",
-      "expected": [{ "act": "BNS", "code": "329", "title": "Criminal trespass and house-trespass", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "329", "title": "Criminal trespass and house-trespass", "verified": true }],
       "expect_refusal": false,
       "notes": "Unauthorised entry into a house/compound without breaking, at night -> BNS 329 house-trespass."
     },
@@ -82,8 +82,8 @@
       "complaint": "At night while we were sleeping, someone broke open the latch of the back door of our house and got inside. We woke up when we heard the almirah being opened. He had pulled out clothes and papers looking for valuables. When my husband switched on the light the man ran out through the same door.",
       "primary": "331",
       "expected": [
-        { "act": "BNS", "code": "331", "title": "Punishment for house-trespass or house-breaking", "verified": false },
-        { "act": "BNS", "code": "330", "title": "House-trespass and house-breaking", "verified": false }
+        { "act": "BNS", "code": "331", "title": "Punishment for house-trespass or house-breaking", "verified": true },
+        { "act": "BNS", "code": "330", "title": "House-trespass and house-breaking", "verified": true }
       ],
       "expect_refusal": false,
       "notes": "Breaking open a fastening (latch) to enter a dwelling at night -> house-breaking, BNS 330/331. Watch for 332/333 variants."
@@ -93,7 +93,7 @@
       "crime_type": "criminal-breach-of-trust",
       "complaint": "Before going abroad for six months I gave two lakh rupees in cash to a close neighbour whom I trusted, and asked him to keep it safely and return it when I came back. Now that I have returned he is flatly denying that I ever gave him any money and refuses to return a single rupee.",
       "primary": "316",
-      "expected": [{ "act": "BNS", "code": "316", "title": "Criminal breach of trust", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "316", "title": "Criminal breach of trust", "verified": true }],
       "expect_refusal": false,
       "notes": "Property entrusted, then dishonestly misappropriated/converted -> BNS 316 criminal breach of trust (not ordinary theft)."
     },
@@ -102,7 +102,7 @@
       "crime_type": "criminal-breach-of-trust",
       "complaint": "I gave my gold ornaments weighing about sixty grams to a goldsmith to melt and make into new jewellery, and paid his making charges in advance. When I went to collect the new jewellery he kept postponing, and now I have found that he sold off my gold and has shut down his shop and is not answering calls.",
       "primary": "316",
-      "expected": [{ "act": "BNS", "code": "316", "title": "Criminal breach of trust", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "316", "title": "Criminal breach of trust", "verified": true }],
       "expect_refusal": false,
       "notes": "Gold entrusted for a specific purpose, dishonestly disposed of -> BNS 316. May be confused with cheating (318)."
     },
@@ -111,7 +111,7 @@
       "crime_type": "cheating",
       "complaint": "I saw an advertisement online for a used car at a good price. The seller convinced me it was genuine and asked for forty thousand rupees as advance to book it. As soon as I transferred the money he stopped answering my calls, blocked my number, and there was never any car. The account he gave was in a false name.",
       "primary": "318",
-      "expected": [{ "act": "BNS", "code": "318", "title": "Cheating", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "318", "title": "Cheating", "verified": true }],
       "expect_refusal": false,
       "notes": "Deception from the outset inducing delivery of money -> BNS 318 cheating."
     },
@@ -121,8 +121,8 @@
       "complaint": "A man came to my house saying he was an officer from my bank. He showed an identity card with the bank's logo and said my account had to be upgraded urgently or it would be frozen. Believing him, I gave him twenty-five thousand rupees in cash. Later the bank told me they have no such officer and never sent anyone.",
       "primary": "319",
       "expected": [
-        { "act": "BNS", "code": "319", "title": "Cheating by personation", "verified": false },
-        { "act": "BNS", "code": "318", "title": "Cheating", "verified": false }
+        { "act": "BNS", "code": "319", "title": "Cheating by personation", "verified": true },
+        { "act": "BNS", "code": "318", "title": "Cheating", "verified": true }
       ],
       "expect_refusal": false,
       "notes": "Cheating by pretending to be someone else (a bank officer) -> BNS 319 cheating by personation, which builds on 318."
@@ -132,7 +132,7 @@
       "crime_type": "criminal-intimidation",
       "complaint": "My neighbour is angry that I filed a police complaint against his son. Yesterday he came to my gate and threatened that if I do not take back my complaint he will kill me and burn down my house with my family inside. I am genuinely afraid for the safety of my family.",
       "primary": "351",
-      "expected": [{ "act": "BNS", "code": "351", "title": "Criminal intimidation", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "351", "title": "Criminal intimidation", "verified": true }],
       "expect_refusal": false,
       "notes": "Threat of injury to person/property to cause alarm and force an act -> BNS 351 criminal intimidation."
     },
@@ -141,7 +141,7 @@
       "crime_type": "criminal-intimidation",
       "complaint": "For the last one week an unknown man keeps calling me. He says he knows where my children study and that if I do not stop giving evidence in the court case he will harm my daughter and destroy my family. He repeats these threats every day and I am living in constant fear.",
       "primary": "351",
-      "expected": [{ "act": "BNS", "code": "351", "title": "Criminal intimidation", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "351", "title": "Criminal intimidation", "verified": true }],
       "expect_refusal": false,
       "notes": "Repeated threats of harm to deter a lawful act (giving evidence) -> BNS 351 criminal intimidation."
     },
@@ -150,7 +150,7 @@
       "crime_type": "extortion",
       "complaint": "A local rowdy comes to my shop every Friday and forces me to hand over five thousand rupees. He says that if I refuse to pay he will smash my shop, spoil my goods and beat me up so that I cannot do business. Out of fear I have been paying him every week for the last three months.",
       "primary": "308",
-      "expected": [{ "act": "BNS", "code": "308", "title": "Extortion", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "308", "title": "Extortion", "verified": true }],
       "expect_refusal": false,
       "notes": "Delivery of money obtained by putting a person in fear of injury -> BNS 308 extortion. Note the corpus title for 308 is a definitional fragment; the offence is extortion."
     },
@@ -158,8 +158,8 @@
       "id": "mischief-01-crop-fire",
       "crime_type": "mischief",
       "complaint": "Because of an old enmity over a boundary, my neighbour deliberately went into my field at night and set fire to my haystack and standing wheat crop. A large part of my crop, worth about eighty thousand rupees, was completely burnt and destroyed. He did it only to cause me loss.",
-      "primary": "324",
-      "expected": [{ "act": "BNS", "code": "324", "title": "Mischief", "verified": false }],
+      "primary": "326",
+      "expected": [{ "act": "BNS", "code": "326", "title": "Mischief by injury, inundation, fire or explosive substance, etc", "verified": true }, { "act": "BNS", "code": "324", "title": "Mischief", "verified": true }],
       "expect_refusal": false,
       "notes": "Intentional destruction of property causing wrongful loss (by fire, to crops) -> BNS 324 mischief (aggravated sub-clauses for fire/agriculture live under 324)."
     },
@@ -169,8 +169,8 @@
       "complaint": "My business partner made a false property sale deed. He forged my signature on it to make it look as if I had agreed to sell my share of our land, and then used that fake document at the registration office to transfer the land into his own name. I never signed any such deed and never agreed to any sale.",
       "primary": "336",
       "expected": [
-        { "act": "BNS", "code": "336", "title": "Forgery", "verified": false },
-        { "act": "BNS", "code": "338", "title": "Forgery of valuable security, will, etc", "verified": false }
+        { "act": "BNS", "code": "336", "title": "Forgery", "verified": true },
+        { "act": "BNS", "code": "338", "title": "Forgery of valuable security, will, etc", "verified": true }
       ],
       "expect_refusal": false,
       "notes": "Making a false document (forged signature on a sale deed = valuable security) -> BNS 336 forgery, aggravated by 338; using it as genuine (340) may also surface."
@@ -180,7 +180,7 @@
       "crime_type": "negligence-causing-death",
       "complaint": "My younger brother was walking on the footpath by the roadside in the morning. A speeding truck driver, driving rashly and talking on his phone, lost control, mounted the footpath and ran over my brother. My brother died on the spot. The driver had no intention to kill anyone but he was driving very carelessly.",
       "primary": "106",
-      "expected": [{ "act": "BNS", "code": "106", "title": "Causing death by negligence", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "106", "title": "Causing death by negligence", "verified": true }],
       "expect_refusal": false,
       "notes": "Death caused by a rash/negligent act not amounting to culpable homicide -> BNS 106 causing death by negligence."
     },
@@ -189,7 +189,7 @@
       "crime_type": "wrongful-restraint",
       "complaint": "As I was leaving through the main gate of our housing society, the watchman along with two other men deliberately stood in my way and physically blocked my path. They would not let me pass and kept me standing at the gate against my will for over an hour, even though I have every right to use that gate.",
       "primary": "126",
-      "expected": [{ "act": "BNS", "code": "126", "title": "Wrongful restraint", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "126", "title": "Wrongful restraint", "verified": true }],
       "expect_refusal": false,
       "notes": "Voluntarily obstructing a person so as to prevent them from proceeding -> BNS 126 wrongful restraint (not confinement, since only one direction was blocked)."
     },
@@ -198,7 +198,7 @@
       "crime_type": "receiving-stolen-property",
       "complaint": "The accused runs a garage. We found that he has been buying motorcycles that he knows were stolen, keeping them in his garage, changing their number plates and reselling them cheaply to others. He was fully aware that these vehicles were stolen when he took them.",
       "primary": "317",
-      "expected": [{ "act": "BNS", "code": "317", "title": "Stolen property", "verified": false }],
+      "expected": [{ "act": "BNS", "code": "317", "title": "Stolen property", "verified": true }],
       "expect_refusal": false,
       "notes": "Dishonestly receiving/retaining property known to be stolen -> BNS 317 (dishonestly receiving stolen property)."
     },

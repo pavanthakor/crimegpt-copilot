@@ -1,25 +1,25 @@
 {
   "eval_file": "section_eval.json",
   "runs_per_case": 3,
-  "elapsed_seconds": 543.2,
+  "elapsed_seconds": 573.0,
   "headline": {
     "runs_per_case": 3,
     "n_cases": 21,
     "n_inscope": 19,
     "n_out_of_scope": 2,
-    "unverified_inscope_cases": 19,
-    "top1_accuracy": 0.47368421052631576,
-    "recall_micro": 0.3888888888888889,
-    "precision_micro": 0.4375,
-    "stability": 0.8253968253968254,
+    "unverified_inscope_cases": 0,
+    "top1_accuracy": 0.631578947368421,
+    "recall_micro": 0.5066666666666667,
+    "precision_micro": 0.5757575757575758,
+    "stability": 0.8571428571428571,
     "refusal_rate_oos": 1.0,
-    "recall_macro": 0.40350877192982454,
-    "precision_macro": 0.45614035087719296,
+    "recall_macro": 0.543859649122807,
+    "precision_macro": 0.6140350877192983,
     "false_refusal_rate_inscope": 0.017543859649122806,
     "false_positive_rate_oos": 0.0,
-    "pooled_tp": 28,
-    "pooled_fp": 36,
-    "pooled_fn": 44
+    "pooled_tp": 38,
+    "pooled_fp": 28,
+    "pooled_fn": 37
   },
   "per_case": [
     {
@@ -30,7 +30,7 @@
         "303"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -39,7 +39,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 12.97,
+          "seconds": 18.72,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -55,7 +55,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.72,
+          "seconds": 8.17,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -71,7 +71,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.08,
+          "seconds": 8.13,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -100,7 +100,7 @@
         "305"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -110,7 +110,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 10.83,
+          "seconds": 11.14,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -127,7 +127,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.88,
+          "seconds": 9.99,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -140,11 +140,11 @@
           "run": 3,
           "selected": [
             "305",
-            "331"
+            "330"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.93,
+          "seconds": 9.81,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -159,7 +159,7 @@
       "recall": 0.5,
       "precision": 0.5,
       "refusal_rate": 0.0,
-      "stability": 0.6666666666666666,
+      "stability": 1.0,
       "modal_selection": [
         "305",
         "330"
@@ -173,7 +173,7 @@
         "304"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -182,7 +182,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.06,
+          "seconds": 9.17,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -198,7 +198,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.72,
+          "seconds": 8.13,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -209,25 +209,27 @@
         },
         {
           "run": 3,
-          "selected": [],
-          "status": "no_grounded_match",
+          "selected": [
+            "304"
+          ],
+          "status": "ok",
           "error": null,
-          "seconds": 8.92,
-          "refused": true,
-          "top1": false,
-          "tp": 0,
+          "seconds": 8.1,
+          "refused": false,
+          "top1": true,
+          "tp": 1,
           "fp": 0,
-          "fn": 1,
-          "recall": 0.0,
-          "precision": null
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
         }
       ],
       "errored_runs": 0,
-      "top1_rate": 0.6666666666666666,
-      "recall": 0.6666666666666666,
+      "top1_rate": 1.0,
+      "recall": 1.0,
       "precision": 1.0,
-      "refusal_rate": 0.3333333333333333,
-      "stability": 0.6666666666666666,
+      "refusal_rate": 0.0,
+      "stability": 1.0,
       "modal_selection": [
         "304"
       ]
@@ -240,7 +242,7 @@
         "115"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -249,7 +251,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.12,
+          "seconds": 8.49,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -265,7 +267,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.68,
+          "seconds": 7.35,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -281,7 +283,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.28,
+          "seconds": 7.29,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -310,7 +312,7 @@
         "118"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -319,7 +321,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.24,
+          "seconds": 9.29,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -335,7 +337,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.36,
+          "seconds": 8.41,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -351,7 +353,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.35,
+          "seconds": 8.44,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -379,7 +381,7 @@
         "329"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -389,7 +391,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 10.18,
+          "seconds": 10.16,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -405,7 +407,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.75,
+          "seconds": 8.26,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -417,15 +419,16 @@
         {
           "run": 3,
           "selected": [
-            "330"
+            "330",
+            "331"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.79,
+          "seconds": 9.58,
           "refused": false,
           "top1": false,
           "tp": 0,
-          "fp": 1,
+          "fp": 2,
           "fn": 1,
           "recall": 0.0,
           "precision": 0.0
@@ -436,9 +439,10 @@
       "recall": 0.0,
       "precision": 0.0,
       "refusal_rate": 0.0,
-      "stability": 0.6666666666666666,
+      "stability": 0.3333333333333333,
       "modal_selection": [
-        "330"
+        "330",
+        "333"
       ]
     },
     {
@@ -450,19 +454,19 @@
         "331"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
           "selected": [
             "305",
-            "330"
+            "331"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 12.97,
+          "seconds": 10.58,
           "refused": false,
-          "top1": false,
+          "top1": true,
           "tp": 1,
           "fp": 1,
           "fn": 1,
@@ -473,13 +477,13 @@
           "run": 2,
           "selected": [
             "305",
-            "331"
+            "330"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.81,
+          "seconds": 12.54,
           "refused": false,
-          "top1": true,
+          "top1": false,
           "tp": 1,
           "fp": 1,
           "fn": 1,
@@ -489,26 +493,27 @@
         {
           "run": 3,
           "selected": [
-            "305"
+            "305",
+            "330"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 11.24,
+          "seconds": 12.4,
           "refused": false,
           "top1": false,
-          "tp": 0,
+          "tp": 1,
           "fp": 1,
-          "fn": 2,
-          "recall": 0.0,
-          "precision": 0.0
+          "fn": 1,
+          "recall": 0.5,
+          "precision": 0.5
         }
       ],
       "errored_runs": 0,
       "top1_rate": 0.3333333333333333,
-      "recall": 0.3333333333333333,
-      "precision": 0.3333333333333333,
+      "recall": 0.5,
+      "precision": 0.5,
       "refusal_rate": 0.0,
-      "stability": 0.3333333333333333,
+      "stability": 0.6666666666666666,
       "modal_selection": [
         "305",
         "330"
@@ -522,23 +527,23 @@
         "316"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
           "selected": [
-            "315"
+            "316"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 12.25,
+          "seconds": 9.36,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
-          "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
         },
         {
           "run": 2,
@@ -547,7 +552,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 10.76,
+          "seconds": 11.74,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -563,7 +568,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.04,
+          "seconds": 8.12,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -574,11 +579,11 @@
         }
       ],
       "errored_runs": 0,
-      "top1_rate": 0.0,
-      "recall": 0.0,
-      "precision": 0.0,
+      "top1_rate": 0.3333333333333333,
+      "recall": 0.3333333333333333,
+      "precision": 0.3333333333333333,
       "refusal_rate": 0.0,
-      "stability": 1.0,
+      "stability": 0.6666666666666666,
       "modal_selection": [
         "315"
       ]
@@ -591,7 +596,7 @@
         "316"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -600,7 +605,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.75,
+          "seconds": 8.89,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -616,7 +621,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.9,
+          "seconds": 7.96,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -632,7 +637,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.01,
+          "seconds": 8.26,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -660,16 +665,16 @@
         "318"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
           "selected": [
-            "335"
+            "340"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.07,
+          "seconds": 8.22,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -685,7 +690,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.1,
+          "seconds": 7.12,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -697,28 +702,29 @@
         {
           "run": 3,
           "selected": [
-            "340"
+            "335",
+            "318"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.44,
+          "seconds": 9.83,
           "refused": false,
-          "top1": false,
-          "tp": 0,
+          "top1": true,
+          "tp": 1,
           "fp": 1,
-          "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 0.5
         }
       ],
       "errored_runs": 0,
-      "top1_rate": 0.0,
-      "recall": 0.0,
-      "precision": 0.0,
+      "top1_rate": 0.3333333333333333,
+      "recall": 0.3333333333333333,
+      "precision": 0.16666666666666666,
       "refusal_rate": 0.0,
-      "stability": 0.6666666666666666,
+      "stability": 0.3333333333333333,
       "modal_selection": [
-        "335"
+        "340"
       ]
     },
     {
@@ -730,7 +736,7 @@
         "319"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -739,7 +745,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.34,
+          "seconds": 8.62,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -751,11 +757,11 @@
         {
           "run": 2,
           "selected": [
-            "316"
+            "217"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.76,
+          "seconds": 7.81,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -771,7 +777,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.77,
+          "seconds": 7.86,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -786,7 +792,7 @@
       "recall": 0.0,
       "precision": 0.0,
       "refusal_rate": 0.0,
-      "stability": 1.0,
+      "stability": 0.6666666666666666,
       "modal_selection": [
         "316"
       ]
@@ -799,7 +805,7 @@
         "351"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -808,7 +814,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.36,
+          "seconds": 8.43,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -824,7 +830,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.7,
+          "seconds": 7.31,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -840,7 +846,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.29,
+          "seconds": 7.35,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -868,7 +874,7 @@
         "351"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -877,7 +883,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.13,
+          "seconds": 8.26,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -893,7 +899,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.28,
+          "seconds": 7.13,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -909,7 +915,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.19,
+          "seconds": 7.34,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -937,17 +943,17 @@
         "308"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
           "selected": [
             "308",
-            "321"
+            "309"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 10.47,
+          "seconds": 10.67,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -959,16 +965,15 @@
         {
           "run": 2,
           "selected": [
-            "351",
-            "120"
+            "351"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.21,
+          "seconds": 7.32,
           "refused": false,
           "top1": false,
           "tp": 0,
-          "fp": 2,
+          "fp": 1,
           "fn": 1,
           "recall": 0.0,
           "precision": 0.0
@@ -980,7 +985,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.4,
+          "seconds": 7.44,
           "refused": false,
           "top1": false,
           "tp": 0,
@@ -995,21 +1000,21 @@
       "recall": 0.3333333333333333,
       "precision": 0.16666666666666666,
       "refusal_rate": 0.0,
-      "stability": 0.3333333333333333,
+      "stability": 0.6666666666666666,
       "modal_selection": [
-        "308",
-        "321"
+        "351"
       ]
     },
     {
       "id": "mischief-01-crop-fire",
       "crime_type": "mischief",
-      "primary": "324",
+      "primary": "326",
       "expected": [
-        "324"
+        "324",
+        "326"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -1018,14 +1023,14 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.34,
+          "seconds": 8.47,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
           "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "recall": 0.5,
+          "precision": 1.0
         },
         {
           "run": 2,
@@ -1034,14 +1039,14 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.65,
+          "seconds": 7.53,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
           "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "recall": 0.5,
+          "precision": 1.0
         },
         {
           "run": 3,
@@ -1050,20 +1055,20 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 7.51,
+          "seconds": 7.92,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
           "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "recall": 0.5,
+          "precision": 1.0
         }
       ],
       "errored_runs": 0,
-      "top1_rate": 0.0,
-      "recall": 0.0,
-      "precision": 0.0,
+      "top1_rate": 1.0,
+      "recall": 0.5,
+      "precision": 1.0,
       "refusal_rate": 0.0,
       "stability": 1.0,
       "modal_selection": [
@@ -1079,16 +1084,30 @@
         "338"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
+          "selected": [],
+          "status": "no_grounded_match",
+          "error": null,
+          "seconds": 9.17,
+          "refused": true,
+          "top1": false,
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "recall": 0.0,
+          "precision": null
+        },
+        {
+          "run": 2,
           "selected": [
             "336"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 9.17,
+          "seconds": 8.51,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1098,29 +1117,13 @@
           "precision": 1.0
         },
         {
-          "run": 2,
-          "selected": [
-            "322"
-          ],
-          "status": "ok",
-          "error": null,
-          "seconds": 8.56,
-          "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
-          "fn": 2,
-          "recall": 0.0,
-          "precision": 0.0
-        },
-        {
           "run": 3,
           "selected": [
             "336"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.13,
+          "seconds": 8.42,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1133,8 +1136,8 @@
       "errored_runs": 0,
       "top1_rate": 0.6666666666666666,
       "recall": 0.3333333333333333,
-      "precision": 0.6666666666666666,
-      "refusal_rate": 0.0,
+      "precision": 1.0,
+      "refusal_rate": 0.3333333333333333,
       "stability": 0.6666666666666666,
       "modal_selection": [
         "336"
@@ -1148,23 +1151,23 @@
         "106"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
           "selected": [
-            "281"
+            "106"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.58,
+          "seconds": 11.15,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
-          "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
         },
         {
           "run": 2,
@@ -1173,7 +1176,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 10.06,
+          "seconds": 10.15,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1189,7 +1192,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 10.22,
+          "seconds": 9.93,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1200,11 +1203,11 @@
         }
       ],
       "errored_runs": 0,
-      "top1_rate": 0.6666666666666666,
-      "recall": 0.6666666666666666,
-      "precision": 0.6666666666666666,
+      "top1_rate": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
       "refusal_rate": 0.0,
-      "stability": 0.6666666666666666,
+      "stability": 1.0,
       "modal_selection": [
         "106"
       ]
@@ -1217,7 +1220,7 @@
         "126"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
@@ -1226,7 +1229,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.85,
+          "seconds": 11.9,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1242,7 +1245,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.4,
+          "seconds": 8.19,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1258,7 +1261,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.65,
+          "seconds": 11.36,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1286,23 +1289,23 @@
         "317"
       ],
       "expect_refusal": false,
-      "all_verified": false,
+      "all_verified": true,
       "runs": [
         {
           "run": 1,
           "selected": [
-            "314"
+            "317"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.86,
+          "seconds": 9.13,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
-          "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
         },
         {
           "run": 2,
@@ -1311,7 +1314,7 @@
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.26,
+          "seconds": 8.46,
           "refused": false,
           "top1": true,
           "tp": 1,
@@ -1323,28 +1326,28 @@
         {
           "run": 3,
           "selected": [
-            "314"
+            "317"
           ],
           "status": "ok",
           "error": null,
-          "seconds": 8.02,
+          "seconds": 8.03,
           "refused": false,
-          "top1": false,
-          "tp": 0,
-          "fp": 1,
-          "fn": 1,
-          "recall": 0.0,
-          "precision": 0.0
+          "top1": true,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "recall": 1.0,
+          "precision": 1.0
         }
       ],
       "errored_runs": 0,
-      "top1_rate": 0.3333333333333333,
-      "recall": 0.3333333333333333,
-      "precision": 0.3333333333333333,
+      "top1_rate": 1.0,
+      "recall": 1.0,
+      "precision": 1.0,
       "refusal_rate": 0.0,
-      "stability": 0.6666666666666666,
+      "stability": 1.0,
       "modal_selection": [
-        "314"
+        "317"
       ]
     },
     {
@@ -1360,7 +1363,7 @@
           "selected": [],
           "status": "no_grounded_match",
           "error": null,
-          "seconds": 6.22,
+          "seconds": 6.46,
           "refused": true,
           "top1": null,
           "tp": 0,
@@ -1374,7 +1377,7 @@
           "selected": [],
           "status": "no_grounded_match",
           "error": null,
-          "seconds": 5.21,
+          "seconds": 9.26,
           "refused": true,
           "top1": null,
           "tp": 0,
@@ -1388,7 +1391,7 @@
           "selected": [],
           "status": "no_grounded_match",
           "error": null,
-          "seconds": 5.17,
+          "seconds": 9.13,
           "refused": true,
           "top1": null,
           "tp": 0,
@@ -1419,7 +1422,7 @@
           "selected": [],
           "status": "no_grounded_match",
           "error": null,
-          "seconds": 8.56,
+          "seconds": 8.61,
           "refused": true,
           "top1": null,
           "tp": 0,
@@ -1433,7 +1436,7 @@
           "selected": [],
           "status": "no_grounded_match",
           "error": null,
-          "seconds": 7.12,
+          "seconds": 6.91,
           "refused": true,
           "top1": null,
           "tp": 0,
@@ -1447,7 +1450,7 @@
           "selected": [],
           "status": "no_grounded_match",
           "error": null,
-          "seconds": 5.24,
+          "seconds": 7.52,
           "refused": true,
           "top1": null,
           "tp": 0,

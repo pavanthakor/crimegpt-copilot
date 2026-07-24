@@ -1861,3 +1861,72 @@ These describe no offence; the eval expects `no_grounded_match`. No statutory co
 **Expected:** refusal (no BNS section).  **Model across 3 runs:** null (refused) / null (refused) / null (refused).
 
 ---
+
+---
+
+## Rulings (ground-truth sign-off)
+
+Decided by the user on the five flagged cases. These are recorded verbatim as the audit trail for every change to `expected_sections` and `verified`.
+
+| Case | Ruling | Rationale (user) |
+|---|---|---|
+| `mischief-01-crop-fire` | **CHANGE** primary -> **326** (324 kept as secondary); verified: true | 326(f) is mischief by fire to agricultural produce -- the specific offence; 324 is generic. Ground-truth error corrected. |
+| `hurt-01-simple` | **KEEP** 115; verified: true | Bleeding nose + cut lip do not satisfy any BNS 116 grievous-hurt limb as written; no fracture or 15-day incapacity stated. 115 stands; model over-charged. |
+| `cbt-01-money` | **KEEP** 316; verified: true | Cash entrusted to a neighbour for safekeeping = entrustment under 316; model's 315 (deceased person's property) is inapplicable. Real model miss, kept. |
+| `cbt-02-goods` | **KEEP** 316; verified: true | Gold entrusted to a goldsmith for a specific purpose then sold = 316; model's 314 misses the entrustment. Real model miss, kept. |
+| `trespass-01-house-trespass` | **KEEP** 329; verified: true | Accused was in the courtyard, not proven inside the dwelling, and "in the dark" is not proven concealment under 330(1). 329 base offence stands; 330 arguable but not established on the facts. Model over-specified. |
+
+**Schema note:** `expected` is a structured list, so for `mischief-01` the minimal change kept both sections -- **326 as primary** and **324 as a secondary expected section** (both `verified: true`) -- rather than collapsing to `[326]`. Recall/precision for that case are therefore scored against {326, 324}.
+
+The other 14 in-scope cases remain `verified: false` pending sign-off; the harness continues to flag them.
+
+### Remainder — batch 1 (7 cases signed off AGREE / accepted)
+
+| Case | Ruling | Rationale (user) |
+|---|---|---|
+| `theft-01-shop` | KEEP 303; verified: true | AGREE — model = expected on all 3 runs. |
+| `intimidation-01-threat` | KEEP 351; verified: true | AGREE — model = expected on all 3 runs. |
+| `intimidation-02-phone` | KEEP 351; verified: true | AGREE — model = expected on all 3 runs. |
+| `restraint-01-blocked` | KEEP 126; verified: true | AGREE — model = expected on all 3 runs. |
+| `hurt-02-grievous-weapon` | KEEP 118/117; verified: true | Model hit primary 118; 117 is a subsumed secondary — accept. |
+| `theft-03-snatching` | KEEP 304; verified: true | Model correct 304; the 1 refusal is a stability datum, already captured — ground truth stands. |
+| `negligence-01-death` | KEEP 106; verified: true | 106 correct primary; model's 281 is a defensible extra, not a ground-truth error. |
+
+7 more in-scope cases remain `verified: false` (cheating-01, cheating-02, extortion-01, forgery-01, stolen-prop-01, theft-02, trespass-02) pending sign-off.
+
+### Remainder — batch 2 (final 7 cases, all KEEP)
+
+| Case | Ruling | Rationale (user) |
+|---|---|---|
+| `cheating-01-advance` | KEEP 318; verified: true | Model's 335/340 (forgery) wrong; no forged document, just a false-name account. Real miss. |
+| `cheating-02-personation` | KEEP 319/318; verified: true | Cheating by personation; model's 316 (breach of trust) wrong, no entrustment. Real miss. |
+| `extortion-01-protection` | KEEP 308; verified: true | Extortion by threat; model found 308 once then drifted. Stability wobble, primary correct. |
+| `forgery-01-deed` | KEEP 336/338; verified: true | Sale deed = valuable security, 338 aggravation applies; model dropped it. Recall miss. |
+| `theft-02-dwelling` | KEEP 305/303; verified: true | Open-door entry is not house-breaking; model's added 330 is the wrong trespass section. Over-charge. |
+| `trespass-02-house-breaking` | KEEP 331/330; verified: true | Latch broken at night = house-breaking by night; ground truth correct, model hit 331 once. Partial. |
+| `stolen-prop-01-receiving` | KEEP 317; verified: true | Knowingly dealing stolen goods; model's 314 (misappropriation) wrong. Real miss + wobble. |
+
+**Sign-off complete: all 19 in-scope cases `verified: true`.** Only `mischief-01` had its ground truth changed (324 -> 326 primary, 324 kept as secondary, Phase A); every other case was KEEP. Score movement in the re-baseline is therefore attributable solely to that one corrected answer.
+
+---
+
+## Re-baseline note (honest decomposition of the score change)
+
+**Correction to the batch-2 line above:** the claim that re-baseline movement is attributable *solely* to the mischief-01 correction holds ONLY when the model output is held fixed. `scripts/section_eval.py` re-runs the **live model** (temperature 0.2), so the committed re-baseline also absorbs fresh-sampling variance. Both effects are separated below.
+
+**A. Ground-truth effect (model held fixed** — old run's selections re-scored under the new signed-off truth):
+| Metric | Old | -> | Isolated GT effect |
+|---|---|---|---|
+| Top-1 | 47% | -> | **53%** |
+| Recall (micro) | 39% | -> | **41%** |
+| Precision (micro) | 44% | -> | **48%** |
+| Stability | 83% | -> | 83% |
+| Refusal (OOS) | 100% | -> | 100% |
+
+Only `mischief-01` moves here (top-1 0->100%, recall 0->50% vs {326,324}). This is the true, defensible effect of the sign-off.
+
+**B. Committed live re-baseline (fresh 3-run sample):** Top-1 **63%**, Recall **51%**, Precision **58%**, Stability **86%**, Refusal **100%**.
+
+The gap between A (53% top-1) and B (63% top-1) is **live-sampling variance, not our work.** These cases re-sampled more favourably this run despite an unchanged (KEEP) ground truth: `theft-03` (had 1 refusal -> 3x304), `cbt-01` (hit 316 once), `cheating-01` (hit 318 once), `negligence-01` (dropped the 281 wobble), `stolen-prop-01` (3x317 vs 1/3). They could regress on the next run. Genuinely unchanged: the AGREE cases + `hurt-01` (still 117), `cbt-02` (still 314), `cheating-02` (still 316, plus a stray `217` in run 2 — a fresh instability artifact).
+
+**Bottom line:** attribute ~+5 top-1 points to the ground-truth correction; treat the rest of the jump as noise. Re-run a few times to get a stable central estimate before quoting 63% as *the* number.
