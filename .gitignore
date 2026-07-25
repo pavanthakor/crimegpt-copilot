@@ -23,13 +23,24 @@ venv/
 .venv/
 env/
 
-# Environment variables
+# Environment variables (secrets — never commit)
 .env
+*.env
+backend/.env
 .env.local
 .env.*.local
+# ...but the placeholder template IS source and must stay tracked.
+!.env.example
+!backend/.env.example
 
-# Storage / uploads
+# Storage / uploads (runtime output: evidence, chroma, whisper models, audio)
 storage/
+# Generated documents — output of the generation engine, not source.
+backend/app/storage/documents/*.docx
+backend/app/storage/**/*.docx
+
+# Generated review dumps
+_review_*.txt
 
 # OS
 .DS_Store
