@@ -33,12 +33,15 @@ from app.models import (
 )
 from app.models.enums import (
     ActivityType,
+    AccusedStatus,
     AuditAction,
     DocStatus,
     DocType,
     Language,
+    LegalAct,
     PersonRole,
     SectionStatus,
+    UserRole,
 )
 
 # Fields per doc type that still need machine translation. Now EMPTY: the document
@@ -123,12 +126,30 @@ def _first(persons: list[Person], role: PersonRole) -> Person | None:
     return next((p for p in persons if p.role == role), None)
 
 
-def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dict:
+_CHARGE_SHEET_ACTS = {LegalAct.BNS.value, LegalAct.BNSS.value, LegalAct.BSA.value}
+_REPORT_TYPES = {"original", "supplementary"}
+
+
+def _fmt_status_label(L: dict, status: AccusedStatus | None) -> str:
+    if status is None:
+        return ""
+    return L.get(f"cs_status_{status.value}", status.value)
+
+
+def _build_context(
+    db: Session,
+    case: Case,
+    user: User,
+    lang: str = "en",
+    report_type: str = "original",
+) -> dict:
     """Assemble the full merge context from the case pool. All JSON-safe.
 
     `lang` ('en'|'hi'|'gu') selects the boilerplate label set (`L`) and the language of
     the identifier-embedding sentence fields, so one template renders in any language.
     Identifiers (names, numbers, codes, dates) are substituted verbatim regardless of lang.
+
+    `report_type` ('original'|'supplementary') drives Form I item 5 for CHARGESHEET.
     """
     labels_all = _load_labels()
     L = labels_all.get((lang or "en").lower(), labels_all["en"])
@@ -149,6 +170,9 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
     victim = _first(persons, PersonRole.VICTIM)
     complainant = _first(persons, PersonRole.COMPLAINANT)
     witnesses = [p for p in persons if p.role == PersonRole.WITNESS]
+
+    # Person id -> name for seized_from on the Form I property table.
+    person_name = {p.id: (p.full_name or "") for p in persons}
 
     seized_items = [
         {
@@ -251,6 +275,61 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         else L["med_purpose_general_S"]
     )
 
+    # ---- Form I / CHARGESHEET spine fields (additive; unused by other templates) ----
+    rt = (report_type or "original").lower().strip()
+    if rt not in _REPORT_TYPES:
+        rt = "original"
+    report_type_line = (
+        L["cs_report_supplementary"] if rt == "supplementary" else L["cs_report_original"]
+    )
+    cs_supp_note = L["cs_supp_note_S"] if rt == "supplementary" else ""
+
+    # Property table (item 8): always ≥1 row so the table never collapses.
+    na = L.get("cs_na", "NA")
+    if seized:
+        property_items = []
+        for i, s in enumerate(seized, 1):
+            from_whom = ""
+            if s.seized_from and person_name.get(s.seized_from):
+                from_whom = person_name[s.seized_from]
+            elif s.seizure_location:
+                from_whom = s.seizure_location
+            desc = s.description or ""
+            if s.quantity:
+                desc = f"{desc} (qty {s.quantity})" if desc else f"qty {s.quantity}"
+            property_items.append(
+                {
+                    "sr": str(i),
+                    "description": desc or na,
+                    "estimated_value": _fmt_inr(s.estimated_value) or na,
+                    "recovered_from": from_whom or na,
+                    "identified": na,
+                    "disposal": na,
+                }
+            )
+    else:
+        property_items = [
+            {
+                "sr": na,
+                "description": na,
+                "estimated_value": na,
+                "recovered_from": na,
+                "identified": na,
+                "disposal": na,
+            }
+        ]
+
+    # Brief facts (item 15): complaint narrative + investigation summary, selected language.
+    _brief_parts = []
+    if case.complaint_narrative:
+        _brief_parts.append(case.complaint_narrative.strip())
+    if investigation_done:
+        _brief_parts.append(investigation_done.strip())
+    brief_facts = "\n\n".join(_brief_parts)
+
+    # SHO for the forwarding signature (first SHO user in the system).
+    sho = db.query(User).filter(User.role == UserRole.SHO).order_by(User.id).first()
+
     return {
         # boilerplate labels for the active language (template renders {{ L.key }})
         "L": L,
@@ -275,7 +354,7 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         "io_name": user.full_name or user.username,
         "io_rank": user.rank or "",
         "io_badge_no": user.badge_no or "",
-        # accused
+        # accused (shared)
         "accused_name": accused.full_name if accused else None,
         "accused_father": (accused.father_name if accused else None) or "",
         "accused_age": (accused.age if accused else None) or "",
@@ -310,6 +389,54 @@ def _build_context(db: Session, case: Case, user: User, lang: str = "en") -> dic
         "acts_sections_line": acts_sections_line,
         "witness1": witness1,
         "witness2": witness2,
+        # ---- Form I / CHARGESHEET ----
+        "report_type": rt,
+        "report_type_line": report_type_line,
+        "cs_supp_note": cs_supp_note,
+        "complainant_name": (complainant.full_name if complainant else None) or "",
+        "property_items": property_items,
+        "brief_facts": brief_facts or None,
+        "sho_name": (sho.full_name if sho else None) or (sho.username if sho else None),
+        "sho_rank": (sho.rank if sho else None) or "",
+        "sho_badge_no": (sho.badge_no if sho else None) or "",
+        # Form I item 9 accused particulars (new columns + existing)
+        "accused_dob_or_year": (accused.dob_or_year if accused else None) or "",
+        "accused_sex": (accused.gender if accused else None) or "",
+        "accused_nationality": (accused.nationality if accused else None) or "",
+        "accused_address_verified": (accused.address_verified if accused else None) or "",
+        "accused_passport_no": (accused.passport_no if accused else None) or "",
+        "accused_passport_issue_date": (
+            (_fmt_date(accused.passport_issue_date) if accused else None) or ""
+        ),
+        "accused_passport_issue_place": (accused.passport_issue_place if accused else None) or "",
+        "accused_religion": (accused.religion if accused else None) or "",
+        "accused_sc_st_obc": (accused.sc_st_obc if accused else None) or "",
+        "accused_occupation": (accused.occupation if accused else None) or "",
+        "accused_provisional_criminal_no": (
+            (accused.provisional_criminal_no if accused else None) or ""
+        ),
+        "accused_regular_criminal_no": (
+            (accused.regular_criminal_no if accused else None) or ""
+        ),
+        "accused_arrest_date": (
+            (_fmt_date(accused.arrest_date) if accused else None) or ""
+        ),
+        "accused_bail_release_date": (
+            (_fmt_date(accused.bail_release_date) if accused else None) or ""
+        ),
+        "accused_forwarded_to_court_date": (
+            (_fmt_date(accused.forwarded_to_court_date) if accused else None) or ""
+        ),
+        "accused_arrest_acts_sections": (
+            (accused.arrest_acts_sections if accused else None) or ""
+        ),
+        "accused_surety_details": (accused.surety_details if accused else None) or "",
+        "accused_previous_convictions": (
+            (accused.previous_convictions if accused else None) or ""
+        ),
+        "accused_status_label": _fmt_status_label(
+            L, accused.status_of_accused if accused else None
+        ),
     }
 
 
@@ -388,13 +515,21 @@ def _missing_required(context: dict, required: list[str]) -> list[str]:
 
 
 def generate_document(
-    db: Session, case_id: int, doc_type: DocType, user: User, lang: str | None = None
+    db: Session,
+    case_id: int,
+    doc_type: DocType,
+    user: User,
+    lang: str | None = None,
+    report_type: str = "original",
 ) -> Document:
     """Generate one document for a case and persist it as a DRAFT.
 
     `lang` ('gu'|'hi'|'en') selects the output language: _build_context assembles every
     boilerplate narrative from the per-language label templates and substitutes identifiers
     verbatim, so there is no LLM/translation step in document generation.
+
+    `report_type` ('original'|'supplementary') is used by CHARGESHEET Form I item 5;
+    ignored by other document types.
 
     Raises ValueError with the missing field list rather than rendering blanks.
     """
@@ -411,6 +546,12 @@ def generate_document(
     if not template_path.exists():
         raise ValueError(f"Template file not found: {template_path}")
 
+    rt = (report_type or "original").lower().strip()
+    if rt not in _REPORT_TYPES:
+        raise ValueError(
+            f"Invalid report_type {report_type!r}; expected one of {sorted(_REPORT_TYPES)}"
+        )
+
     # Resolve language: explicit lang wins, else the case's complaint language.
     lang_key = (lang or "en").lower()
     doc_language = _LANG_ENUM.get(lang_key, case.complaint_language)
@@ -426,7 +567,31 @@ def generate_document(
         # per-language label templates (templates/_labels.py), so document generation makes
         # no LLM call and needs no translation pass. Officer-entered content (complaint
         # narrative, statements, item descriptions) is rendered verbatim.
-        context = _build_context(db, case, user, lang=lang_key)
+        context = _build_context(
+            db, case, user, lang=lang_key, report_type=rt
+        )
+
+    # Form I item 3: BNS / BNSS / BSA only — never IPC/CrPC / IT_ACT / OTHER on the sheet.
+    if doc_type == DocType.CHARGESHEET:
+        sections = [
+            s for s in (context.get("sections_applied") or [])
+            if s.get("act") in _CHARGE_SHEET_ACTS
+        ]
+        context["sections_applied"] = sections
+        context["acts_sections_line"] = ", ".join(
+            f"{s['act']} {s['section_code']}" for s in sections
+        )
+        # Ensure report_type fields reflect the request even when DEMO_MODE served a cache.
+        context["report_type"] = rt
+        L = context.get("L") or {}
+        context["report_type_line"] = (
+            L.get("cs_report_supplementary", "")
+            if rt == "supplementary"
+            else L.get("cs_report_original", "")
+        )
+        context["cs_supp_note"] = (
+            L.get("cs_supp_note_S", "") if rt == "supplementary" else ""
+        )
 
     missing = _missing_required(context, entry["required_fields"])
     if missing:

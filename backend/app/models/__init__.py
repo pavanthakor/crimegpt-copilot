@@ -9,6 +9,7 @@ from app.models.case import Case
 from app.models.document import Document, DocumentVersion
 from app.models.enums import (
     ActivityType,
+    AccusedStatus,
     AuditAction,
     CaseStatus,
     CaseType,
@@ -47,6 +48,7 @@ __all__ = [
     "CaseStatus",
     "Language",
     "PersonRole",
+    "AccusedStatus",
     "EvidenceType",
     "StatementType",
     "LegalAct",

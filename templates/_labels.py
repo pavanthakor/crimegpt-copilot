@@ -20,6 +20,101 @@ Gujarati-speaking officer should confirm (chiefly formal legal phrasing). They r
 normal Gujarati (no marker leaks into the .docx); the tag is only here in source.
 """
 
+# Gujarat Police Report to Magistrate Rules 2025 — Form I bilingual field labels
+# (EN | GU). These are the authoritative form wording; do not invent alternatives.
+# Injected identically into en / hi / gu so the printed form stays bilingual even when
+# narrative fields (brief facts) switch language.
+_FORM_I_BILINGUAL = {
+    "cs_item1": "1. District / P.S. / Year  |  જિલ્લો / પોલીસ મથક / વર્ષ",
+    "cs_district": "District / જિલ્લો",
+    "cs_ps": "P.S. / પોલીસ મથક",
+    "cs_year": "Year / વર્ષ",
+    "cs_item2": "2. Crime / FIR particulars  |  ગુનો / એફ.આઈ.આર. વિગત",
+    "cs_crime_no": "Crime / Case No. / ગુનો / કેસ નં.",
+    "cs_fir_no": "FIR No. / એફ.આઈ.આર. નં.",
+    "cs_fir_date": "FIR Date / એફ.આઈ.આર. તારીખ",
+    "cs_item3": "3. Acts and Sections  |  કાયદા અને કલમો",
+    "cs_item4": "4. Complainant / Occurrence  |  ફરિયાદી / ઘટના",
+    "cs_complainant": "Name of complainant / informant  |  ફરિયાદી / માહિતીદારનું નામ",
+    "cs_occurrence": "Date & time of occurrence  |  ઘટનાની તારીખ અને સમય",
+    "cs_place_occ": "Place of occurrence  |  ઘટનાનું સ્થળ",
+    "cs_item5": "5. Original / Supplementary  |  મૂળ / પૂરક",
+    "cs_report_original": "Original Final Form / Report  |  મૂળ આખરી અહેવાલ",
+    "cs_report_supplementary": (
+        "Supplementary Final Form / Report  |  પૂરક આખરી અહેવાલ"
+    ),
+    "cs_item6": "6. Investigating Officer  |  તપાસ અધિકારી",
+    "cs_io": "Name of Investigating Officer  |  તપાસ અધિકારીનું નામ",
+    "cs_item7": "7. Charge for giving false information  |  ખોટી માહિતી આપવા બાબતનો આરોપ",
+    # False-information line — BNS 217 / 248 only (never IPC).
+    "cs_false_fir": (
+        "Attention is drawn to BNS Sections 217 and 248 (false information / "
+        "false charge).  |  ભારતીય ન્યાય સંહિતા કલમ ૨૧૭ અને ૨૪૮ (ખોટી માહિતી / ખોટો આરોપ) તરફ ધ્યાન દોરવામાં આવે છે."
+    ),
+    "cs_item8": "8. Particulars of property  |  મિલકતની વિગત",
+    "cs_prop_sr": "Sr. / ક્રમ",
+    "cs_prop_desc": "Description of property / મિલકતનું વર્ણન",
+    "cs_prop_value": "Estimated value / અંદાજિત કિંમત",
+    "cs_prop_from": "From whom / where recovered / કોની પાસેથી / ક્યાંથી મળી",
+    "cs_prop_id": "Whether identified / ઓળખાયેલ છે કે કેમ",
+    "cs_prop_disp": "Disposal / Remarks / નિકાલ / નોંધ",
+    "cs_item9": "9. Particulars of accused person(s)  |  આરોપીની વિગત",
+    "cs_acc_name": "Name / નામ",
+    "cs_acc_father": "Father's / Husband's name / પિતા / પતિનું નામ",
+    "cs_acc_dob": "Date of birth / Year / જન્મ તારીખ / વર્ષ",
+    "cs_acc_sex": "Sex / લિંગ",
+    "cs_acc_nationality": "Nationality / રાષ્ટ્રીયતા",
+    "cs_acc_address": "Address / સરનામું",
+    "cs_acc_addr_ver": "Whether address verified / સરનામું ચકાસેલ છે કે કેમ",
+    "cs_acc_passport": "Passport No. / પાસપોર્ટ નં.",
+    "cs_acc_pp_date": "Date of issue / જારી તારીખ",
+    "cs_acc_pp_place": "Place of issue / જારી સ્થળ",
+    "cs_acc_religion": "Religion / ધર્મ",
+    "cs_acc_scst": "Whether SC / ST / OBC / એસસી / એસટી / ઓબીસી",
+    "cs_acc_occupation": "Occupation / વ્યવસાય",
+    "cs_acc_prov_cr": "Provisional Criminal No. / કામચલાઉ ગુનેગાર નં.",
+    "cs_acc_reg_cr": "Regular Criminal No. / નિયમિત ગુનેગાર નં.",
+    "cs_acc_arrest": "Date of arrest / ધરપકડની તારીખ",
+    "cs_acc_bail": "Date of release on bail / જામીન પર છોડ્યાની તારીખ",
+    "cs_acc_forwarded": "Date forwarded to Court / અદાલતમાં મોકલ્યાની તારીખ",
+    "cs_acc_arrest_acts": "Acts & Sections of arrest / ધરપકડની કલમો",
+    "cs_acc_surety": "Surety details / જામીનદારની વિગત",
+    "cs_acc_prev": "Previous convictions / પૂર્વ દોષિતિ",
+    "cs_acc_status": "Status of the accused / આરોપીની સ્થિતિ",
+    # Form I xix — bilingual status labels (match AccusedStatus enum members).
+    "cs_status_FORWARDED": "Forwarded / મોકલેલ",
+    "cs_status_BAILED_BY_POLICE": "Bailed by police / પોલીસ દ્વારા જામીન",
+    "cs_status_BAILED_BY_COURT": "Bailed by Court / અદાલત દ્વારા જામીન",
+    "cs_status_JUDICIAL_CUSTODY": "In judicial custody / ન્યાયિક કસ્ટડીમાં",
+    "cs_status_ABSCONDING": "Absconding / ફરાર",
+    "cs_status_PROCLAIMED_OFFENDER": "Proclaimed offender / જાહેર ગુનેગાર",
+    "cs_item10_reserved": "10. [RESERVED — suspect table — not in this spine]",
+    "cs_item11_reserved": "11. [RESERVED — documents to be tendered (col. 7) — not in this spine]",
+    "cs_item15": "15. Brief facts of the case  |  કેસની ટૂંકી હકીકત",
+    "cs_item16_19_reserved": "16–19. [RESERVED — refer-notice / enclosures — not in this spine]",
+    "cs_reserved_stub": "(To be added in a later pass.)",
+    "cs_sig_heading": "Signatures  |  સહીઓ",
+    "cs_sig_sho": "Forwarded by Station House Officer  |  પોલીસ મથક અધિકારી દ્વારા મોકલેલ",
+    "cs_sig_io": "Submitted by Investigating Officer  |  તપાસ અધિકારી દ્વારા રજૂ",
+    "cs_na": "NA",
+}
+
+# Language-specific sentences for item 5 supplementary note (BNSS 193(9)).
+_CS_SUPP_NOTE = {
+    "en": (
+        "This Supplementary Final Form / Report follows further investigation "
+        "under Section 193(9) of the Bharatiya Nagarik Suraksha Sanhita, 2023."
+    ),
+    "hi": (
+        "यह पूरक अंतिम प्रपत्र / रिपोर्ट भारतीय नागरिक सुरक्षा संहिता, 2023 की "
+        "धारा 193(9) के अंतर्गत आगे की जाँच के पश्चात् प्रस्तुत की गई है।"
+    ),
+    "gu": (
+        "આ પૂરક આખરી અહેવાલ ભારતીય નાગરિક સુરક્ષા સંહિતા, 2023 ની કલમ 193(9) "
+        "હેઠળ વધુ તપાસ બાદ રજૂ કરવામાં આવેલ છે."
+    ),
+}
+
 # --------------------------------------------------------------------------------------
 LABELS = {
     # ==================================================================================
@@ -405,6 +500,12 @@ LABELS = {
         "lers_rec_statement": "જાહેરાત નિવેદન: ઉપરોક્ત કાયદાકીય આધારના અનુસંધાનમાં, આપને વિનંતી છે કે નિર્દિષ્ટ ઓળખકર્તા અને સમયગાળા માટે ઉપર વર્ણવેલ રેકોર્ડ સાચા રેકોર્ડ તરીકે પ્રમાણિત કરીને, મશીન-વાંચનીય ફોર્મેટમાં, પ્લેટફોર્મની લો એન્ફોર્સમેન્ટ રિસ્પોન્સ સિસ્ટમ મારફતે વિનંતી કરનાર અધિકારીને જાહેર કરો. કૃપા કરીને આપના જવાબમાં ઉપરોક્ત કેસ / એફ.આઈ.આર. નંબરનો ઉલ્લેખ કરો.",  # TODO_GU: long legal statement — confirm
     },
 }
+
+
+# Merge Form I bilingual labels into every language pack (identical on EN/HI/GU).
+for _lang, _pack in LABELS.items():
+    _pack.update(_FORM_I_BILINGUAL)
+    _pack["cs_supp_note_S"] = _CS_SUPP_NOTE[_lang]
 
 
 def get_labels(lang: str) -> dict:

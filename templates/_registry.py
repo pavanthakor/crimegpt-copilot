@@ -75,6 +75,25 @@ REGISTRY = {
             "custody_clause1",
         ],
     },
+    # Form I spine (items 1–9 + 15 + signatures). Items 10 / 11-col-7 / 16–19 reserved
+    # in the template for a later pass — not required here.
+    "CHARGESHEET": {
+        "template_file": "chargesheet.docx",
+        "title": "Final Form / Report (BNSS §193) — Form I",
+        "required_fields": [
+            "case_number",
+            "fir_number",
+            "fir_date",
+            "police_station",
+            "district",
+            "acts_sections_line",
+            "report_type",
+            "accused_name",
+            "brief_facts",
+            "io_name",
+            "sho_name",
+        ],
+    },
     "LERS_PRESERVATION_REQUEST": {
         "template_file": "lers_preservation_request.docx",
         "title": "LERS Data Preservation Request",
