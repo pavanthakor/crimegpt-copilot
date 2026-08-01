@@ -313,6 +313,14 @@ as a plain factual account.
 - role must be exactly one of COMPLAINANT, ACCUSED, WITNESS, VICTIM. The person reporting the \
 incident is COMPLAINANT. Someone harmed is VICTIM. Someone accused of the act is ACCUSED. Someone \
 who saw it is WITNESS. If the officer did not make a person's role clear, leave that person out.
+- ONE SENTENCE OFTEN NAMES TWO DIFFERENT PEOPLE — the person who saw something, and the person \
+they saw doing it. List BOTH as separate entries. Whoever saw, heard or noticed the incident is a \
+WITNESS even when the same sentence also names the person they were watching; do not drop the \
+observer and keep only the actor.
+- ATTACH EACH DETAIL TO THE NAME IT IS WRITTEN BESIDE. An age, occupation, address, father's name \
+or phone number belongs to the nearest preceding name — the person it is written about — and never \
+to a different person named later in the same sentence. If you are not certain which person a \
+detail describes, leave it null rather than attaching it to the wrong person.
 - seized_from_name must be the name of a person you also listed in "persons", or null.
 - "reply" is ONE short sentence in {language}: acknowledge what you recorded, and if a plain FACTUAL \
 detail is missing (a name, a date, a place, an item), ask for that ONE detail. Ask about facts only — \
