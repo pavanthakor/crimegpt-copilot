@@ -21,6 +21,7 @@ This module is read-only: it computes and returns, it does not persist anything.
 from __future__ import annotations
 
 import logging
+import re
 
 from sqlalchemy.orm import Session
 
@@ -32,6 +33,27 @@ from app.models import Case, Evidence, LegalSection, SeizedItem, Statement
 from app.models.enums import SectionStatus
 
 logger = logging.getLogger("crimegpt.weak_charge")
+
+# A subsection suffix on a charge — "(2)" in "303(2)", "(3)" in "331(3)".
+_SUBSECTION_SUFFIX = re.compile(r"\s*\(.*$")
+
+
+def _bare_section_code(section_code: str) -> str:
+    """The corpus lookup key for a (possibly subsectioned) charge code.
+
+    The RAG corpus is keyed by BARE section number ("BNS:303"), so an exact-id lookup
+    for a subsectioned charge misses and the charge silently reports as ungroundable.
+    Stripping the suffix resolves it to the parent section, whose statutory text
+    contains the subsection anyway.
+
+        "303(2)" -> "303"    "331(3)" -> "331"    "305" -> "305"
+
+    Only the LOOKUP key is normalised; the officer-facing alert keeps the original
+    code. Letters are preserved ("66A" stays "66A") — only a parenthesised suffix
+    is removed.
+    """
+    return _SUBSECTION_SUFFIX.sub("", (section_code or "").strip()).strip()
+
 
 _SYSTEM = (
     "You are a meticulous legal reviewer for Indian police. You never invent a legal "
@@ -135,6 +157,19 @@ def check_section(section: LegalSection, material: str) -> dict | None:
     statutory text is not in the corpus (cannot ground -> do not guess).
     """
     record = rag.get_section(section.act.value, section.section_code)
+    if record is None or not record.get("text"):
+        # Exact id is tried first, so anything that already resolves is untouched.
+        # Only on a miss do we fall back to the bare section number, which is how the
+        # corpus is keyed — without this, every subsectioned charge (303(2), 331(3))
+        # reports as ungroundable and the officer reads that as "no problems found".
+        bare = _bare_section_code(section.section_code)
+        if bare and bare != section.section_code:
+            record = rag.get_section(section.act.value, bare)
+            if record is not None and record.get("text"):
+                logger.info(
+                    "%s %s not in corpus; grounded against bare section %s",
+                    section.act.value, section.section_code, bare,
+                )
     if record is None or not record.get("text"):
         logger.warning(
             "no statutory text for %s %s — skipping weak-charge check",
