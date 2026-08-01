@@ -59,15 +59,18 @@ def _build_prompt(prompt: str, system: str, json_schema: dict | None) -> str:
 # ---------------------------------------------------------------------------
 # Providers
 # ---------------------------------------------------------------------------
-def _ollama_generate(full_prompt: str, temperature: float) -> str:
+def _ollama_generate(full_prompt: str, temperature: float, max_tokens: int | None = None) -> str:
     """POST to Ollama /api/generate (non-streaming). Returns the raw response text."""
+    options = {"temperature": temperature}
+    if max_tokens is not None:
+        options["num_predict"] = max_tokens
     resp = requests.post(
         f"{settings.OLLAMA_HOST}/api/generate",
         json={
             "model": settings.LLM_MODEL,
             "prompt": full_prompt,
             "stream": False,
-            "options": {"temperature": temperature},
+            "options": options,
         },
         timeout=_OLLAMA_TIMEOUT,
     )
@@ -75,7 +78,7 @@ def _ollama_generate(full_prompt: str, temperature: float) -> str:
     return resp.json()["response"]
 
 
-def _api_generate(full_prompt: str, temperature: float) -> str:
+def _api_generate(full_prompt: str, temperature: float, max_tokens: int | None = None) -> str:
     """Fallback API provider. Stubbed cleanly: routing is intact, but with no key
     configured it raises a clear error instead of pretending to work."""
     if not settings.FALLBACK_API_KEY:
@@ -90,10 +93,10 @@ def _api_generate(full_prompt: str, temperature: float) -> str:
     )
 
 
-def _generate(full_prompt: str, temperature: float, provider: str) -> str:
+def _generate(full_prompt: str, temperature: float, provider: str, max_tokens: int | None = None) -> str:
     if provider == "api":
-        return _api_generate(full_prompt, temperature)
-    return _ollama_generate(full_prompt, temperature)
+        return _api_generate(full_prompt, temperature, max_tokens)
+    return _ollama_generate(full_prompt, temperature, max_tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +108,7 @@ def call_llm(
     json_schema: dict | None = None,
     temperature: float = 0.2,
     provider: str = "ollama",
+    max_tokens: int | None = None,
 ) -> dict | str:
     """Single entrypoint for all LLM use.
 
@@ -114,6 +118,11 @@ def call_llm(
         json_schema: if set, response MUST parse as JSON; returns a dict.
         temperature: sampling temperature.
         provider: "ollama" (default) or "api" (fallback).
+        max_tokens: hard ceiling on generated tokens. A RUNAWAY GUARD, not a tuning
+            knob — size it well above the largest legitimate response. Cutting a JSON
+            reply short makes it unparseable, which costs a whole extra fix-up round
+            trip and is slower than not capping at all. Default None = uncapped, so
+            every existing caller is unaffected.
 
     Returns:
         dict when json_schema is set, otherwise the raw string.
@@ -125,7 +134,7 @@ def call_llm(
 
     started = time.perf_counter()
     try:
-        raw = _generate(full_prompt, temperature, active)
+        raw = _generate(full_prompt, temperature, active, max_tokens)
     except Exception as exc:  # noqa: BLE001 — deliberately broad; we want a clean fallback
         elapsed = time.perf_counter() - started
         if active == "ollama":
@@ -133,7 +142,7 @@ def call_llm(
                 "call_llm ollama failed after %.2fs (%s); falling back to api", elapsed, exc
             )
             fb_started = time.perf_counter()
-            raw = _generate(full_prompt, temperature, "api")
+            raw = _generate(full_prompt, temperature, "api", max_tokens)
             active = "api"
             logger.info("call_llm[api-fallback] %.2fs", time.perf_counter() - fb_started)
         else:
@@ -158,7 +167,7 @@ def call_llm(
             f"Broken output:\n{raw}"
         )
         retry_started = time.perf_counter()
-        raw2 = _generate(fix_prompt, temperature, active)
+        raw2 = _generate(fix_prompt, temperature, active, max_tokens)
         logger.info("call_llm[%s] json-fix retry %.2fs", active, time.perf_counter() - retry_started)
         try:
             return _parse_json(raw2)

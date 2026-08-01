@@ -218,7 +218,16 @@ def extract_draft(messages: list[dict], lang: str = "en", today: date | None = N
         language=_LANG_NAME.get((lang or "en").lower(), "English"),
         conversation=transcript,
     )
-    raw = call_llm(prompt, json_schema=INTAKE_EXTRACTION_SCHEMA, temperature=0.1)
+    # Runaway guard ONLY — it buys no speed. Generation stops naturally well inside this
+    # bound (measured: ~500 tokens English, ~850-1050 Gujarati for a 3-person, 1-item
+    # draft; Gujarati script tokenises roughly twice as heavily as Latin). A tighter
+    # bound is actively harmful: 1500 truncated a Gujarati reply mid-string, and broken
+    # JSON costs a whole fix-up round trip, so capping near the real length is SLOWER
+    # than not capping. 3000 leaves room for several accused and a long item list while
+    # still bounding a pathological repetition loop instead of burning the 180s timeout.
+    raw = call_llm(
+        prompt, json_schema=INTAKE_EXTRACTION_SCHEMA, temperature=0.1, max_tokens=3000
+    )
     if not isinstance(raw, dict):
         raise ValueError("Extraction did not return a JSON object")
 
