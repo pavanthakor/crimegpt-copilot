@@ -135,8 +135,11 @@ def intake_extract(
     Deliberately takes no `db` dependency: the absence of a session is the mechanical
     proof that this endpoint cannot persist anything.
     """
+    # An empty send is not an error the officer needs to see as a red banner — it gets
+    # the same "describe the incident" answer as any other input with nothing in it.
     if not body.messages:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No messages to extract from")
+        empty = extract_draft([], lang=body.lang)
+        return ExtractResponse(draft=IntakeDraft(), reply=empty["reply"])
 
     try:
         raw = extract_draft(
