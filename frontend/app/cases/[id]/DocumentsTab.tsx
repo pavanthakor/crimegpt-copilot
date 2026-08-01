@@ -56,6 +56,7 @@ const DOC_TYPES: { key: string; label: string; note?: string; icon: string; glos
   { key: "PANCHNAMA", label: "Panchnama", icon: "history_edu" },
   { key: "REMAND", label: "Remand Request", icon: "gavel" },
   { key: "CUSTODY_LETTER", label: "Custody Letter", icon: "account_balance" },
+  { key: "CHARGESHEET", label: "Final Form / Report", note: "BNSS §193 Form I", icon: "description" },
   { key: "MEDICAL_LETTER", label: "Medical Letter", icon: "medical_services" },
   { key: "LERS_PRESERVATION_REQUEST", label: "LERS Preservation Request", icon: "lock_clock", glossary: "LERS" },
   { key: "LERS_RECORDS_REQUEST", label: "LERS Records Request", icon: "folder_data" },
@@ -91,6 +92,10 @@ const FIELD_LABEL: Record<string, string> = {
   grounds_for_custody: "grounds for custody",
   subject_name: "subject name",
   examination_purpose: "examination purpose",
+  report_type: "report type (original / supplementary)",
+  brief_facts: "brief facts of the case",
+  sho_name: "station house officer",
+  acts_sections_line: "acts and sections",
 };
 const friendly = (raw: string) => FIELD_LABEL[raw.trim()] ?? raw.trim().replace(/_/g, " ");
 

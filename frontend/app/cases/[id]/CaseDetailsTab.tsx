@@ -16,6 +16,23 @@ type Person = {
   address: string | null;
   phone: string | null;
   occupation: string | null;
+  dob_or_year?: string | null;
+  nationality?: string | null;
+  address_verified?: string | null;
+  passport_no?: string | null;
+  passport_issue_date?: string | null;
+  passport_issue_place?: string | null;
+  religion?: string | null;
+  sc_st_obc?: string | null;
+  provisional_criminal_no?: string | null;
+  regular_criminal_no?: string | null;
+  arrest_date?: string | null;
+  bail_release_date?: string | null;
+  forwarded_to_court_date?: string | null;
+  arrest_acts_sections?: string | null;
+  surety_details?: string | null;
+  previous_convictions?: string | null;
+  status_of_accused?: string | null;
 };
 type Statement = {
   id: number;
@@ -35,6 +52,23 @@ type PersonForm = {
   phone: string;
   occupation: string;
   address: string;
+  dob_or_year: string;
+  nationality: string;
+  address_verified: string;
+  passport_no: string;
+  passport_issue_date: string;
+  passport_issue_place: string;
+  religion: string;
+  sc_st_obc: string;
+  provisional_criminal_no: string;
+  regular_criminal_no: string;
+  arrest_date: string;
+  bail_release_date: string;
+  forwarded_to_court_date: string;
+  arrest_acts_sections: string;
+  surety_details: string;
+  previous_convictions: string;
+  status_of_accused: string;
 };
 const EMPTY_PERSON: PersonForm = {
   role: "WITNESS",
@@ -46,7 +80,38 @@ const EMPTY_PERSON: PersonForm = {
   phone: "",
   occupation: "",
   address: "",
+  dob_or_year: "",
+  nationality: "",
+  address_verified: "",
+  passport_no: "",
+  passport_issue_date: "",
+  passport_issue_place: "",
+  religion: "",
+  sc_st_obc: "",
+  provisional_criminal_no: "",
+  regular_criminal_no: "",
+  arrest_date: "",
+  bail_release_date: "",
+  forwarded_to_court_date: "",
+  arrest_acts_sections: "",
+  surety_details: "",
+  previous_convictions: "",
+  status_of_accused: "",
 };
+
+const ACCUSED_STATUSES = [
+  "FORWARDED",
+  "BAILED_BY_POLICE",
+  "BAILED_BY_COURT",
+  "JUDICIAL_CUSTODY",
+  "ABSCONDING",
+  "PROCLAIMED_OFFENDER",
+] as const;
+
+function isoDate(v: string | null | undefined): string {
+  if (!v) return "";
+  return v.slice(0, 10);
+}
 
 export default function CaseDetailsTab({
   caseId,
@@ -557,11 +622,37 @@ function PersonFormRow({
           phone: person.phone ?? "",
           occupation: person.occupation ?? "",
           address: person.address ?? "",
+          dob_or_year: person.dob_or_year ?? "",
+          nationality: person.nationality ?? "",
+          address_verified: person.address_verified ?? "",
+          passport_no: person.passport_no ?? "",
+          passport_issue_date: isoDate(person.passport_issue_date),
+          passport_issue_place: person.passport_issue_place ?? "",
+          religion: person.religion ?? "",
+          sc_st_obc: person.sc_st_obc ?? "",
+          provisional_criminal_no: person.provisional_criminal_no ?? "",
+          regular_criminal_no: person.regular_criminal_no ?? "",
+          arrest_date: isoDate(person.arrest_date),
+          bail_release_date: isoDate(person.bail_release_date),
+          forwarded_to_court_date: isoDate(person.forwarded_to_court_date),
+          arrest_acts_sections: person.arrest_acts_sections ?? "",
+          surety_details: person.surety_details ?? "",
+          previous_convictions: person.previous_convictions ?? "",
+          status_of_accused: person.status_of_accused ?? "",
         }
       : EMPTY_PERSON
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [csOpen, setCsOpen] = useState(
+    Boolean(
+      person?.role === "ACCUSED" &&
+        (person.dob_or_year ||
+          person.arrest_date ||
+          person.status_of_accused ||
+          person.nationality)
+    )
+  );
 
   const set = (k: keyof PersonForm, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -572,7 +663,39 @@ function PersonFormRow({
     }
     setSaving(true);
     setErr(null);
-    const body = { ...f, age: f.age === "" ? null : Number(f.age) };
+    const emptyToNull = (s: string) => (s.trim() === "" ? null : s.trim());
+    const body: Record<string, unknown> = {
+      role: f.role,
+      full_name: emptyToNull(f.full_name),
+      alias: emptyToNull(f.alias),
+      father_name: emptyToNull(f.father_name),
+      age: f.age === "" ? null : Number(f.age),
+      gender: emptyToNull(f.gender),
+      phone: emptyToNull(f.phone),
+      occupation: emptyToNull(f.occupation),
+      address: emptyToNull(f.address),
+    };
+    if (f.role === "ACCUSED") {
+      Object.assign(body, {
+        dob_or_year: emptyToNull(f.dob_or_year),
+        nationality: emptyToNull(f.nationality),
+        address_verified: emptyToNull(f.address_verified),
+        passport_no: emptyToNull(f.passport_no),
+        passport_issue_date: emptyToNull(f.passport_issue_date),
+        passport_issue_place: emptyToNull(f.passport_issue_place),
+        religion: emptyToNull(f.religion),
+        sc_st_obc: emptyToNull(f.sc_st_obc),
+        provisional_criminal_no: emptyToNull(f.provisional_criminal_no),
+        regular_criminal_no: emptyToNull(f.regular_criminal_no),
+        arrest_date: emptyToNull(f.arrest_date),
+        bail_release_date: emptyToNull(f.bail_release_date),
+        forwarded_to_court_date: emptyToNull(f.forwarded_to_court_date),
+        arrest_acts_sections: emptyToNull(f.arrest_acts_sections),
+        surety_details: emptyToNull(f.surety_details),
+        previous_convictions: emptyToNull(f.previous_convictions),
+        status_of_accused: emptyToNull(f.status_of_accused),
+      });
+    }
     try {
       if (person) await api.patch(`/api/cases/${caseId}/persons/${person.id}`, body);
       else await api.post(`/api/cases/${caseId}/persons`, body);
@@ -591,7 +714,10 @@ function PersonFormRow({
       <FieldRow label={t("details.field.role")}>
         <select
           value={f.role}
-          onChange={(e) => set("role", e.target.value)}
+          onChange={(e) => {
+            set("role", e.target.value);
+            if (e.target.value === "ACCUSED") setCsOpen(true);
+          }}
           className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
         >
           {PERSON_ROLES.map((r) => (
@@ -627,6 +753,135 @@ function PersonFormRow({
       <FieldRow label={t("details.field.address")}>
         <TextInput value={f.address} onChange={(v) => set("address", v)} />
       </FieldRow>
+
+      {f.role === "ACCUSED" && (
+        <div className="border border-outline-variant rounded overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setCsOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-surface-container-lowest font-body-md text-on-surface hover:bg-surface-container transition-colors"
+            aria-expanded={csOpen}
+          >
+            <span>{t("details.chargesheet.group")}</span>
+            <span className="material-symbols-outlined text-base text-on-surface-variant">
+              {csOpen ? "expand_less" : "expand_more"}
+            </span>
+          </button>
+          {csOpen && (
+            <div className="px-3 py-3 space-y-3 border-t border-outline-variant">
+              <div className="grid grid-cols-2 gap-3">
+                <FieldRow label={t("details.field.dobOrYear")}>
+                  <TextInput value={f.dob_or_year} onChange={(v) => set("dob_or_year", v)} />
+                </FieldRow>
+                <FieldRow label={t("details.field.nationality")}>
+                  <TextInput value={f.nationality} onChange={(v) => set("nationality", v)} />
+                </FieldRow>
+                <FieldRow label={t("details.field.addressVerified")}>
+                  <TextInput
+                    value={f.address_verified}
+                    onChange={(v) => set("address_verified", v)}
+                  />
+                </FieldRow>
+                <FieldRow label={t("details.field.religion")}>
+                  <TextInput value={f.religion} onChange={(v) => set("religion", v)} />
+                </FieldRow>
+                <FieldRow label={t("details.field.scStObc")}>
+                  <TextInput value={f.sc_st_obc} onChange={(v) => set("sc_st_obc", v)} />
+                </FieldRow>
+                <FieldRow label={t("details.field.statusOfAccused")}>
+                  <select
+                    value={f.status_of_accused}
+                    onChange={(e) => set("status_of_accused", e.target.value)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
+                  >
+                    <option value="">{t("common.select")}</option>
+                    {ACCUSED_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {t(`details.status.${s}` as TKey)}
+                      </option>
+                    ))}
+                  </select>
+                </FieldRow>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FieldRow label={t("details.field.passportNo")}>
+                  <TextInput value={f.passport_no} onChange={(v) => set("passport_no", v)} />
+                </FieldRow>
+                <FieldRow label={t("details.field.passportIssueDate")}>
+                  <input
+                    type="date"
+                    value={f.passport_issue_date}
+                    onChange={(e) => set("passport_issue_date", e.target.value)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </FieldRow>
+                <FieldRow label={t("details.field.passportIssuePlace")}>
+                  <TextInput
+                    value={f.passport_issue_place}
+                    onChange={(v) => set("passport_issue_place", v)}
+                  />
+                </FieldRow>
+                <FieldRow label={t("details.field.provCriminalNo")}>
+                  <TextInput
+                    value={f.provisional_criminal_no}
+                    onChange={(v) => set("provisional_criminal_no", v)}
+                  />
+                </FieldRow>
+                <FieldRow label={t("details.field.regCriminalNo")}>
+                  <TextInput
+                    value={f.regular_criminal_no}
+                    onChange={(v) => set("regular_criminal_no", v)}
+                  />
+                </FieldRow>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FieldRow label={t("details.field.arrestDate")}>
+                  <input
+                    type="date"
+                    value={f.arrest_date}
+                    onChange={(e) => set("arrest_date", e.target.value)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </FieldRow>
+                <FieldRow label={t("details.field.bailReleaseDate")}>
+                  <input
+                    type="date"
+                    value={f.bail_release_date}
+                    onChange={(e) => set("bail_release_date", e.target.value)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </FieldRow>
+                <FieldRow label={t("details.field.forwardedToCourtDate")}>
+                  <input
+                    type="date"
+                    value={f.forwarded_to_court_date}
+                    onChange={(e) => set("forwarded_to_court_date", e.target.value)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-md text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </FieldRow>
+              </div>
+              <FieldRow label={t("details.field.arrestActsSections")}>
+                <TextInput
+                  value={f.arrest_acts_sections}
+                  onChange={(v) => set("arrest_acts_sections", v)}
+                />
+              </FieldRow>
+              <FieldRow label={t("details.field.suretyDetails")}>
+                <TextInput
+                  value={f.surety_details}
+                  onChange={(v) => set("surety_details", v)}
+                />
+              </FieldRow>
+              <FieldRow label={t("details.field.previousConvictions")}>
+                <TextInput
+                  value={f.previous_convictions}
+                  onChange={(v) => set("previous_convictions", v)}
+                />
+              </FieldRow>
+            </div>
+          )}
+        </div>
+      )}
 
       {err && (
         <p role="alert" className="font-body-md text-error flex items-center gap-1">

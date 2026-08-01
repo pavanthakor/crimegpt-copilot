@@ -8,10 +8,9 @@ produces byte-identical demo content, so the demo starts from a known state.
 
 The seed populates the pool (users, cases, persons, seized items, statements) plus
 the case-diary history that led to each case's current state, with literal
-timestamps. It deliberately creates NO legal_sections, documents or audit rows:
-those are produced live by the demo flow itself (§15 steps 4-5), which is the
-whole point of showing them being generated on stage. The demo's live actions
-append to the seeded diary rather than starting from an empty one.
+timestamps. Case I-CR-0142-2026 also seeds ACCEPTED BNS legal sections so the
+Form I chargesheet (BNSS §193) can generate end-to-end without a live analysis
+pass. Documents and audit rows are still produced live by the demo flow.
 
 Two cases, owned by two different IOs so the RBAC visibility rule (§9) is
 demonstrable on the case list:
@@ -39,10 +38,13 @@ from app.models import (
 )
 from app.models.enums import (
     ActivityType,
+    AccusedStatus,
     CaseStatus,
     CaseType,
     Language,
+    LegalAct,
     PersonRole,
+    SectionStatus,
     StatementType,
     UserRole,
 )
@@ -151,6 +153,24 @@ DEMO_CASES = [
                 "address": "Vasna labour quarters, Ahmedabad",
                 "phone": "9700098765",
                 "occupation": "Daily-wage labourer",
+                # Form I item 9 — enough for a complete CHARGESHEET spine.
+                "dob_or_year": "1999",
+                "nationality": "Indian",
+                "address_verified": "Yes",
+                "passport_no": None,
+                "passport_issue_date": None,
+                "passport_issue_place": None,
+                "religion": "Hindu",
+                "sc_st_obc": "No",
+                "provisional_criminal_no": None,
+                "regular_criminal_no": None,
+                "arrest_date": date(2026, 7, 12),
+                "bail_release_date": None,
+                "forwarded_to_court_date": date(2026, 7, 13),
+                "arrest_acts_sections": "BNS 303(2), BNS 331(3)",
+                "surety_details": None,
+                "previous_convictions": "Nil",
+                "status_of_accused": AccusedStatus.FORWARDED,
             },
             "witness_neighbour": {
                 "role": PersonRole.WITNESS,
@@ -202,6 +222,28 @@ DEMO_CASES = [
                     "jump over the rear compound wall and run towards Vasna. I raised "
                     "an alarm and informed the residents."
                 ),
+            },
+        ],
+        # ACCEPTED BNS sections so Form I item 3 (acts_sections_line) resolves without
+        # a live analysis pass. BNS only — never IPC/CrPC on the chargesheet.
+        "legal_sections": [
+            {
+                "act": LegalAct.BNS,
+                "section_code": "303(2)",
+                "section_title": "Theft",
+                "reason": "House-breaking and theft of gold ornament from dwelling.",
+                "triggering_phrase": "gold chain",
+                "confidence": 0.92,
+                "status": SectionStatus.ACCEPTED,
+            },
+            {
+                "act": LegalAct.BNS,
+                "section_code": "331(3)",
+                "section_title": "House-breaking",
+                "reason": "Forced entry by breaking window grille of the residence.",
+                "triggering_phrase": "broke the window grille",
+                "confidence": 0.88,
+                "status": SectionStatus.ACCEPTED,
             },
         ],
         # Investigation history up to the case's current state. Literal timestamps,
@@ -425,6 +467,13 @@ def _populate_children(db, case: Case, spec: dict, owner: User) -> None:
             related_person_id=people[person_key].id if person_key else None,
             auto_generated=True,
             created_by=owner.id,
+            **fields,
+        ))
+
+    for fields in spec.get("legal_sections", []):
+        db.add(LegalSection(
+            case_id=case.id,
+            added_by=owner.id,
             **fields,
         ))
 

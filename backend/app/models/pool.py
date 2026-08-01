@@ -1,6 +1,7 @@
 """The shared Unified Case Data Pool: persons, seized_items, evidence, statements."""
 from sqlalchemy import (
     Column,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
@@ -13,7 +14,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.core.db import Base
-from app.models.enums import EvidenceType, Language, PersonRole, StatementType
+from app.models.enums import (
+    AccusedStatus,
+    EvidenceType,
+    Language,
+    PersonRole,
+    StatementType,
+)
 
 
 class Person(Base):
@@ -30,6 +37,24 @@ class Person(Base):
     address = Column(Text)
     phone = Column(String)
     occupation = Column(String)
+    # Form I item 9 (chargesheet) — all nullable; incomplete accused still usable.
+    dob_or_year = Column(String)  # full date OR year string; leave `age` untouched
+    nationality = Column(String)
+    address_verified = Column(String)  # form Yes/No (or blank = unknown)
+    passport_no = Column(String)
+    passport_issue_date = Column(Date)
+    passport_issue_place = Column(String)
+    religion = Column(String)
+    sc_st_obc = Column(String)
+    provisional_criminal_no = Column(String)
+    regular_criminal_no = Column(String)
+    arrest_date = Column(Date)
+    bail_release_date = Column(Date)
+    forwarded_to_court_date = Column(Date)
+    arrest_acts_sections = Column(Text)
+    surety_details = Column(Text)
+    previous_convictions = Column(Text)
+    status_of_accused = Column(Enum(AccusedStatus), nullable=True)
     extra = Column(JSONB)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

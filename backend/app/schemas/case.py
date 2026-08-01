@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.models.enums import (
     ActivityType,
+    AccusedStatus,
     CaseStatus,
     CaseType,
     DocStatus,
@@ -86,6 +87,23 @@ class PersonOut(BaseModel):
     address: str | None = None
     phone: str | None = None
     occupation: str | None = None
+    dob_or_year: str | None = None
+    nationality: str | None = None
+    address_verified: str | None = None
+    passport_no: str | None = None
+    passport_issue_date: date | None = None
+    passport_issue_place: str | None = None
+    religion: str | None = None
+    sc_st_obc: str | None = None
+    provisional_criminal_no: str | None = None
+    regular_criminal_no: str | None = None
+    arrest_date: date | None = None
+    bail_release_date: date | None = None
+    forwarded_to_court_date: date | None = None
+    arrest_acts_sections: str | None = None
+    surety_details: str | None = None
+    previous_convictions: str | None = None
+    status_of_accused: AccusedStatus | None = None
 
 
 class SeizedItemOut(BaseModel):

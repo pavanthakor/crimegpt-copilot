@@ -38,6 +38,17 @@ class PersonRole(str, enum.Enum):
     COMPLAINANT = "COMPLAINANT"
 
 
+# Form I item xix (Gujarat Police Report to Magistrate Rules 2025) — status of accused.
+# Uppercase name==value matches PersonRole / CaseStatus convention.
+class AccusedStatus(str, enum.Enum):
+    FORWARDED = "FORWARDED"
+    BAILED_BY_POLICE = "BAILED_BY_POLICE"
+    BAILED_BY_COURT = "BAILED_BY_COURT"
+    JUDICIAL_CUSTODY = "JUDICIAL_CUSTODY"
+    ABSCONDING = "ABSCONDING"
+    PROCLAIMED_OFFENDER = "PROCLAIMED_OFFENDER"
+
+
 class EvidenceType(str, enum.Enum):
     IMAGE = "IMAGE"
     DOCUMENT = "DOCUMENT"

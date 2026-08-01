@@ -100,12 +100,15 @@ def create_document(
     case_id: int,
     doc_type: DocType,
     lang: str = "en",
+    report_type: str = "original",
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.IO, UserRole.SHO)),
 ):
     _get_visible_case(db, user, case_id)  # visibility (also 404s unknown case)
     try:
-        doc = generate_document(db, case_id, doc_type, user, lang=lang)
+        doc = generate_document(
+            db, case_id, doc_type, user, lang=lang, report_type=report_type
+        )
     except ValueError as exc:
         # missing required pool data, or unregistered doc_type -> clear 400
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))

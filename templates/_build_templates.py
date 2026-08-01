@@ -47,6 +47,9 @@ INDIC_BOUND_FIELDS = (
     "remand_clause1",
     "custody_clause1",
     "med_body",
+    "brief_facts",
+    "report_type_line",
+    "cs_supp_note",
 )
 
 
@@ -412,6 +415,158 @@ def _lers_footer(doc):
     _line(doc, "{{ L.lers_note }}")
 
 
+def build_chargesheet():
+    """Gujarat Police Report to Magistrate Rules 2025 — Form I (BNSS §193).
+
+    Spine only: items 1–9 + 15 + signature block. Items 10 (suspect table),
+    11 col.7 (documents to be tendered), and 16–19 (refer-notice / enclosures)
+    are reserved as labelled stubs so they can slot in later without a layout rewrite.
+    """
+    doc = Document()
+
+    # Header — EXACT bilingual text (always EN + GU together; not language-switched).
+    _title(doc, "FINAL FORM / REPORT  |  આખરી અહેવાલ")
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = p.add_run("(Under section 193 B.N.S.S.)")
+    r.bold = True
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r2 = p2.add_run("(ભારતીય નાગરિક સુરક્ષા સંહિતા-૨૦૨૩ કલમ ૧૯૩ હેઠળ)")
+    r2.bold = True
+    doc.add_paragraph()
+
+    # -- Item 1: District / P.S. / Year --
+    _line(doc, "{{ L.cs_item1 }}", bold=True)
+    hdr = doc.add_table(rows=1, cols=3)
+    hdr.style = "Table Grid"
+    hdr.rows[0].cells[0].text = "{{ L.cs_district }}: {{ district }}"
+    hdr.rows[0].cells[1].text = "{{ L.cs_ps }}: {{ police_station }}"
+    hdr.rows[0].cells[2].text = "{{ L.cs_year }}: {{ fir_year }}"
+    doc.add_paragraph()
+
+    # -- Item 2: Crime / FIR --
+    _line(doc, "{{ L.cs_item2 }}", bold=True)
+    _line(doc, "{{ L.cs_crime_no }}: {{ case_number }}    {{ L.cs_fir_no }}: {{ fir_number }}    {{ L.cs_fir_date }}: {{ fir_date }}")
+    doc.add_paragraph()
+
+    # -- Item 3: Acts & Sections (BNS / BNSS / BSA only) --
+    _line(doc, "{{ L.cs_item3 }}", bold=True)
+    _line(doc, "{{ acts_sections_line }}")
+    _looped_table(
+        doc,
+        ["{{ L.col_act }}", "{{ L.col_section }}", "{{ L.col_title }}"],
+        "{%tr for s in sections_applied %}",
+        ["{{ s.act }}", "{{ s.section_code }}", "{{ s.section_title }}"],
+    )
+    doc.add_paragraph()
+
+    # -- Item 4: Complainant / occurrence --
+    _line(doc, "{{ L.cs_item4 }}", bold=True)
+    _line(doc, "{{ L.cs_complainant }}: {{ complainant_name }}")
+    _line(doc, "{{ L.cs_occurrence }}: {{ incident_datetime }}    {{ L.cs_place_occ }}: {{ incident_location }}")
+    doc.add_paragraph()
+
+    # -- Item 5: Original / Supplementary --
+    _line(doc, "{{ L.cs_item5 }}", bold=True)
+    _line(doc, "{{ report_type_line }}")
+    _line(doc, "{{ cs_supp_note }}")
+    doc.add_paragraph()
+
+    # -- Item 6: Investigating Officer --
+    _line(doc, "{{ L.cs_item6 }}", bold=True)
+    _line(doc, "{{ L.cs_io }}: {{ io_name }}    {{ L.rank }}: {{ io_rank }}    {{ L.buckle_no }}: {{ io_badge_no }}")
+    doc.add_paragraph()
+
+    # -- Item 7: Information type (charge for false FIR — BNS 217/248 only) --
+    _line(doc, "{{ L.cs_item7 }}", bold=True)
+    _line(doc, "{{ L.cs_false_fir }}")
+    doc.add_paragraph()
+
+    # -- Item 8: Property (6 columns; always at least one NA row) --
+    _line(doc, "{{ L.cs_item8 }}", bold=True)
+    _looped_table(
+        doc,
+        [
+            "{{ L.cs_prop_sr }}",
+            "{{ L.cs_prop_desc }}",
+            "{{ L.cs_prop_value }}",
+            "{{ L.cs_prop_from }}",
+            "{{ L.cs_prop_id }}",
+            "{{ L.cs_prop_disp }}",
+        ],
+        "{%tr for item in property_items %}",
+        [
+            "{{ item.sr }}",
+            "{{ item.description }}",
+            "{{ item.estimated_value }}",
+            "{{ item.recovered_from }}",
+            "{{ item.identified }}",
+            "{{ item.disposal }}",
+        ],
+    )
+    doc.add_paragraph()
+
+    # -- Item 9: Accused particulars (Form I i–xix) --
+    _line(doc, "{{ L.cs_item9 }}", bold=True)
+    _line(doc, "(i) {{ L.cs_acc_name }}: {{ accused_name }}")
+    _line(doc, "(ii) {{ L.cs_acc_father }}: {{ accused_father }}")
+    _line(doc, "(iii) {{ L.cs_acc_dob }}: {{ accused_dob_or_year }}")
+    _line(doc, "(iv) {{ L.cs_acc_sex }}: {{ accused_sex }}")
+    _line(doc, "(v) {{ L.cs_acc_nationality }}: {{ accused_nationality }}")
+    _line(doc, "(vi) {{ L.cs_acc_address }}: {{ accused_address }}")
+    _line(doc, "(vii) {{ L.cs_acc_addr_ver }}: {{ accused_address_verified }}")
+    _line(doc, "(viii) {{ L.cs_acc_passport }}: {{ accused_passport_no }}")
+    _line(doc, "(ix) {{ L.cs_acc_pp_date }}: {{ accused_passport_issue_date }}")
+    _line(doc, "(x) {{ L.cs_acc_pp_place }}: {{ accused_passport_issue_place }}")
+    _line(doc, "(xi) {{ L.cs_acc_religion }}: {{ accused_religion }}")
+    _line(doc, "(xii) {{ L.cs_acc_scst }}: {{ accused_sc_st_obc }}")
+    _line(doc, "(xiii) {{ L.cs_acc_occupation }}: {{ accused_occupation }}")
+    _line(doc, "(xiv) {{ L.cs_acc_prov_cr }}: {{ accused_provisional_criminal_no }}")
+    _line(doc, "(xv) {{ L.cs_acc_reg_cr }}: {{ accused_regular_criminal_no }}")
+    _line(doc, "(xvi) {{ L.cs_acc_arrest }}: {{ accused_arrest_date }}")
+    _line(doc, "(xvii) {{ L.cs_acc_bail }}: {{ accused_bail_release_date }}")
+    _line(doc, "(xviii) {{ L.cs_acc_forwarded }}: {{ accused_forwarded_to_court_date }}")
+    _line(doc, "      {{ L.cs_acc_arrest_acts }}: {{ accused_arrest_acts_sections }}")
+    _line(doc, "      {{ L.cs_acc_surety }}: {{ accused_surety_details }}")
+    _line(doc, "      {{ L.cs_acc_prev }}: {{ accused_previous_convictions }}")
+    _line(doc, "(xix) {{ L.cs_acc_status }}: {{ accused_status_label }}")
+    doc.add_paragraph()
+
+    # -- RESERVED: Item 10 (suspect table) — not built in this pass --
+    _line(doc, "{{ L.cs_item10_reserved }}", bold=True)
+    _line(doc, "{{ L.cs_reserved_stub }}")
+    doc.add_paragraph()
+
+    # -- RESERVED: Item 11 col.7 (documents to be tendered) — not built --
+    _line(doc, "{{ L.cs_item11_reserved }}", bold=True)
+    _line(doc, "{{ L.cs_reserved_stub }}")
+    doc.add_paragraph()
+
+    # -- Item 15: Brief facts of the case --
+    _line(doc, "{{ L.cs_item15 }}", bold=True)
+    _line(doc, "{{ brief_facts }}")
+    doc.add_paragraph()
+
+    # -- RESERVED: Items 16–19 (refer-notice / enclosures) — not built --
+    _line(doc, "{{ L.cs_item16_19_reserved }}", bold=True)
+    _line(doc, "{{ L.cs_reserved_stub }}")
+    doc.add_paragraph()
+
+    # Signature block: SHO (forwarding) + IO (submitting)
+    _line(doc, "{{ L.cs_sig_heading }}", bold=True)
+    _sig_block(
+        doc,
+        "{{ L.cs_sig_sho }}\n{{ sho_name }}\n{{ sho_rank }} · {{ L.buckle_no }} {{ sho_badge_no }}\n{{ L.signature }}: ____________________",
+        "{{ L.cs_sig_io }}\n{{ io_name }}\n{{ io_rank }} · {{ L.buckle_no }} {{ io_badge_no }}\n{{ L.signature }}: ____________________",
+    )
+    _line(doc, "{{ L.place }}: {{ police_station }}    {{ L.date }}: {{ fir_date }}")
+    doc.add_paragraph()
+    _line(doc, "{{ L.note_draft }}")
+    _apply_fonts(doc)
+    doc.save(HERE / "chargesheet.docx")
+
+
 def build_lers_preservation_request():
     doc = Document()
     _lers_common_header(doc, "{{ L.lers_pres_heading }}")
@@ -450,6 +605,7 @@ def main():
     build_remand_request()
     build_custody_letter()
     build_medical_letter()
+    build_chargesheet()
     build_lers_preservation_request()
     build_lers_records_request()
     print("Built templates in", HERE)
