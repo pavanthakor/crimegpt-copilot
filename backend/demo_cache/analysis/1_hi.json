@@ -3,11 +3,26 @@
   "sections": [
     {
       "act": "BNS",
+      "section_code": "303",
+      "section_title": "Theft",
+      "citation": "BNS Section 303",
+      "triggering_phrase": "He stole a gold chain and cash of Rs. 25,000 from the cupboard and fled.",
+      "reason": "लेभीता क्रिमिनल प्रपंच ३४१ और ३६४ के अनुसार माल की उपहार की वित्तीय से खोली गई थी।",
+      "confidence": 1.0,
+      "cross_reference": {
+        "framework": "IPC",
+        "provision": "379",
+        "source": "curated",
+        "title": "Punishment for theft"
+      }
+    },
+    {
+      "act": "BNS",
       "section_code": "305",
       "section_title": "Theft in a dwelling house, or means of transportation or place of worship, etc",
       "citation": "BNS Section 305",
-      "triggering_phrase": "stole a gold chain and cash of Rs. 25,000 from the cupboard",
-      "reason": "वास्तुकार से चलना",
+      "triggering_phrase": "an unknown person broke the iron grille of the rear window of my house and entered.",
+      "reason": "कार्यालय में चिता की गई गुप्त अधिकृत से प्रचारणकर्ता विसंगति का वर्णन करता है।",
       "confidence": 1.0,
       "cross_reference": {
         "framework": "IPC",
