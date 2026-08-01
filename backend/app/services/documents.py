@@ -570,6 +570,19 @@ def generate_document(
         context = _build_context(
             db, case, user, lang=lang_key, report_type=rt
         )
+    else:
+        # Cache HIT. The cached context froze `sections_applied` at cache-build time, so a
+        # section the officer accepted into the pool afterwards never reached the document
+        # — and the consistency checker then reported that frozen list as a phantom
+        # staleness finding against the live pool. Sections are pool state, not generated
+        # prose, so they must always be live. Refresh ONLY the section fields from the same
+        # _build_context the live path and the consistency checker use; every other cached
+        # value is kept verbatim, which is the point of the cache (the hand-reviewed GU/HI
+        # strings in demo_cache/reviewed_gu.json stay pinned). Pure DB, no LLM — the cached
+        # path stays fast.
+        live = _build_context(db, case, user, lang=lang_key, report_type=rt)
+        context["sections_applied"] = live["sections_applied"]
+        context["acts_sections_line"] = live["acts_sections_line"]
 
     # Form I item 3: BNS / BNSS / BSA only — never IPC/CrPC / IT_ACT / OTHER on the sheet.
     if doc_type == DocType.CHARGESHEET:
