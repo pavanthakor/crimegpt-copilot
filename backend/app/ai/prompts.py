@@ -245,10 +245,89 @@ TEXT:
 """
 
 # ---------------------------------------------------------------------------
+# G. Conversational intake extraction  (input: the officer's chat turns)
+#
+# PURE EXTRACTION — this prompt DECIDES NOTHING. It maps what the officer said onto
+# the existing pool schema (cases / persons / seized_items, CLAUDE.md §5) and stops.
+# It must never name a BNS/BNSS/BSA section, suggest a charge, or characterise an
+# offence: section mapping is a separate, RAG-grounded, accept/reject flow (prompt A)
+# and intake must not pre-empt or contaminate it.
+#
+# The guarantee is STRUCTURAL as well as instructional: `app.ai.intake` whitelists the
+# returned keys against the pool schema, so any "sections"/"charges" field the model
+# invents anyway is dropped before it can reach the officer.
+# ---------------------------------------------------------------------------
+INTAKE_EXTRACTION_SCHEMA = {
+    "case": {
+        "title": "string — a short neutral label for the incident, or null",
+        "incident_datetime": "string — ISO 8601 'YYYY-MM-DDTHH:MM:SS', or null",
+        "incident_location": "string — where it happened, or null",
+        "complaint_narrative": "string — the incident as the officer described it",
+        "fir_number": "string or null",
+        "police_station": "string or null",
+        "district": "string or null",
+    },
+    "persons": [
+        {
+            "role": "COMPLAINANT | ACCUSED | WITNESS | VICTIM",
+            "full_name": "string or null",
+            "alias": "string or null",
+            "father_name": "string or null",
+            "age": "integer or null",
+            "gender": "string or null",
+            "address": "string or null",
+            "phone": "string or null",
+            "occupation": "string or null",
+        }
+    ],
+    "seized_items": [
+        {
+            "description": "string — what the item is",
+            "quantity": "integer or null",
+            "estimated_value": "number or null",
+            "seized_from_name": "string — the person's name it was seized from, or null",
+            "seizure_datetime": "string — ISO 8601, or null",
+            "seizure_location": "string or null",
+        }
+    ],
+    "reply": "string — one short sentence to the officer, in their language",
+}
+
+INTAKE_EXTRACTION_PROMPT = """You are a police records clerk taking down an incident report in India. \
+Today's date is {today}.
+
+Read the CONVERSATION below and extract ONLY the facts the officer actually stated, onto the \
+record structure. You are a clerk filling in a form — you are NOT an investigator and NOT a lawyer.
+
+STRICT RULES:
+- Extract facts ONLY. Never state, name, cite or imply any legal section, act, charge or offence \
+category (BNS, BNSS, BSA, IPC, IT Act or any other). Never say what crime this is. That decision \
+belongs to the officer and to a separate legal-analysis step, not to you.
+- Never invent, guess or infer a value. If the officer did not say it, use null. An empty record \
+is correct; a plausible-sounding invention is a serious error.
+- Copy names, places and numbers EXACTLY as the officer gave them. Do not translate, transliterate \
+or "correct" them.
+- Write complaint_narrative in the SAME language the officer used ({language}), in their own words, \
+as a plain factual account.
+- Resolve relative dates ("yesterday", "last Tuesday", "this morning") against today's date, {today}.
+- role must be exactly one of COMPLAINANT, ACCUSED, WITNESS, VICTIM. The person reporting the \
+incident is COMPLAINANT. Someone harmed is VICTIM. Someone accused of the act is ACCUSED. Someone \
+who saw it is WITNESS. If the officer did not make a person's role clear, leave that person out.
+- seized_from_name must be the name of a person you also listed in "persons", or null.
+- "reply" is ONE short sentence in {language}: acknowledge what you recorded, and if a plain FACTUAL \
+detail is missing (a name, a date, a place, an item), ask for that ONE detail. Ask about facts only — \
+never about law, charges or what section applies. Do not summarise the law. Do not give advice.
+
+CONVERSATION:
+{conversation}
+"""
+
+# ---------------------------------------------------------------------------
 # Registry — convenient (prompt, schema) lookup by key
 # ---------------------------------------------------------------------------
 PROMPTS = {
     "section_mapping": (SECTION_MAPPING_PROMPT, SECTION_MAPPING_SCHEMA),
+    "intake_extraction": (INTAKE_EXTRACTION_PROMPT, INTAKE_EXTRACTION_SCHEMA),
     "judgments": (JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA),
     "weak_charge": (WEAK_CHARGE_PROMPT, WEAK_CHARGE_SCHEMA),
     "diary_entry": (DIARY_ENTRY_PROMPT, DIARY_ENTRY_SCHEMA),

@@ -552,6 +552,41 @@ const en = {
   "login.signingIn": "Signing in…",
   "login.error": "Invalid username or password.",
   "login.tagline": "AI-assisted crime documentation and legal intelligence.",
+
+  // -- conversational intake --
+  "nav.intake": "Intake chat",
+  "intake.title": "Conversational intake",
+  "intake.subtitle":
+    "Describe the incident in your own words. The details are read into a case record for you to check and correct — nothing is saved until you confirm it.",
+  "intake.chat.title": "Describe the incident",
+  "intake.chat.intro":
+    "Tell me what happened, in your own words — who reported it, who is involved, what was taken or recovered, and when and where.",
+  "intake.chat.placeholder": "e.g. Yesterday evening Ramesh Patel reported his motorcycle stolen from…",
+  "intake.chat.send": "Send",
+  "intake.chat.extracting": "Reading the details…",
+  "intake.chat.error": "Could not read the details. Try again, or fill the record in by hand.",
+  "intake.chat.you": "You",
+  "intake.chat.clerk": "Assistant",
+  "intake.draft.title": "Case record",
+  "intake.draft.empty.title": "Nothing recorded yet",
+  "intake.draft.empty.hint": "Describe the incident on the left and the details will appear here.",
+  "intake.draft.unsaved": "Draft — not saved yet",
+  "intake.draft.unsavedHint":
+    "This record exists only in this browser. Nothing is written to the case file until you press Register case.",
+  "intake.section.case": "Incident",
+  "intake.section.persons": "People",
+  "intake.section.items": "Seized items",
+  "intake.addPerson": "Add person",
+  "intake.addItem": "Add item",
+  "intake.remove": "Remove",
+  "intake.edited": "Edited",
+  "intake.confirm": "Register case",
+  "intake.confirming": "Registering…",
+  "intake.confirmHint": "Check every field above. Registering writes the case, the people and the items to the case file.",
+  "intake.numberRequired": "A case number is required.",
+  "intake.commitError": "Could not register the case. Nothing was saved.",
+  "intake.startOver": "Start over",
+  "intake.legalNote": "Legal sections are not decided here — run the section analysis on the case once it is registered.",
 };
 
 const hi: Dict = {
@@ -1041,6 +1076,40 @@ const hi: Dict = {
   "login.signingIn": "साइन इन हो रहा है…",
   "login.error": "अमान्य उपयोगकर्ता नाम या पासवर्ड।",
   "login.tagline": "एआई-सहायता प्राप्त अपराध दस्तावेज़ीकरण और विधिक आसूचना।",
+
+  "nav.intake": "संवाद प्रविष्टि",
+  "intake.title": "संवाद द्वारा प्रविष्टि",
+  "intake.subtitle":
+    "घटना को अपने शब्दों में बताइए। विवरण केस रिकॉर्ड में भर दिए जाएंगे, जिन्हें आप जाँच और सुधार सकते हैं — पुष्टि करने तक कुछ भी सहेजा नहीं जाता।",
+  "intake.chat.title": "घटना बताइए",
+  "intake.chat.intro":
+    "अपने शब्दों में बताइए क्या हुआ — किसने सूचना दी, कौन शामिल है, क्या चोरी हुआ या बरामद हुआ, और कब और कहाँ।",
+  "intake.chat.placeholder": "जैसे: कल शाम रमेश पटेल ने अपनी मोटरसाइकिल चोरी होने की सूचना दी…",
+  "intake.chat.send": "भेजें",
+  "intake.chat.extracting": "विवरण पढ़े जा रहे हैं…",
+  "intake.chat.error": "विवरण नहीं पढ़े जा सके। पुनः प्रयास करें, या रिकॉर्ड हाथ से भरें।",
+  "intake.chat.you": "आप",
+  "intake.chat.clerk": "सहायक",
+  "intake.draft.title": "केस रिकॉर्ड",
+  "intake.draft.empty.title": "अभी कुछ दर्ज नहीं",
+  "intake.draft.empty.hint": "बाईं ओर घटना बताइए, विवरण यहाँ दिखाई देंगे।",
+  "intake.draft.unsaved": "मसौदा — अभी सहेजा नहीं गया",
+  "intake.draft.unsavedHint":
+    "यह रिकॉर्ड केवल इस ब्राउज़र में है। 'केस दर्ज करें' दबाने तक केस फ़ाइल में कुछ नहीं लिखा जाता।",
+  "intake.section.case": "घटना",
+  "intake.section.persons": "व्यक्ति",
+  "intake.section.items": "जब्त सामान",
+  "intake.addPerson": "व्यक्ति जोड़ें",
+  "intake.addItem": "सामान जोड़ें",
+  "intake.remove": "हटाएं",
+  "intake.edited": "संपादित",
+  "intake.confirm": "केस दर्ज करें",
+  "intake.confirming": "दर्ज हो रहा है…",
+  "intake.confirmHint": "ऊपर हर फ़ील्ड जाँच लें। दर्ज करने पर केस, व्यक्ति और सामान केस फ़ाइल में लिखे जाएंगे।",
+  "intake.numberRequired": "केस नंबर आवश्यक है।",
+  "intake.commitError": "केस दर्ज नहीं किया जा सका। कुछ भी सहेजा नहीं गया।",
+  "intake.startOver": "फिर से शुरू करें",
+  "intake.legalNote": "कानूनी धाराएं यहाँ तय नहीं होतीं — केस दर्ज होने के बाद धारा विश्लेषण चलाएं।",
 };
 
 const gu: Dict = {
@@ -1530,6 +1599,41 @@ const gu: Dict = {
   "login.signingIn": "સાઇન ઇન થઈ રહ્યું છે…",
   "login.error": "અમાન્ય વપરાશકર્તા નામ કે પાસવર્ડ.",
   "login.tagline": "AI-સહાયિત ગુના દસ્તાવેજીકરણ અને કાનૂની વિશ્લેષણ",
+
+  // TODO_GU — native-speaker review of the intake block
+  "nav.intake": "સંવાદ નોંધણી",
+  "intake.title": "સંવાદ દ્વારા નોંધણી",
+  "intake.subtitle":
+    "બનાવ તમારા પોતાના શબ્દોમાં જણાવો. વિગતો કેસ રેકોર્ડમાં ભરાઈ જશે, જે તમે તપાસી અને સુધારી શકો છો — તમે ખાતરી કરો ત્યાં સુધી કશું સાચવવામાં આવતું નથી.",
+  "intake.chat.title": "બનાવ જણાવો",
+  "intake.chat.intro":
+    "તમારા શબ્દોમાં જણાવો શું થયું — કોણે જાણ કરી, કોણ સંડોવાયેલું છે, શું ચોરાયું કે કબજે થયું, અને ક્યારે અને ક્યાં.",
+  "intake.chat.placeholder": "દા.ત. ગઈ કાલે સાંજે રમેશ પટેલે પોતાનું મોટરસાઇકલ ચોરાયાની જાણ કરી…",
+  "intake.chat.send": "મોકલો",
+  "intake.chat.extracting": "વિગતો વંચાઈ રહી છે…",
+  "intake.chat.error": "વિગતો વાંચી શકાઈ નહીં. ફરી પ્રયાસ કરો, અથવા રેકોર્ડ જાતે ભરો.",
+  "intake.chat.you": "તમે",
+  "intake.chat.clerk": "સહાયક",
+  "intake.draft.title": "કેસ રેકોર્ડ",
+  "intake.draft.empty.title": "હજી કશું નોંધાયું નથી",
+  "intake.draft.empty.hint": "ડાબી બાજુ બનાવ જણાવો, વિગતો અહીં દેખાશે.",
+  "intake.draft.unsaved": "મુસદ્દો — હજી સાચવ્યો નથી",
+  "intake.draft.unsavedHint":
+    "આ રેકોર્ડ ફક્ત આ બ્રાઉઝરમાં છે. 'કેસ નોંધો' દબાવો ત્યાં સુધી કેસ ફાઇલમાં કશું લખાતું નથી.",
+  "intake.section.case": "બનાવ",
+  "intake.section.persons": "વ્યક્તિઓ",
+  "intake.section.items": "જપ્ત મુદ્દામાલ",
+  "intake.addPerson": "વ્યક્તિ ઉમેરો",
+  "intake.addItem": "મુદ્દામાલ ઉમેરો",
+  "intake.remove": "દૂર કરો",
+  "intake.edited": "સંપાદિત",
+  "intake.confirm": "કેસ નોંધો",
+  "intake.confirming": "નોંધાઈ રહ્યું છે…",
+  "intake.confirmHint": "ઉપરની દરેક વિગત તપાસો. નોંધવાથી કેસ, વ્યક્તિઓ અને મુદ્દામાલ કેસ ફાઇલમાં લખાશે.",
+  "intake.numberRequired": "કેસ નંબર જરૂરી છે.",
+  "intake.commitError": "કેસ નોંધી શકાયો નહીં. કશું સાચવવામાં આવ્યું નથી.",
+  "intake.startOver": "ફરી શરૂ કરો",
+  "intake.legalNote": "કાનૂની કલમો અહીં નક્કી થતી નથી — કેસ નોંધાયા પછી કલમ વિશ્લેષણ ચલાવો.",
 };
 
 const TABLE: Record<Lang, Dict> = { EN: en, HI: hi, GU: gu };
