@@ -171,6 +171,8 @@ const en = {
   "tab.documents": "Documents",
   "tab.diary": "Case diary",
   "tab.assistant": "Assistant",
+  "idle.warning": "Signing you out in {sec}s — no activity.",
+  "idle.warning.hint": "Press a key or click anywhere to stay signed in.",
 
   // -- case details tab --
   "details.narrative.title": "Complaint narrative",
@@ -840,6 +842,8 @@ const hi: Dict = {
   "tab.documents": "दस्तावेज़",
   "tab.diary": "केस डायरी",
   "tab.assistant": "सहायक",
+  "idle.warning": "{sec} सेकंड में साइन आउट — कोई गतिविधि नहीं।",
+  "idle.warning.hint": "साइन इन रहने के लिए कोई कुंजी दबाएं या कहीं भी क्लिक करें।",
 
   "details.narrative.title": "शिकायत विवरण",
   "details.narrative.empty": "इस केस के लिए कोई शिकायत विवरण दर्ज नहीं है।",
@@ -1482,6 +1486,8 @@ const gu: Dict = {
   "tab.documents": "દસ્તાવેજો",
   "tab.diary": "કેસ ડાયરી",
   "tab.assistant": "સહાયક",
+  "idle.warning": "{sec} સેકંડમાં સાઇન આઉટ — કોઈ પ્રવૃત્તિ નથી.",
+  "idle.warning.hint": "સાઇન ઇન રહેવા કોઈ કી દબાવો અથવા ગમે ત્યાં ક્લિક કરો.",
 
   "details.narrative.title": "ફરિયાદ વર્ણન",
   "details.narrative.empty": "આ કેસ માટે કોઈ ફરિયાદ વર્ણન નોંધાયેલ નથી.",

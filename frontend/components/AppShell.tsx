@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "./AuthProvider";
+import IdleLogout from "./IdleLogout";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
@@ -23,6 +24,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-on-background">
+      {/* Mounted with the chrome, so it watches only signed-in sessions and never the
+          login screen. Renders nothing until it has something to warn about. */}
+      <IdleLogout />
       <Sidebar />
       <TopBar />
       <main className="ml-[280px] pt-16 min-h-screen custom-scrollbar">
