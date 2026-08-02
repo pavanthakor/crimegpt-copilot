@@ -31,6 +31,7 @@ _STATUS_TO_ACTIVITY = {
     CaseStatus.ARREST: ActivityType.ARREST,
     CaseStatus.REMAND: ActivityType.REMAND,
 }
+from app.services.pool_writes import create_case_row
 from app.schemas.case import (
     CaseCreate,
     CaseDetailOut,
@@ -74,36 +75,9 @@ def create_case(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.IO, UserRole.SHO)),
 ):
-    if db.query(Case).filter(Case.case_number == body.case_number).first():
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "case_number already exists"
-        )
-
-    case = Case(**body.model_dump(), created_by=user.id)
-    db.add(case)
-    db.flush()  # assign case.id
-
-    db.add(
-        AuditLog(
-            case_id=case.id,
-            entity_type="case",
-            entity_id=case.id,
-            action=AuditAction.CREATE,
-            field_changes=body.model_dump(mode="json"),
-            performed_by=user.id,
-        )
-    )
-    db.add(
-        CaseDiaryEntry(
-            case_id=case.id,
-            entry_datetime=datetime.now(timezone.utc),
-            activity_type=ActivityType.COMPLAINT,
-            description=f"Case {case.case_number} registered from FIR complaint.",
-            auto_generated=True,
-            created_by=user.id,
-        )
-    )
-
+    # Row + audit + opening diary entry live in services.pool_writes so conversational
+    # intake can compose this create with persons/items inside ONE transaction.
+    case = create_case_row(db, body, user)
     db.commit()
     db.refresh(case)
     return case

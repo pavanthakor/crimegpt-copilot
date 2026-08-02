@@ -57,14 +57,21 @@ DEMO_USERS = [
         "role": UserRole.IO,
         "rank": "Police Inspector",
         "badge_no": "GJ-AMD-4471",
+        "police_station": "Satellite Police Station",
+        "district": "Ahmedabad",
     },
     {
+        # Deliberately posted to a DIFFERENT station from the other three: intake fills
+        # the case header from whoever is logged in, and a constant would look identical
+        # to a hardcoded value. Logging in as io2 is the proof it is officer-derived.
         "username": "io2",
         "password": "io2123",
         "full_name": "Sub-Inspector Meera Joshi",
         "role": UserRole.IO,
         "rank": "Police Sub-Inspector",
         "badge_no": "GJ-AMD-5518",
+        "police_station": "Ellisbridge Police Station",
+        "district": "Ahmedabad",
     },
     {
         "username": "sho",
@@ -73,6 +80,8 @@ DEMO_USERS = [
         "role": UserRole.SHO,
         "rank": "Police Inspector (SHO)",
         "badge_no": "GJ-AMD-2210",
+        "police_station": "Satellite Police Station",
+        "district": "Ahmedabad",
     },
     {
         "username": "legal",
@@ -81,6 +90,8 @@ DEMO_USERS = [
         "role": UserRole.LEGAL_ADVISOR,
         "rank": "Legal Advisor",
         "badge_no": "GJ-BAR-1187",
+        "police_station": "Satellite Police Station",
+        "district": "Ahmedabad",
     },
 ]
 
@@ -412,9 +423,11 @@ DEMO_CASE_NUMBER = DEMO_CASES[0]["case"]["case_number"]
 def _get_or_create_user(db, data) -> tuple[User, bool]:
     user = db.query(User).filter(User.username == data["username"]).first()
     if user is not None:
-        # Backfill rank/badge_no on already-seeded users (existing data survives).
+        # Backfill officer attributes on already-seeded users (existing data survives).
         user.rank = data["rank"]
         user.badge_no = data["badge_no"]
+        user.police_station = data["police_station"]
+        user.district = data["district"]
         return user, False
     user = User(
         username=data["username"],
@@ -423,6 +436,8 @@ def _get_or_create_user(db, data) -> tuple[User, bool]:
         role=data["role"],
         rank=data["rank"],
         badge_no=data["badge_no"],
+        police_station=data["police_station"],
+        district=data["district"],
     )
     db.add(user)
     db.flush()

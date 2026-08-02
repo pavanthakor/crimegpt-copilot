@@ -85,14 +85,24 @@ export default function CasesPage() {
                 : t("cases.subtitle.io", { n: rows.length })}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/cases/new")}
-          className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
-        >
-          <span className="material-symbols-outlined text-xl">add</span>
-          {t("cases.new")}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/cases/intake")}
+            className="flex items-center gap-2 px-4 py-2 rounded font-body-md text-primary border border-primary hover:bg-surface-container-low transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">forum</span>
+            {t("nav.intake")}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/cases/new")}
+            className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">add</span>
+            {t("cases.new")}
+          </button>
+        </div>
       </div>
 
       {/* Filter row: search + status */}

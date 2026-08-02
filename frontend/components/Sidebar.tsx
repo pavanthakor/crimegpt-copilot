@@ -23,6 +23,7 @@ type Item = NavItem & { caseTab?: string };
 const NAV: Item[] = [
   { id: "dashboard", labelKey: "nav.dashboard", href: "/dashboard", icon: "dashboard", ready: true },
   { id: "cases", labelKey: "nav.cases", href: "/cases", icon: "folder_shared", ready: true },
+  { id: "intake", labelKey: "nav.intake", href: "/cases/intake", icon: "forum", ready: true },
   { id: "evidence", labelKey: "nav.evidence", href: "/cases", icon: "inventory_2", ready: true, caseTab: "evidence" },
   { id: "documents", labelKey: "nav.documents", href: "/cases", icon: "description", ready: true, caseTab: "documents" },
   { id: "analysis", labelKey: "nav.analysis", href: "/analysis", icon: "neurology", ready: true },
@@ -31,6 +32,10 @@ const NAV: Item[] = [
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
+  // Intake lives under /cases but has its own entry — don't light up Cases as well.
+  if (href === "/cases") {
+    return pathname === "/cases" || (pathname.startsWith("/cases/") && !isActive(pathname, "/cases/intake"));
+  }
   return pathname === href || pathname.startsWith(href + "/");
 }
 

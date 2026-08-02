@@ -14,4 +14,9 @@ class User(Base):
     role = Column(Enum(UserRole), nullable=False)
     rank = Column(String)      # e.g. "Police Inspector" — printed on the IF4 signature block
     badge_no = Column(String)  # buckle / badge number — printed on the IF4 signature block
+    # The officer's posting. A case header's station/district describe WHERE IT WAS
+    # REGISTERED, which is a property of the registering officer, not of the incident —
+    # so conversational intake reads them from here rather than from the complaint text.
+    police_station = Column(String)
+    district = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

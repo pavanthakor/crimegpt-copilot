@@ -36,6 +36,10 @@ class RegisterRequest(BaseModel):
     password: str
     full_name: str | None = None
     role: UserRole
+    # The officer's posting. Optional so existing callers are unaffected; an account
+    # created without them simply pre-fills nothing when that officer runs intake.
+    police_station: str | None = None
+    district: str | None = None
 
 
 class UserOut(BaseModel):
@@ -45,6 +49,8 @@ class UserOut(BaseModel):
     username: str
     full_name: str | None = None
     role: UserRole
+    police_station: str | None = None
+    district: str | None = None
 
 
 # ---------- Dependencies ----------
@@ -121,6 +127,8 @@ def register(
         password_hash=hash_password(body.password),
         full_name=body.full_name,
         role=body.role,
+        police_station=body.police_station,
+        district=body.district,
     )
     db.add(user)
     db.flush()  # assign user.id
@@ -135,6 +143,8 @@ def register(
                 "username": body.username,
                 "full_name": body.full_name,
                 "role": body.role.value,
+                "police_station": body.police_station,
+                "district": body.district,
             },
             performed_by=_admin.id,
         )

@@ -245,10 +245,125 @@ TEXT:
 """
 
 # ---------------------------------------------------------------------------
+# G. Conversational intake extraction  (input: the officer's chat turns)
+#
+# PURE EXTRACTION — this prompt DECIDES NOTHING. It maps what the officer said onto
+# the existing pool schema (cases / persons / seized_items, CLAUDE.md §5) and stops.
+# It must never name a BNS/BNSS/BSA section, suggest a charge, or characterise an
+# offence: section mapping is a separate, RAG-grounded, accept/reject flow (prompt A)
+# and intake must not pre-empt or contaminate it.
+#
+# The guarantee is STRUCTURAL as well as instructional: `app.ai.intake` whitelists the
+# returned keys against the pool schema, so any "sections"/"charges" field the model
+# invents anyway is dropped before it can reach the officer.
+# ---------------------------------------------------------------------------
+INTAKE_EXTRACTION_SCHEMA = {
+    # No title, police_station or district here on purpose. The title is composed in
+    # code so it cannot pre-classify the offence, and the station/district describe where
+    # the case is being REGISTERED — they come off the logged-in officer's record, not
+    # out of what the complainant said.
+    "case": {
+        "incident_datetime": "string — ISO 8601 'YYYY-MM-DDTHH:MM:SS', or null",
+        "incident_location": (
+            "string — the place it happened: the locality, address or landmark the officer "
+            "named. Fill this whenever the officer named any place at all. Null only if "
+            "they named none"
+        ),
+        "complaint_narrative": "string — the incident as the officer described it",
+        "fir_number": "string — ONLY if the officer stated one, else null",
+    },
+    "persons": [
+        {
+            "role": "COMPLAINANT | ACCUSED | WITNESS | VICTIM",
+            "full_name": "string or null",
+            "alias": "string or null",
+            "father_name": "string or null",
+            "age": "integer or null",
+            "gender": "string or null",
+            "address": "string or null",
+            "phone": "string or null",
+            "occupation": "string or null",
+        }
+    ],
+    "seized_items": [
+        {
+            "description": "string — what the item is",
+            "quantity": "integer or null",
+            "estimated_value": "number or null",
+            "seized_from_name": "string — the person's name it was seized from, or null",
+            "seizure_datetime": "string — ISO 8601, or null",
+            "seizure_location": "string or null",
+        }
+    ],
+    "incident_described": (
+        "boolean — true if the officer's words are an account of something that happened, "
+        "even a very brief one; false if the text contains no account of any event"
+    ),
+    "reply": "string — one short sentence to the officer, in their language",
+}
+
+INTAKE_EXTRACTION_PROMPT = """You are a police records clerk taking down an incident report in India. \
+Today's date is {today}.
+
+Read the CONVERSATION below and extract ONLY the facts the officer actually stated, onto the \
+record structure. You are a clerk filling in a form — you are NOT an investigator and NOT a lawyer.
+
+STRICT RULES:
+- Extract facts ONLY. Never state, name, cite or imply any legal section, act, charge or offence \
+category (BNS, BNSS, BSA, IPC, IT Act or any other). Never say what crime this is. That decision \
+belongs to the officer and to a separate legal-analysis step, not to you.
+- Never invent, guess or infer a value. If the officer did not say it, use null. An empty record \
+is correct; a plausible-sounding invention is a serious error.
+- FIRST DECIDE ONE THING, before filling in anything: can you say WHAT HAPPENED — an act, done \
+to some person or some thing? If you can name the act, set "incident_described" true. If you \
+cannot, because the words name no act at all, set it false. Length is not the test: a handful of \
+words can name an act, while a long run of letters or syllables that form no words in any language \
+names none. Do not read an act into text that does not contain one.
+- A REPORT CAN BE VERY SHORT AND STILL BE REAL. If the officer states that something happened — \
+even in a handful of words, with no names, no date, no place and no property listed — that IS an \
+incident: set "incident_described" true, fill in the little that is there, leave every other field \
+null, and use "reply" to ask for the missing facts. Sparse is not the same as empty; do not discard \
+a real report for being brief, and do not pad it out with details the officer never gave.
+- IF THE CONVERSATION DESCRIBES NO INCIDENT AT ALL — it is blank, a greeting, a stray keystroke, \
+random letters, or anything else that is not an account of something that happened — set \
+"incident_described" false and return an EMPTY record: "persons": [], "seized_items": [], every \
+case field null, and a "reply" asking the officer to describe the incident. Do NOT invent an \
+incident, a name, an item or a place to fill the form. Returning nothing is the correct answer \
+here, never a guess.
+- Copy names, places and numbers EXACTLY as the officer gave them. Do not translate, transliterate \
+or "correct" them.
+- Write complaint_narrative in the SAME language the officer used ({language}), in their own words, \
+as a plain factual account.
+- Resolve relative dates ("yesterday", "last Tuesday", "this morning") against today's date, {today}.
+- role must be exactly one of COMPLAINANT, ACCUSED, WITNESS, VICTIM. The person reporting the \
+incident is COMPLAINANT. Someone harmed is VICTIM. Someone accused of the act is ACCUSED. Someone \
+who saw it is WITNESS. If the officer did not make a person's role clear, leave that person out.
+- ONE SENTENCE OFTEN NAMES TWO DIFFERENT PEOPLE — the person who saw something, and the person \
+they saw doing it. List BOTH as separate entries. Whoever saw, heard or noticed the incident is a \
+WITNESS even when the same sentence also names the person they were watching; do not drop the \
+observer and keep only the actor.
+- ATTACH EACH DETAIL TO THE NAME IT IS WRITTEN BESIDE. An age, occupation, address, father's name \
+or phone number belongs to the nearest preceding name — the person it is written about — and never \
+to a different person named later in the same sentence. If you are not certain which person a \
+detail describes, leave it null rather than attaching it to the wrong person.
+- fir_number is a LEGAL IDENTIFIER assigned by the police station. Fill it ONLY if the officer \
+stated one in so many words. Never construct, guess, pattern-match or continue a number series to \
+produce one — if the officer did not say it, it is null and it will be asked for.
+- seized_from_name must be the name of a person you also listed in "persons", or null.
+- "reply" is ONE short sentence in {language}: acknowledge what you recorded, and if a plain FACTUAL \
+detail is missing (a name, a date, a place, an item), ask for that ONE detail. Ask about facts only — \
+never about law, charges or what section applies. Do not summarise the law. Do not give advice.
+
+CONVERSATION:
+{conversation}
+"""
+
+# ---------------------------------------------------------------------------
 # Registry — convenient (prompt, schema) lookup by key
 # ---------------------------------------------------------------------------
 PROMPTS = {
     "section_mapping": (SECTION_MAPPING_PROMPT, SECTION_MAPPING_SCHEMA),
+    "intake_extraction": (INTAKE_EXTRACTION_PROMPT, INTAKE_EXTRACTION_SCHEMA),
     "judgments": (JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA),
     "weak_charge": (WEAK_CHARGE_PROMPT, WEAK_CHARGE_SCHEMA),
     "diary_entry": (DIARY_ENTRY_PROMPT, DIARY_ENTRY_SCHEMA),

@@ -37,9 +37,9 @@ from app.api.cases import _get_visible_case
 from app.core.config import settings
 from app.core import runtime
 from app.core.db import get_db
+from app.services import pool_writes
 from app.schemas.case import DiaryEntryOut
 from app.models import (
-    AuditLog,
     CaseDiaryEntry,
     Evidence,
     Person,
@@ -76,39 +76,11 @@ def _json_safe(value):
     return value
 
 
-def _audit(db, case_id, entity_type, entity_id, action, changes, user):
-    db.add(
-        AuditLog(
-            case_id=case_id,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            action=action,
-            field_changes=changes,
-            performed_by=user.id,
-        )
-    )
-
-
-def _diary(db, case_id, activity_type, description, user, related_person_id=None,
-           related_evidence_id=None, event_time=None):
-    """Write an auto diary entry.
-
-    `event_time` is when the thing actually happened (seizure time, collection time),
-    which is what the diary should read chronologically by. It falls back to now for
-    events whose occurrence *is* the act of recording them (e.g. adding a person).
-    """
-    db.add(
-        CaseDiaryEntry(
-            case_id=case_id,
-            entry_datetime=event_time or datetime.now(timezone.utc),
-            activity_type=activity_type,
-            description=description,
-            related_person_id=related_person_id,
-            related_evidence_id=related_evidence_id,
-            auto_generated=True,
-            created_by=user.id,
-        )
-    )
+# Audit + diary writers and the core creates now live in services.pool_writes, so a
+# multi-entity create (conversational intake) can compose them in ONE transaction.
+# Aliased to the original private names so every call site below is unchanged.
+_audit = pool_writes.audit
+_diary = pool_writes.diary
 
 
 def _apply_patch(db, obj, body, entity_type, case_id, user):
@@ -303,14 +275,7 @@ def add_person(
     user: User = Depends(require_role(*_WRITE_ROLES)),
 ):
     _get_visible_case(db, user, case_id)
-    person = Person(case_id=case_id, **body.model_dump())
-    db.add(person)
-    db.flush()
-    _audit(db, case_id, "person", person.id, AuditAction.CREATE, body.model_dump(mode="json"), user)
-    activity = ActivityType.WITNESS_EXAM if body.role == PersonRole.WITNESS else ActivityType.OTHER
-    label = (body.full_name or "person")
-    _diary(db, case_id, activity, f"{body.role.value.title()} {label} added to the case.",
-           user, related_person_id=person.id)
+    person = pool_writes.create_person_row(db, case_id, body, user)
     db.commit()
     db.refresh(person)
     return person
@@ -390,13 +355,7 @@ def add_seized_item(
     user: User = Depends(require_role(*_WRITE_ROLES)),
 ):
     _get_visible_case(db, user, case_id)
-    item = SeizedItem(case_id=case_id, **body.model_dump())
-    db.add(item)
-    db.flush()
-    _audit(db, case_id, "seized_item", item.id, AuditAction.CREATE, body.model_dump(mode="json"), user)
-    _diary(db, case_id, ActivityType.EVIDENCE_SEIZURE,
-           f"Seized item recorded: {body.description or 'item'}.", user,
-           event_time=item.seizure_datetime)
+    item = pool_writes.create_seized_item_row(db, case_id, body, user)
     db.commit()
     db.refresh(item)
     return item
