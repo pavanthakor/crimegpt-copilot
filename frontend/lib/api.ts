@@ -2,6 +2,12 @@ import axios from "axios";
 
 const TOKEN_KEY = "crimegpt_token";
 const USER_KEY = "crimegpt_user";
+// Whether this session has cleared its step-up PIN. SESSION storage, not local: it must
+// survive a page reload — "once per session" would be a lie if F5 re-prompted — but must
+// not outlive the tab, and must never be readable by a later session. It holds a boolean,
+// never the PIN. clearToken() removes it, so every path that ends a session (sign out,
+// idle-logout, the 401 redirect) drops the step-up with it.
+const STEPUP_KEY = "crimegpt_stepup";
 
 // Axios instance pointed at the FastAPI backend.
 export const api = axios.create({ baseURL: "http://localhost:8000" });
@@ -136,6 +142,20 @@ export function getToken(): string | null {
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(STEPUP_KEY); // a step-up never outlives its session
+}
+
+export function setStepUpVerified(): void {
+  if (typeof window !== "undefined") sessionStorage.setItem(STEPUP_KEY, "1");
+}
+
+export function isStepUpVerified(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(STEPUP_KEY) === "1";
+}
+
+export function clearStepUpVerified(): void {
+  if (typeof window !== "undefined") sessionStorage.removeItem(STEPUP_KEY);
 }
 
 export function saveUser(user: unknown): void {

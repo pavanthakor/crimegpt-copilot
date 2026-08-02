@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
+import { useStepUp } from "@/components/StepUp";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { PERSON_ROLES } from "@/lib/cases";
 
@@ -153,6 +154,7 @@ const floatOrNull = (v: string): number | null => {
 export default function IntakePage() {
   const { user, ready } = useAuth();
   const { t, apiLang } = useI18n();
+  const stepUp = useStepUp();
   const router = useRouter();
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -792,9 +794,14 @@ export default function IntakePage() {
                   <span className="material-symbols-outlined text-base mt-0.5">gavel</span>
                   {t("intake.legalNote")}
                 </p>
+                {/* Step-up PIN, in front of the existing confirm. Registering a case is
+                    high-stakes: it writes a case, its people and its property under this
+                    officer's name. The button below is unchanged — it is simply not
+                    reached until the session has stepped up. */}
+                {stepUp.prompt}
                 <button
                   type="button"
-                  onClick={onConfirm}
+                  onClick={() => stepUp.guard(onConfirm)}
                   disabled={committing}
                   className="flex items-center gap-2 bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors disabled:opacity-60"
                 >
