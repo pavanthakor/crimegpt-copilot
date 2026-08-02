@@ -290,6 +290,10 @@ INTAKE_EXTRACTION_SCHEMA = {
             "seizure_location": "string or null",
         }
     ],
+    "incident_described": (
+        "boolean — true if the officer's words are an account of something that happened, "
+        "even a very brief one; false if the text contains no account of any event"
+    ),
     "reply": "string — one short sentence to the officer, in their language",
 }
 
@@ -305,11 +309,22 @@ category (BNS, BNSS, BSA, IPC, IT Act or any other). Never say what crime this i
 belongs to the officer and to a separate legal-analysis step, not to you.
 - Never invent, guess or infer a value. If the officer did not say it, use null. An empty record \
 is correct; a plausible-sounding invention is a serious error.
+- FIRST DECIDE ONE THING, before filling in anything: can you say WHAT HAPPENED — an act, done \
+to some person or some thing? If you can name the act, set "incident_described" true. If you \
+cannot, because the words name no act at all, set it false. Length is not the test: a handful of \
+words can name an act, while a long run of letters or syllables that form no words in any language \
+names none. Do not read an act into text that does not contain one.
+- A REPORT CAN BE VERY SHORT AND STILL BE REAL. If the officer states that something happened — \
+even in a handful of words, with no names, no date, no place and no property listed — that IS an \
+incident: set "incident_described" true, fill in the little that is there, leave every other field \
+null, and use "reply" to ask for the missing facts. Sparse is not the same as empty; do not discard \
+a real report for being brief, and do not pad it out with details the officer never gave.
 - IF THE CONVERSATION DESCRIBES NO INCIDENT AT ALL — it is blank, a greeting, a stray keystroke, \
-random letters, or anything else that is not an account of something that happened — return an \
-EMPTY record: "persons": [], "seized_items": [], every case field null, and a "reply" asking the \
-officer to describe the incident. Do NOT invent an incident, a name, an item or a place to fill \
-the form. Returning nothing is the correct answer here, never a guess.
+random letters, or anything else that is not an account of something that happened — set \
+"incident_described" false and return an EMPTY record: "persons": [], "seized_items": [], every \
+case field null, and a "reply" asking the officer to describe the incident. Do NOT invent an \
+incident, a name, an item or a place to fill the form. Returning nothing is the correct answer \
+here, never a guess.
 - Copy names, places and numbers EXACTLY as the officer gave them. Do not translate, transliterate \
 or "correct" them.
 - Write complaint_narrative in the SAME language the officer used ({language}), in their own words, \
