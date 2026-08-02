@@ -8,6 +8,7 @@ import { useI18n, type TKey } from "@/lib/i18n";
 import { InfoTip } from "@/components/InfoTip";
 import { PayloadSummary } from "@/components/PayloadSummary";
 import { DOC_TYPES, fieldLabel, parseMissing } from "@/lib/docTypes";
+import { useStepUp } from "@/components/StepUp";
 
 // Fan-out: one case entry visibly produces many documents. The rows stagger in ~120ms
 // apart when the list (re)renders after a generation. Respects prefers-reduced-motion.
@@ -587,6 +588,7 @@ function DocRow({
 }) {
   const { t } = useI18n();
   const docLabel = (key: string) => t(`docs.type.${key}` as TKey);
+  const stepUp = useStepUp();
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<VersionEntry[] | null>(null);
   const [vLoading, setVLoading] = useState(false);
@@ -682,7 +684,9 @@ function DocRow({
               <RowButton
                 icon="draw"
                 label={busy ? t("docs.action.finalizing") : t("docs.action.finalize")}
-                onClick={finalize}
+                // Step-up sits in front of the existing finalize; finalize() itself is
+                // untouched and is only reached once the session has cleared its PIN.
+                onClick={() => stepUp.guard(finalize)}
                 primary
                 disabled={busy}
               />
@@ -690,6 +694,11 @@ function DocRow({
           </div>
         </td>
       </motion.tr>
+      {stepUp.prompt && (
+        <tr>
+          <td colSpan={5} className="px-4 pb-4">{stepUp.prompt}</td>
+        </tr>
+      )}
       {showVersions && (
         <tr>
           <td colSpan={5} className="px-4 pb-5 bg-surface-container-low">
