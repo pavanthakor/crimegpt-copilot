@@ -11,6 +11,7 @@ import LegalSectionsTab from "./LegalSectionsTab";
 import DocumentsTab from "./DocumentsTab";
 import EvidenceTab from "./EvidenceTab";
 import DiaryTab, { type DiaryEntry } from "./DiaryTab";
+import AssistantTab from "./AssistantTab";
 
 type Person = {
   id: number;
@@ -54,13 +55,14 @@ type CaseDetail = {
   diary_entries: unknown[];
 };
 
-type TabKey = "details" | "evidence" | "sections" | "documents" | "diary";
+type TabKey = "details" | "evidence" | "sections" | "documents" | "diary" | "assistant";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "details", label: "Case details" },
   { key: "evidence", label: "Evidence" },
   { key: "sections", label: "Legal sections" },
   { key: "documents", label: "Documents" },
   { key: "diary", label: "Case diary" },
+  { key: "assistant", label: "Assistant" },
 ];
 const TAB_KEYS = TABS.map((t) => t.key);
 
@@ -260,6 +262,12 @@ export default function CaseWorkspacePage() {
             entries={data.diary_entries as DiaryEntry[]}
             persons={data.persons}
             onDiaryChanged={() => load(true)}
+          />
+        ) : tab === "assistant" ? (
+          <AssistantTab
+            caseId={data.id}
+            role={user.role}
+            onDocsChanged={() => load(true)}
           />
         ) : (
           <TabPlaceholder label={TABS.find((tabItem) => tabItem.key === tab)!.label} />

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.cases import router as cases_router
+from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
 from app.api.intake import router as intake_router
 from app.api.integrations import router as integrations_router
@@ -34,6 +35,7 @@ app.include_router(audit_router)
 app.include_router(integrations_router)
 app.include_router(intake_router)
 app.include_router(system_router)
+app.include_router(chat_router)
 
 
 @app.get("/health")

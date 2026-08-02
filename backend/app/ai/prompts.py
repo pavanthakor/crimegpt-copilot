@@ -359,9 +359,120 @@ CONVERSATION:
 """
 
 # ---------------------------------------------------------------------------
+# H. Document request routing  (input: one officer message)
+#
+# CLASSIFY ONLY. This prompt picks a label out of a closed set and returns nothing
+# else — no prose, no summary, no advice. It is the fallback for phrasings the alias
+# table in `app.ai.chat` does not already cover, so it runs on a minority of messages.
+#
+# The guarantee is structural, as with intake: the caller validates the returned value
+# against the document REGISTRY and discards anything that is not an exact key. A model
+# that invents a document type produces no effect at all, and a model that cannot decide
+# produces a question to the officer rather than a guess.
+# ---------------------------------------------------------------------------
+DOC_REQUEST_SCHEMA = {
+    "doc_type": (
+        "exactly one of SEIZURE_RECEIPT, PANCHNAMA, REMAND, CUSTODY_LETTER, CHARGESHEET, "
+        "MEDICAL_LETTER, LERS_PRESERVATION_REQUEST, LERS_RECORDS_REQUEST — or NONE"
+    ),
+    "query_kind": (
+        "exactly one of EVIDENCE, WITNESSES, ACCUSED, PEOPLE, ITEMS, SECTIONS, DIARY, "
+        "DOCUMENTS, STATEMENTS, STATUS — or NONE"
+    ),
+}
+
+DOC_REQUEST_PROMPT = """You route messages in a police case-file assistant. \
+The officer is either ASKING FOR A DOCUMENT to be prepared, or ASKING A QUESTION about \
+what is already recorded in the case file. Decide which, and label it.
+
+The documents are:
+- SEIZURE_RECEIPT — receipt for property seized from a person (Form IF4)
+- PANCHNAMA — the panchnama drawn up in front of panch witnesses
+- REMAND — request to a court for POLICE custody of an arrested accused
+- CUSTODY_LETTER — letter forwarding an accused to JUDICIAL custody
+- CHARGESHEET — the final report / charge sheet to the court (Form I)
+- MEDICAL_LETTER — letter asking a hospital to examine or treat a person
+- LERS_PRESERVATION_REQUEST — asks a platform to PRESERVE data
+- LERS_RECORDS_REQUEST — asks a platform to DISCLOSE records
+
+The questions you can label are ONLY these, and each asks for something already recorded:
+- EVIDENCE — what evidence has been collected
+- WITNESSES — who the witnesses are
+- ACCUSED — who the accused are
+- PEOPLE — everyone recorded on the case
+- ITEMS — what property has been seized
+- SECTIONS — which legal sections have already been ACCEPTED on the case
+- DIARY — the case diary entries
+- DOCUMENTS — which documents have been generated
+- STATEMENTS — the statements recorded
+- STATUS — the case header: number, FIR, station, status
+
+RULES:
+- Answer with the labels alone. Write no sentence, no explanation, no legal comment.
+- Set doc_type when they want a document PREPARED. Set query_kind when they are asking \
+what the file already contains. Never set both.
+- Set BOTH to NONE if the officer is asking anything else at all. This matters most for \
+questions that ask you to JUDGE: whether the case is strong, whether someone is guilty, \
+what they ought to charge, what will happen in court, what you advise. You do not answer \
+those — you have no label for them, and NONE is the correct and expected answer. Do not \
+reach for the nearest label because a question mentions evidence or charges.
+- SECTIONS means "read back the sections already accepted", never "work out which \
+sections apply". Deciding what applies is a different, reviewed step you take no part in.
+- Never choose a label because it sounds important. Choose only what the words ask for.
+
+OFFICER MESSAGE:
+\"\"\"{message}\"\"\"
+"""
+
+# ---------------------------------------------------------------------------
+# I. Missing-field answer  (input: the fields asked for + the officer's reply)
+#
+# The chat has told the officer which fields a document still needs and they have
+# answered in their own words. This reads their answer onto those fields — and ONLY
+# those fields, which the caller enforces with a whitelist built from the question it
+# actually asked.
+#
+# THE POINT OF FAILURE HERE IS INVENTION, so the rule is the same one intake runs on: a
+# field the officer did not answer stays null, and the caller additionally checks each
+# value is traceable to the words they typed. An unanswered field must remain empty and
+# block the document — a plausible-looking police station on a legal document is far
+# worse than a document that refuses to generate.
+# ---------------------------------------------------------------------------
+FIELD_ANSWER_SCHEMA = {
+    "values": {
+        "<field_name>": "the value the officer gave for that field, or null",
+    },
+}
+
+FIELD_ANSWER_PROMPT = """A police officer was asked to supply some missing details for a case \
+file. Read their reply and match it to the fields that were asked for.
+
+FIELDS ASKED FOR (use these names exactly, and no others):
+{fields}
+
+STRICT RULES:
+- Return a value ONLY for a field the officer actually answered. If they did not mention a \
+field, that field must be null. Leaving it null is correct and expected.
+- Never invent, guess, complete or infer a value. Do not supply a plausible police station, \
+date or name because one is missing — a wrong value on a legal document is far worse than a \
+blank one, and a blank one simply gets asked for again.
+- Copy what the officer wrote. Do not translate, transliterate, expand abbreviations or \
+"correct" spellings of names and places.
+- Dates: return ISO 8601 (YYYY-MM-DD, or YYYY-MM-DDTHH:MM:SS when a time was given). \
+Resolve "yesterday" / "this morning" against today's date, {today}.
+- Add no field that is not in the list above. Write no explanation, no legal comment and no \
+sentence of any kind — return the values only.
+
+OFFICER'S REPLY:
+\"\"\"{answer}\"\"\"
+"""
+
+# ---------------------------------------------------------------------------
 # Registry — convenient (prompt, schema) lookup by key
 # ---------------------------------------------------------------------------
 PROMPTS = {
+    "doc_request": (DOC_REQUEST_PROMPT, DOC_REQUEST_SCHEMA),
+    "field_answer": (FIELD_ANSWER_PROMPT, FIELD_ANSWER_SCHEMA),
     "section_mapping": (SECTION_MAPPING_PROMPT, SECTION_MAPPING_SCHEMA),
     "intake_extraction": (INTAKE_EXTRACTION_PROMPT, INTAKE_EXTRACTION_SCHEMA),
     "judgments": (JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA),
