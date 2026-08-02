@@ -498,9 +498,17 @@ OFFENCE_GATE_PROMPT = """You screen incoming text for a police case system. Deci
 does this text REPORT SOMETHING THAT WAS DONE?
 
 A report of an offence contains an ACT — something a person did, or tried to do, that wronged \
-someone: property taken, damaged, withheld or kept back; a person hurt, threatened, restrained \
-or deceived; a document faked; money extracted. The act may be recent or long past, the person \
-who did it may be unknown, and the report may be very brief.
+someone. A person acts with their WORDS as much as with their hands: threatening someone, \
+demanding something by menace, inciting or urging another to act, and attempting or setting out \
+to do any of these are all things a person DOES. When the act is words, the act is the SAYING of \
+them — it is complete the moment they are spoken, and it does not matter whether the harm those \
+words describe has happened, or ever happens at all. Words that announce a future harm are \
+therefore a present act, not a future one.
+
+Acts include: property taken, damaged, withheld or kept back; a person hurt, threatened, \
+frightened, restrained or deceived; a document faked; money extracted or demanded under threat. \
+The act may be recent or long past, the person who did it may be unknown, and the report may be \
+very brief.
 
 Text that reports NO act includes: a request for information or advice; a question about a \
 procedure, a requirement, a fee or a timeline; an application, or an enquiry about one; a status \
