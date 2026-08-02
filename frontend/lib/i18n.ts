@@ -578,6 +578,15 @@ const en = {
   "intake.chat.placeholder": "e.g. Yesterday evening Ramesh Patel reported his motorcycle stolen from…",
   "intake.chat.send": "Send",
   "intake.chat.extracting": "Reading the details…",
+  // Extraction wait. Stages describe the phases the request really goes through, in
+  // order; elapsed seconds are real; the bar never reaches 100% on its own.
+  "intake.progress.reading": "Reading the narrative…",
+  "intake.progress.people": "Identifying the people involved…",
+  "intake.progress.items": "Looking for seized property…",
+  "intake.progress.checking": "Checking every detail against your words…",
+  "intake.progress.elapsed": "{sec}s",
+  "intake.progress.slow":
+    "Still working — a long or Gujarati narrative takes the local model longer.",
   "intake.chat.error": "Could not read the details. Try again, or fill the record in by hand.",
   "intake.chat.you": "You",
   "intake.chat.clerk": "Assistant",
@@ -1247,6 +1256,13 @@ const hi: Dict = {
   "intake.chat.placeholder": "जैसे: कल शाम रमेश पटेल ने अपनी मोटरसाइकिल चोरी होने की सूचना दी…",
   "intake.chat.send": "भेजें",
   "intake.chat.extracting": "विवरण पढ़े जा रहे हैं…",
+  "intake.progress.reading": "विवरण पढ़ा जा रहा है…",
+  "intake.progress.people": "शामिल व्यक्तियों की पहचान हो रही है…",
+  "intake.progress.items": "जब्त सामान खोजा जा रहा है…",
+  "intake.progress.checking": "हर विवरण आपके शब्दों से मिलाया जा रहा है…",
+  "intake.progress.elapsed": "{sec} से",
+  "intake.progress.slow":
+    "काम जारी है — लंबा या गुजराती विवरण स्थानीय मॉडल को अधिक समय लेता है।",
   "intake.chat.error": "विवरण नहीं पढ़े जा सके। पुनः प्रयास करें, या रिकॉर्ड हाथ से भरें।",
   "intake.chat.you": "आप",
   "intake.chat.clerk": "सहायक",
@@ -1902,6 +1918,13 @@ const gu: Dict = {
   "intake.chat.placeholder": "દા.ત. ગઈ કાલે સાંજે રમેશ પટેલે પોતાનું મોટરસાઇકલ ચોરાયાની જાણ કરી…",
   "intake.chat.send": "મોકલો",
   "intake.chat.extracting": "વિગતો વંચાઈ રહી છે…",
+  "intake.progress.reading": "વિગત વાંચી રહ્યા છીએ…",
+  "intake.progress.people": "સંડોવાયેલ વ્યક્તિઓ ઓળખી રહ્યા છીએ…",
+  "intake.progress.items": "જપ્ત મુદ્દામાલ શોધી રહ્યા છીએ…",
+  "intake.progress.checking": "દરેક વિગત તમારા શબ્દો સાથે ચકાસી રહ્યા છીએ…",
+  "intake.progress.elapsed": "{sec} સે",
+  "intake.progress.slow":
+    "કામ ચાલુ છે — લાંબી કે ગુજરાતી વિગત સ્થાનિક મોડેલને વધુ સમય લે છે.",
   "intake.chat.error": "વિગતો વાંચી શકાઈ નહીં. ફરી પ્રયાસ કરો, અથવા રેકોર્ડ જાતે ભરો.",
   "intake.chat.you": "તમે",
   "intake.chat.clerk": "સહાયક",
