@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
-import { busyForMs, pendingRequests, redirectToLogin } from "@/lib/api";
+import { busyForMs, lastRequestSettledAt, pendingRequests, redirectToLogin } from "@/lib/api";
 import { evaluateIdle, secondsRemaining } from "@/lib/idle";
 import { useI18n } from "@/lib/i18n";
 
@@ -49,7 +49,11 @@ export default function IdleLogout() {
     }
 
     const tick = window.setInterval(() => {
-      const idleMs = Date.now() - lastActivity.current;
+      // Idle runs from the officer's last action OR from the moment the app last stopped
+      // working for them, whichever is later — so a long operation does not eat the
+      // window they need to read its result.
+      const since = Math.max(lastActivity.current, lastRequestSettledAt());
+      const idleMs = Date.now() - since;
       const state = evaluateIdle({
         idleMs,
         pending: pendingRequests(),

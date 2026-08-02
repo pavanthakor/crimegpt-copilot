@@ -47,6 +47,7 @@ export function redirectToLogin(): void {
 // ---------------------------------------------------------------------------
 let pending = 0;
 let busySince: number | null = null;
+let settledAt = 0;
 
 function requestStarted(): void {
   pending += 1;
@@ -55,7 +56,21 @@ function requestStarted(): void {
 
 function requestSettled(): void {
   pending = Math.max(0, pending - 1);
-  if (pending === 0) busySince = null;
+  if (pending === 0) {
+    busySince = null;
+    // The moment the app goes quiet again counts as a fresh start for the idle clock.
+    // Without this, an officer who waits 20s for an extraction is signed out the instant
+    // it returns — the deadline passed while they were watching the spinner, so the
+    // guard that held the session open expires the moment it stops applying, and they
+    // never see what they waited for. Time spent waiting on us must not be charged
+    // against them.
+    settledAt = Date.now();
+  }
+}
+
+/** When the app last finished being busy (0 if it never has). */
+export function lastRequestSettledAt(): number {
+  return settledAt;
 }
 
 /** How many requests are in flight right now. */
