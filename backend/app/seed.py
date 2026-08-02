@@ -59,6 +59,9 @@ DEMO_USERS = [
         "badge_no": "GJ-AMD-4471",
         "police_station": "Satellite Police Station",
         "district": "Ahmedabad",
+        # Step-up PIN, stored hashed (see _get_or_create_user). Plaintext here for the
+        # same reason the passwords are: these are seeded demo credentials.
+        "pin": "1234",
     },
     {
         # Deliberately posted to a DIFFERENT station from the other three: intake fills
@@ -72,6 +75,7 @@ DEMO_USERS = [
         "badge_no": "GJ-AMD-5518",
         "police_station": "Ellisbridge Police Station",
         "district": "Ahmedabad",
+        "pin": "5678",
     },
     {
         "username": "sho",
@@ -82,6 +86,7 @@ DEMO_USERS = [
         "badge_no": "GJ-AMD-2210",
         "police_station": "Satellite Police Station",
         "district": "Ahmedabad",
+        "pin": "4321",
     },
     {
         "username": "legal",
@@ -92,6 +97,7 @@ DEMO_USERS = [
         "badge_no": "GJ-BAR-1187",
         "police_station": "Satellite Police Station",
         "district": "Ahmedabad",
+        "pin": "8765",
     },
 ]
 
@@ -428,6 +434,10 @@ def _get_or_create_user(db, data) -> tuple[User, bool]:
         user.badge_no = data["badge_no"]
         user.police_station = data["police_station"]
         user.district = data["district"]
+        # Re-hashed on every seed run: bcrypt salts each call, so this is not idempotent
+        # byte-for-byte, but the PIN it verifies is. Cheap, and it means an existing demo
+        # database picks up the PIN without a manual step.
+        user.pin_hash = hash_password(data["pin"])
         return user, False
     user = User(
         username=data["username"],
@@ -438,6 +448,7 @@ def _get_or_create_user(db, data) -> tuple[User, bool]:
         badge_no=data["badge_no"],
         police_station=data["police_station"],
         district=data["district"],
+        pin_hash=hash_password(data["pin"]),
     )
     db.add(user)
     db.flush()
