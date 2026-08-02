@@ -359,9 +359,53 @@ CONVERSATION:
 """
 
 # ---------------------------------------------------------------------------
+# H. Document request routing  (input: one officer message)
+#
+# CLASSIFY ONLY. This prompt picks a label out of a closed set and returns nothing
+# else — no prose, no summary, no advice. It is the fallback for phrasings the alias
+# table in `app.ai.chat` does not already cover, so it runs on a minority of messages.
+#
+# The guarantee is structural, as with intake: the caller validates the returned value
+# against the document REGISTRY and discards anything that is not an exact key. A model
+# that invents a document type produces no effect at all, and a model that cannot decide
+# produces a question to the officer rather than a guess.
+# ---------------------------------------------------------------------------
+DOC_REQUEST_SCHEMA = {
+    "doc_type": (
+        "exactly one of SEIZURE_RECEIPT, PANCHNAMA, REMAND, CUSTODY_LETTER, CHARGESHEET, "
+        "MEDICAL_LETTER, LERS_PRESERVATION_REQUEST, LERS_RECORDS_REQUEST — or NONE"
+    ),
+}
+
+DOC_REQUEST_PROMPT = """You route messages in a police case-file assistant. \
+Decide which ONE document the officer is asking for.
+
+The documents are:
+- SEIZURE_RECEIPT — receipt for property seized from a person (Form IF4)
+- PANCHNAMA — the panchnama drawn up in front of panch witnesses
+- REMAND — request to a court for POLICE custody of an arrested accused
+- CUSTODY_LETTER — letter forwarding an accused to JUDICIAL custody
+- CHARGESHEET — the final report / charge sheet to the court (Form I)
+- MEDICAL_LETTER — letter asking a hospital to examine or treat a person
+- LERS_PRESERVATION_REQUEST — asks a platform to PRESERVE data
+- LERS_RECORDS_REQUEST — asks a platform to DISCLOSE records
+
+RULES:
+- Answer with the label alone. Write no sentence, no explanation, no legal comment.
+- Answer NONE if the officer is not asking for a document, if you cannot tell which one \
+they mean, or if two of them fit equally well. NONE is a good answer — the officer will \
+simply be asked which document they meant. A guess is worse than a question.
+- Never choose a document because it sounds important. Choose only what the words ask for.
+
+OFFICER MESSAGE:
+\"\"\"{message}\"\"\"
+"""
+
+# ---------------------------------------------------------------------------
 # Registry — convenient (prompt, schema) lookup by key
 # ---------------------------------------------------------------------------
 PROMPTS = {
+    "doc_request": (DOC_REQUEST_PROMPT, DOC_REQUEST_SCHEMA),
     "section_mapping": (SECTION_MAPPING_PROMPT, SECTION_MAPPING_SCHEMA),
     "intake_extraction": (INTAKE_EXTRACTION_PROMPT, INTAKE_EXTRACTION_SCHEMA),
     "judgments": (JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA),

@@ -7,6 +7,7 @@ import { formatUpdated } from "@/lib/cases";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { InfoTip } from "@/components/InfoTip";
 import { PayloadSummary } from "@/components/PayloadSummary";
+import { DOC_TYPES, fieldLabel, parseMissing } from "@/lib/docTypes";
 
 // Fan-out: one case entry visibly produces many documents. The rows stagger in ~120ms
 // apart when the list (re)renders after a generation. Respects prefers-reduced-motion.
@@ -48,19 +49,9 @@ type BatchOutcome =
   | { docType: string; state: "done" }
   | { docType: string; state: "skipped"; missing: string[] | null; message: string };
 
-// The six registered document types (matches templates/_registry.py).
-// `glossary` (when set) attaches an InfoTip explaining the acronym at its first
-// appearance on this screen (the acronym otherwise only shows inside these buttons).
-const DOC_TYPES: { key: string; label: string; note?: string; icon: string; glossary?: string }[] = [
-  { key: "SEIZURE_RECEIPT", label: "Seizure Receipt", note: "Form IF4", icon: "receipt_long", glossary: "IF4" },
-  { key: "PANCHNAMA", label: "Panchnama", icon: "history_edu" },
-  { key: "REMAND", label: "Remand Request", icon: "gavel" },
-  { key: "CUSTODY_LETTER", label: "Custody Letter", icon: "account_balance" },
-  { key: "CHARGESHEET", label: "Final Form / Report", note: "BNSS §193 Form I", icon: "description" },
-  { key: "MEDICAL_LETTER", label: "Medical Letter", icon: "medical_services" },
-  { key: "LERS_PRESERVATION_REQUEST", label: "LERS Preservation Request", icon: "lock_clock", glossary: "LERS" },
-  { key: "LERS_RECORDS_REQUEST", label: "LERS Records Request", icon: "folder_data" },
-];
+// The registered document types now live in lib/docTypes.ts — the case assistant needs
+// the same list, and one source beats two that must be kept in step. `glossary` (when
+// set) attaches an InfoTip explaining the acronym at its first appearance on this screen.
 const NOTE: Record<string, string | undefined> = Object.fromEntries(
   DOC_TYPES.map((d) => [d.key, d.note])
 );
@@ -71,43 +62,9 @@ const LANGS: { code: string; label: string }[] = [
   { code: "gu", label: "ગુ" },
 ];
 
-// Raw pool field keys -> officer-facing names (never show the code identifiers).
-const FIELD_LABEL: Record<string, string> = {
-  case_number: "case number",
-  fir_number: "FIR number",
-  fir_year: "FIR year",
-  police_station: "police station",
-  district: "district",
-  io_name: "investigating officer",
-  seizure_datetime: "seizure date and time",
-  seizure_location: "seizure place",
-  accused_name: "accused name",
-  seized_items: "seized items",
-  witnesses: "witnesses",
-  panchnama_date: "panchnama date",
-  panchnama_place: "panchnama place",
-  sections_applied: "legal sections",
-  investigation_done: "investigation summary",
-  pending_investigation: "pending investigation",
-  grounds_for_custody: "grounds for custody",
-  subject_name: "subject name",
-  examination_purpose: "examination purpose",
-  report_type: "report type (original / supplementary)",
-  brief_facts: "brief facts of the case",
-  sho_name: "station house officer",
-  acts_sections_line: "acts and sections",
-};
-const friendly = (raw: string) => FIELD_LABEL[raw.trim()] ?? raw.trim().replace(/_/g, " ");
-
-function parseMissing(detail: string | undefined): string[] | null {
-  if (!detail) return null;
-  const m = detail.match(/missing required field\(s\):\s*(.+)$/i);
-  if (!m) return null;
-  return m[1]
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+// Field names and the missing-field parser now come from lib/docTypes.ts, translated
+// (EN/HI/GU) rather than the English-only map they used to be — the case assistant
+// surfaces the same checklist and had to speak the officer's language.
 
 export default function DocumentsTab({
   caseId,
@@ -119,6 +76,7 @@ export default function DocumentsTab({
   onDocsChanged: () => void;
 }) {
   const { t, apiLang } = useI18n();
+  const friendly = (raw: string) => fieldLabel(raw, t);
   const reduce = useReducedMotion();
   const isSho = role === "SHO";
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -401,6 +359,7 @@ function BatchPanel({
   onDismiss: () => void;
 }) {
   const { t } = useI18n();
+  const friendly = (raw: string) => fieldLabel(raw, t);
   const reduce = useReducedMotion();
   const docLabel = (key: string) => t(`docs.type.${key}` as TKey);
   const generatedCount = items.filter((i) => i.state === "done").length;
@@ -790,6 +749,7 @@ function RowButton({
 
 function VersionHistory({ versions }: { versions: VersionEntry[] }) {
   const { t } = useI18n();
+  const friendly = (raw: string) => fieldLabel(raw, t);
   if (!versions.length) {
     return <p className="font-body-md text-on-surface-variant py-4">{t("docs.versions.none")}</p>;
   }
