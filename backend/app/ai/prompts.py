@@ -468,9 +468,67 @@ OFFICER'S REPLY:
 """
 
 # ---------------------------------------------------------------------------
+# K. Offence gate  (input: the complaint narrative)
+#
+# Asked ONCE, before any retrieval, so section selection never runs on text that alleges
+# no offence. Refusal used to be emergent — an input was declined only when nothing
+# survived grounding and the relevance floor — but retrieval always returns nearest
+# neighbours and a similarity floor measures TOPICALITY, not criminality. An enquiry that
+# merely shares vocabulary with an offence retrieves that offence above the floor.
+#
+# The question is deliberately STRUCTURAL, not topical: does the text report something
+# that was DONE? A complaint contains a deed; a request for information contains none,
+# whatever its subject. That distinction generalises, where any list of subjects would
+# only ever fit the inputs it was written against.
+#
+# The model does not decide WHICH offence — only whether anything was done at all — and
+# it must QUOTE the act, which `app.ai.legal` then checks against the narrative exactly
+# as it checks a triggering_phrase. An offence asserted with no words to point at is not
+# established.
+# ---------------------------------------------------------------------------
+OFFENCE_GATE_SCHEMA = {
+    "alleges_offence": "boolean — true only if the text reports something that was DONE",
+    "act_phrase": (
+        "string — the words from the text naming what was done, copied EXACTLY "
+        "character for character, or null if the text reports no act"
+    ),
+}
+
+OFFENCE_GATE_PROMPT = """You screen incoming text for a police case system. Decide ONE thing: \
+does this text REPORT SOMETHING THAT WAS DONE?
+
+A report of an offence contains an ACT — something a person did, or tried to do, that wronged \
+someone: property taken, damaged, withheld or kept back; a person hurt, threatened, restrained \
+or deceived; a document faked; money extracted. The act may be recent or long past, the person \
+who did it may be unknown, and the report may be very brief.
+
+Text that reports NO act includes: a request for information or advice; a question about a \
+procedure, a requirement, a fee or a timeline; an application, or an enquiry about one; a status \
+check; an announcement, a greeting, or a message that simply passes on news. These describe \
+wants, questions or states of affairs — not deeds.
+
+RULES:
+- Judge only what the words say. A subject that often appears in criminal matters is not itself \
+an act: asking about a thing, or about the rules that govern it, is not the same as doing \
+something to it or to someone.
+- Never imagine an act the text does not describe, and never treat the mere mention of a topic \
+as though something had been done.
+- If the text reports an act, set alleges_offence true and copy into act_phrase the words from \
+the text that name what was done — copied EXACTLY, character for character, from the text below.
+- If it reports no act, set alleges_offence false and act_phrase null. False is a correct and \
+expected answer, never a failure.
+- Do not name any law, section or offence category. You are NOT deciding what offence this is — \
+only whether anything was done at all.
+
+TEXT:
+\"\"\"{narrative}\"\"\"
+"""
+
+# ---------------------------------------------------------------------------
 # Registry — convenient (prompt, schema) lookup by key
 # ---------------------------------------------------------------------------
 PROMPTS = {
+    "offence_gate": (OFFENCE_GATE_PROMPT, OFFENCE_GATE_SCHEMA),
     "doc_request": (DOC_REQUEST_PROMPT, DOC_REQUEST_SCHEMA),
     "field_answer": (FIELD_ANSWER_PROMPT, FIELD_ANSWER_SCHEMA),
     "section_mapping": (SECTION_MAPPING_PROMPT, SECTION_MAPPING_SCHEMA),
