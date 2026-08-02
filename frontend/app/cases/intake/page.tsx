@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { useStepUp } from "@/components/StepUp";
+import ExtractionProgress from "@/components/ExtractionProgress";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { PERSON_ROLES } from "@/lib/cases";
 
@@ -494,12 +495,9 @@ export default function IntakePage() {
                 {m.content}
               </Bubble>
             ))}
-            {extracting && (
-              <p className="font-body-md text-on-surface-variant flex items-center gap-2">
-                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-                {t("intake.chat.extracting")}
-              </p>
-            )}
+            {/* The wait is honest — this only stops it reading as a hang. The draft
+                still appears in one piece, once the guards have run. */}
+            <ExtractionProgress active={extracting} />
           </div>
 
           <div className="border-t border-outline-variant p-4 space-y-3">
