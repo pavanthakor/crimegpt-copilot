@@ -402,10 +402,54 @@ OFFICER MESSAGE:
 """
 
 # ---------------------------------------------------------------------------
+# I. Missing-field answer  (input: the fields asked for + the officer's reply)
+#
+# The chat has told the officer which fields a document still needs and they have
+# answered in their own words. This reads their answer onto those fields — and ONLY
+# those fields, which the caller enforces with a whitelist built from the question it
+# actually asked.
+#
+# THE POINT OF FAILURE HERE IS INVENTION, so the rule is the same one intake runs on: a
+# field the officer did not answer stays null, and the caller additionally checks each
+# value is traceable to the words they typed. An unanswered field must remain empty and
+# block the document — a plausible-looking police station on a legal document is far
+# worse than a document that refuses to generate.
+# ---------------------------------------------------------------------------
+FIELD_ANSWER_SCHEMA = {
+    "values": {
+        "<field_name>": "the value the officer gave for that field, or null",
+    },
+}
+
+FIELD_ANSWER_PROMPT = """A police officer was asked to supply some missing details for a case \
+file. Read their reply and match it to the fields that were asked for.
+
+FIELDS ASKED FOR (use these names exactly, and no others):
+{fields}
+
+STRICT RULES:
+- Return a value ONLY for a field the officer actually answered. If they did not mention a \
+field, that field must be null. Leaving it null is correct and expected.
+- Never invent, guess, complete or infer a value. Do not supply a plausible police station, \
+date or name because one is missing — a wrong value on a legal document is far worse than a \
+blank one, and a blank one simply gets asked for again.
+- Copy what the officer wrote. Do not translate, transliterate, expand abbreviations or \
+"correct" spellings of names and places.
+- Dates: return ISO 8601 (YYYY-MM-DD, or YYYY-MM-DDTHH:MM:SS when a time was given). \
+Resolve "yesterday" / "this morning" against today's date, {today}.
+- Add no field that is not in the list above. Write no explanation, no legal comment and no \
+sentence of any kind — return the values only.
+
+OFFICER'S REPLY:
+\"\"\"{answer}\"\"\"
+"""
+
+# ---------------------------------------------------------------------------
 # Registry — convenient (prompt, schema) lookup by key
 # ---------------------------------------------------------------------------
 PROMPTS = {
     "doc_request": (DOC_REQUEST_PROMPT, DOC_REQUEST_SCHEMA),
+    "field_answer": (FIELD_ANSWER_PROMPT, FIELD_ANSWER_SCHEMA),
     "section_mapping": (SECTION_MAPPING_PROMPT, SECTION_MAPPING_SCHEMA),
     "intake_extraction": (INTAKE_EXTRACTION_PROMPT, INTAKE_EXTRACTION_SCHEMA),
     "judgments": (JUDGMENTS_PROMPT, JUDGMENTS_SCHEMA),

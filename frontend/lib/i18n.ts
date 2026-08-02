@@ -667,6 +667,16 @@ const en = {
   "chat.missing": "I cannot prepare the {doc} yet. The case file is missing:",
   "chat.missing.hint": "Add these on the case, then ask me again.",
   "chat.denied": "Your role cannot prepare documents. Ask an IO or the SHO.",
+  // Missing-field completion
+  "chat.ask.fields": "I need {fields} before I can prepare the {doc}. What are they?",
+  "chat.ask.fields.hint": "Answer in your own words. Anything you leave out stays empty.",
+  "chat.missing.blocked":
+    "{fields} cannot be added here — accept them on the Legal sections tab first.",
+  "chat.fill.title": "Save these to the case file?",
+  "chat.fill.stillEmpty": "Still empty: {fields}. I will ask again.",
+  "chat.fill.save": "Save",
+  "chat.fill.saved": "Saved {n} field(s) to the case file.",
+  "chat.fill.none": "I did not find any of those details in that. Nothing was changed.",
 };
 
 const hi: Dict = {
@@ -1260,6 +1270,15 @@ const hi: Dict = {
   "chat.missing": "मैं {doc} अभी तैयार नहीं कर सकता। केस फ़ाइल में यह नहीं है:",
   "chat.missing.hint": "इन्हें केस में जोड़ें, फिर मुझसे दोबारा कहें।",
   "chat.denied": "आपकी भूमिका दस्तावेज़ तैयार नहीं कर सकती। IO या SHO से कहें।",
+  "chat.ask.fields": "{doc} तैयार करने से पहले मुझे {fields} चाहिए। ये क्या हैं?",
+  "chat.ask.fields.hint": "अपने शब्दों में बताइए। जो नहीं बताएंगे वह खाली रहेगा।",
+  "chat.missing.blocked":
+    "{fields} यहाँ नहीं जोड़ी जा सकतीं — पहले कानूनी धाराएं टैब में स्वीकार करें।",
+  "chat.fill.title": "क्या ये केस फ़ाइल में सहेजें?",
+  "chat.fill.stillEmpty": "अब भी खाली: {fields}। मैं फिर पूछूंगा।",
+  "chat.fill.save": "सहेजें",
+  "chat.fill.saved": "{n} फ़ील्ड केस फ़ाइल में सहेजे गए।",
+  "chat.fill.none": "उसमें मुझे वे विवरण नहीं मिले। कुछ भी नहीं बदला गया।",
 };
 
 const gu: Dict = {
@@ -1854,6 +1873,15 @@ const gu: Dict = {
   "chat.missing": "હું {doc} હજુ તૈયાર કરી શકતો નથી. કેસ ફાઇલમાં આ નથી:",
   "chat.missing.hint": "આ કેસમાં ઉમેરો, પછી મને ફરી કહો.",
   "chat.denied": "તમારી ભૂમિકા દસ્તાવેજ તૈયાર કરી શકતી નથી. IO અથવા SHO ને કહો.",
+  "chat.ask.fields": "{doc} તૈયાર કરતાં પહેલાં મને {fields} જોઈએ. એ શું છે?",
+  "chat.ask.fields.hint": "તમારા શબ્દોમાં જણાવો. જે નહીં જણાવો તે ખાલી રહેશે.",
+  "chat.missing.blocked":
+    "{fields} અહીં ઉમેરી શકાતી નથી — પહેલાં કાનૂની કલમો ટૅબમાં સ્વીકારો.",
+  "chat.fill.title": "શું આ કેસ ફાઇલમાં સાચવું?",
+  "chat.fill.stillEmpty": "હજુ ખાલી: {fields}. હું ફરી પૂછીશ.",
+  "chat.fill.save": "સાચવો",
+  "chat.fill.saved": "{n} ફીલ્ડ કેસ ફાઇલમાં સાચવ્યાં.",
+  "chat.fill.none": "એમાં મને એ વિગતો મળી નથી. કંઈ બદલાયું નથી.",
 };
 
 const TABLE: Record<Lang, Dict> = { EN: en, HI: hi, GU: gu };

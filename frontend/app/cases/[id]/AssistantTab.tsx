@@ -27,10 +27,25 @@ type Msg =
   | { kind: "officer"; text: string }
   | { kind: "assistant"; text: string }
   | { kind: "choices"; text: string; options: string[] }
-  | { kind: "missing"; docType: string; fields: string[] }
+  | { kind: "missing"; docType: string; fields: string[]; blocked: string[] }
   | { kind: "done"; docType: string; docId: number; version: number };
 
 type Pending = { docType: string; existing: { version: number } | null };
+
+/** The document we are collecting fields for, and which fields are still outstanding.
+ *  While this is set, the officer's next message is read as an ANSWER rather than routed
+ *  as a new request — we know what we asked, so there is nothing to classify. */
+type Awaiting = { docType: string; fields: string[] };
+
+/** Officer-confirmed-but-not-yet-written values. This is the gate: values sit here until
+ *  the officer approves them, and only then are they sent to the pool endpoints. */
+type FillPlan = { target: "case" | "person" | "item"; field?: string; role?: string };
+type ProposedFill = {
+  docType: string;
+  values: Record<string, string>;
+  unanswered: string[];
+  plan: Record<string, FillPlan>;
+};
 
 export default function AssistantTab({
   caseId,
@@ -48,6 +63,8 @@ export default function AssistantTab({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [awaiting, setAwaiting] = useState<Awaiting | null>(null);
+  const [fill, setFill] = useState<ProposedFill | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,6 +73,14 @@ export default function AssistantTab({
 
   const docLabel = (key: string) => t(`docs.type.${key}` as TKey);
   const say = (m: Msg) => setMessages((prev) => [...prev, m]);
+
+  /** Join field names the way the officer's language joins a list. */
+  const joinList = (labels: string[]) =>
+    labels.length <= 1
+      ? labels[0] ?? ""
+      : labels.slice(0, -1).join(t("intake.ask.listSep")) +
+        t("intake.ask.listLast") +
+        labels[labels.length - 1];
 
   /** Look up whether this document already exists, so the gate can say "version N+1"
    *  rather than implying a first draft. Read-only; a failure just omits the detail. */
@@ -75,8 +100,16 @@ export default function AssistantTab({
     say({ kind: "officer", text });
     setInput("");
     setPending(null);
+    setFill(null);
     setBusy(true);
     try {
+      // If we just asked for specific fields, this message is the ANSWER. No routing is
+      // needed — we know what the question was, so there is nothing to classify.
+      if (awaiting) {
+        await readAnswer(text, awaiting);
+        return;
+      }
+
       const res = await api.post(`/api/cases/${caseId}/chat/route`, {
         message: text,
         lang: apiLang,
@@ -96,6 +129,25 @@ export default function AssistantTab({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Read the officer's reply onto the outstanding fields. Proposes only — no write. */
+  async function readAnswer(text: string, ctx: Awaiting) {
+    const res = await api.post(`/api/cases/${caseId}/chat/answer`, {
+      answer: text,
+      fields: ctx.fields,
+      lang: apiLang,
+    });
+    const values: Record<string, string> = res.data.values ?? {};
+    const unanswered: string[] = res.data.unanswered ?? [];
+
+    if (!Object.keys(values).length) {
+      // Nothing usable in the reply. Say so and leave the fields empty — the document
+      // goes on blocking rather than being completed with something plausible.
+      say({ kind: "assistant", text: t("chat.fill.none") });
+      return;
+    }
+    setFill({ docType: ctx.docType, values, unanswered, plan: res.data.plan ?? {} });
   }
 
   /** Put a confirmation card up. This is the only route to generation. */
@@ -126,14 +178,95 @@ export default function AssistantTab({
       const detail = e?.response?.data?.detail;
       const missing = parseMissing(typeof detail === "string" ? detail : undefined);
       if (missing) {
-        // The existing missing-field checklist, surfaced as-is. Capability 2 turns this
-        // into a conversation; for now it reports exactly what the generator reported.
-        say({ kind: "missing", docType, fields: missing });
+        await askForMissing(docType, missing);
       } else if (e?.response?.status === 403) {
         say({ kind: "assistant", text: t("chat.denied") });
       } else {
         say({ kind: "assistant", text: typeof detail === "string" ? detail : t("chat.error") });
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Turn the generator's checklist into a question.
+   *
+   * The checklist is taken exactly as the generator reported it — nothing here decides
+   * what a document requires. The split only says which of those fields an officer can
+   * answer in a chat: accepted legal sections cannot be, because accepting a section is
+   * the officer's reviewed decision in the legal flow, and a chat that could add one
+   * would be authoring law.
+   */
+  async function askForMissing(docType: string, missing: string[]) {
+    let fillable = missing;
+    let blocked: string[] = [];
+    try {
+      const res = await api.post(`/api/cases/${caseId}/chat/missing`, { missing });
+      fillable = [...(res.data.fillable ?? []), ...(res.data.unknown ?? [])];
+      blocked = res.data.blocked ?? [];
+    } catch {
+      /* fall back to showing the whole checklist unsplit */
+    }
+    say({ kind: "missing", docType, fields: fillable, blocked });
+    setAwaiting(fillable.length ? { docType, fields: fillable } : null);
+  }
+
+  /**
+   * Apply confirmed values through the EXISTING pool endpoints, then retry the document.
+   *
+   * Every write below is a call the case workspace already makes: PATCH the case, POST a
+   * person, POST/PATCH a seized item. Each writes its own audit row and diary entry as it
+   * always has, so a field filled from the chat is indistinguishable in the record from
+   * one typed into a form — which is the point.
+   */
+  async function applyFill(proposed: ProposedFill) {
+    const { docType, values, plan: fillPlan } = proposed;
+    setFill(null);
+    setBusy(true);
+    try {
+      const casePatch: Record<string, string> = {};
+      const itemFields: Record<string, string> = {};
+
+      for (const [field, value] of Object.entries(values)) {
+        const plan = fillPlan[field];
+        if (!plan) continue;
+        if (plan.target === "case") casePatch[plan.field!] = value;
+        else if (plan.target === "item") itemFields[plan.field!] = value;
+        else if (plan.target === "person") {
+          await api.post(`/api/cases/${caseId}/persons`, {
+            role: plan.role,
+            full_name: value,
+          });
+        }
+      }
+
+      if (Object.keys(casePatch).length) {
+        await api.patch(`/api/cases/${caseId}`, casePatch);
+      }
+
+      if (Object.keys(itemFields).length) {
+        // Seizure date and place are read off the FIRST seized item, so they attach to it
+        // — or create it, when the case has no items yet (which is why the list was empty).
+        const items = (await api.get(`/api/cases/${caseId}/seized-items`)).data ?? [];
+        if (items.length) {
+          await api.patch(`/api/cases/${caseId}/seized-items/${items[0].id}`, itemFields);
+        } else {
+          await api.post(`/api/cases/${caseId}/seized-items`, itemFields);
+        }
+      }
+
+      onDocsChanged();
+      say({
+        kind: "assistant",
+        text: t("chat.fill.saved", { n: Object.keys(values).length }),
+      });
+      setAwaiting(null);
+      // The officer asked for a document; now that the gaps are filled, try again.
+      await runGeneration(docType);
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      say({ kind: "assistant", text: typeof detail === "string" ? detail : t("chat.error") });
     } finally {
       setBusy(false);
     }
@@ -202,20 +335,28 @@ export default function AssistantTab({
           if (m.kind === "missing")
             return (
               <Bubble key={i} who={t("chat.assistant")} tone="assistant">
-                <p>{t("chat.missing", { doc: docLabel(m.docType) })}</p>
-                <ul className="mt-2 space-y-1">
-                  {m.fields.map((f) => (
-                    <li key={f} className="font-body-sm text-on-surface flex items-center gap-2">
-                      <span className="material-symbols-outlined text-base text-secondary">
-                        error
-                      </span>
-                      {fieldLabel(f, t)}
-                    </li>
-                  ))}
-                </ul>
-                <p className="font-body-sm text-on-surface-variant mt-2">
-                  {t("chat.missing.hint")}
-                </p>
+                {/* The question names the fields the officer can answer right here. */}
+                {m.fields.length > 0 && (
+                  <>
+                    <p>
+                      {t("chat.ask.fields", {
+                        doc: docLabel(m.docType),
+                        fields: joinList(m.fields.map((f) => fieldLabel(f, t))),
+                      })}
+                    </p>
+                    <p className="font-body-sm text-on-surface-variant mt-1">
+                      {t("chat.ask.fields.hint")}
+                    </p>
+                  </>
+                )}
+                {/* Fields no chat answer can fill — say which surface owns them. */}
+                {m.blocked.length > 0 && (
+                  <p className={`font-body-sm text-on-surface-variant ${m.fields.length ? "mt-3" : ""}`}>
+                    {t("chat.missing.blocked", {
+                      fields: joinList(m.blocked.map((f) => fieldLabel(f, t))),
+                    })}
+                  </p>
+                )}
               </Bubble>
             );
 
@@ -236,6 +377,51 @@ export default function AssistantTab({
             </Bubble>
           );
         })}
+
+        {/* ---- write gate: these values reach the case file only on confirm ---- */}
+        {fill && (
+          <div className="border border-primary rounded p-4 bg-surface-container-low">
+            <p className="font-body-md text-on-surface font-semibold">
+              {t("chat.fill.title")}
+            </p>
+            <ul className="mt-2 space-y-1">
+              {Object.entries(fill.values).map(([field, value]) => (
+                <li key={field} className="font-body-sm flex gap-2">
+                  <span className="text-on-surface-variant min-w-[9rem]">
+                    {fieldLabel(field, t)}
+                  </span>
+                  <span className="text-on-surface font-semibold">{value}</span>
+                </li>
+              ))}
+            </ul>
+            {fill.unanswered.length > 0 && (
+              <p className="font-body-sm text-on-surface-variant mt-2">
+                {t("chat.fill.stillEmpty", {
+                  fields: joinList(fill.unanswered.map((f) => fieldLabel(f, t))),
+                })}
+              </p>
+            )}
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => applyFill(fill)}
+                className="bg-primary text-surface-bright px-4 py-2 rounded font-body-md font-semibold hover:bg-inverse-surface transition-colors"
+              >
+                {t("chat.fill.save")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFill(null);
+                  say({ kind: "assistant", text: t("chat.cancelled") });
+                }}
+                className="px-4 py-2 rounded font-body-md text-on-surface-variant border border-outline-variant hover:bg-surface-container-low transition-colors"
+              >
+                {t("chat.confirm.cancel")}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ---- the confirmation gate: nothing is written until this is clicked ---- */}
         {pending && (

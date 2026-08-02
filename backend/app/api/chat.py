@@ -28,7 +28,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.ai.chat import classify_document_request
+from app.ai.chat import (
+    FILL_PLAN,
+    classify_document_request,
+    extract_field_answers,
+    split_missing,
+)
 from app.api.auth import get_current_user
 from app.api.cases import _get_visible_case
 from app.core.db import get_db
@@ -75,3 +80,76 @@ def chat_route(
         case_id, result["intent"], result["doc_type"], result["source"],
     )
     return ChatRouteResponse(**result)
+
+
+# ---------------------------------------------------------------------------
+# Missing-field completion (capability 2)
+# ---------------------------------------------------------------------------
+class MissingSplitRequest(BaseModel):
+    missing: list[str]
+
+
+class MissingSplitResponse(BaseModel):
+    # What the officer can answer here, what belongs to another surface, and anything
+    # unrecognised — so the UI can say plainly which is which instead of asking for a
+    # field no answer could ever fill.
+    fillable: list[str] = []
+    blocked: list[str] = []
+    unknown: list[str] = []
+
+
+@router.post("/{case_id}/chat/missing", response_model=MissingSplitResponse)
+def chat_missing(
+    case_id: int,
+    body: MissingSplitRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Split a generation checklist into answerable and not. Pure lookup, no side effects."""
+    _get_visible_case(db, user, case_id)
+    return MissingSplitResponse(**split_missing(body.missing))
+
+
+class FieldAnswerRequest(BaseModel):
+    answer: str
+    fields: list[str]
+    lang: str = "en"
+
+
+class FieldAnswerResponse(BaseModel):
+    # PROPOSED values, keyed by field. Nothing has been written; the officer confirms
+    # these and the UI then calls the existing pool endpoints to apply them.
+    values: dict[str, str] = {}
+    # Asked for but not answered — these stay empty, and the document keeps blocking.
+    unanswered: list[str] = []
+    # Where each proposed value has to land: {"target": case|person|item, "field"|"role"}.
+    # Sent from here rather than restated in the client, so the mapping from a document's
+    # required field to the pool row behind it has exactly one definition (FILL_PLAN).
+    plan: dict[str, dict] = {}
+
+
+@router.post("/{case_id}/chat/answer", response_model=FieldAnswerResponse)
+def chat_answer(
+    case_id: int,
+    body: FieldAnswerRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Read an officer's reply onto the fields that were asked for. WRITES NOTHING.
+
+    This is the same shape as intake's /extract: it proposes, the officer confirms, and
+    the write happens through the pool endpoints that already exist. Keeping the read and
+    the write in separate calls is what puts the confirmation gate between them.
+    """
+    _get_visible_case(db, user, case_id)
+    asked = [f for f in body.fields if f in FILL_PLAN]
+    values = extract_field_answers(body.answer, asked)
+    unanswered = [f for f in asked if f not in values]
+    logger.info(
+        "chat answer case=%s asked=%s answered=%s", case_id, asked, sorted(values)
+    )
+    return FieldAnswerResponse(
+        values=values,
+        unanswered=unanswered,
+        plan={f: FILL_PLAN[f] for f in values},
+    )
