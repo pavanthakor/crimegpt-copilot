@@ -17,6 +17,68 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Leave for the login screen, dropping the session on the way out.
+ *
+ * Extracted so there is ONE definition of "this session is over". The 401 interceptor
+ * below calls it when the server rejects a stale token; the idle watchdog calls it when
+ * nobody has touched the terminal. Those are two different reasons to end a session, and
+ * they must not become two different implementations of ending one.
+ *
+ * replace() rather than assign(), so Back cannot return to the dead authenticated shell.
+ */
+export function redirectToLogin(): void {
+  if (typeof window === "undefined") return;
+  clearToken();
+  if (window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// In-flight request tracking.
+//
+// The idle watchdog needs to tell "nobody is here" from "the officer is waiting on us".
+// An intake extraction takes 12-40s and a document generation is not instant; during
+// those the officer is sitting watching a spinner, which is the opposite of idle. Every
+// request increments this on the way out and decrements on the way back, whatever the
+// outcome, so a failed request cannot leak the counter upwards and wedge the session
+// open for ever.
+// ---------------------------------------------------------------------------
+let pending = 0;
+let busySince: number | null = null;
+
+function requestStarted(): void {
+  pending += 1;
+  if (busySince === null) busySince = Date.now();
+}
+
+function requestSettled(): void {
+  pending = Math.max(0, pending - 1);
+  if (pending === 0) busySince = null;
+}
+
+/** How many requests are in flight right now. */
+export function pendingRequests(): number {
+  return pending;
+}
+
+/** How long requests have been CONTINUOUSLY in flight, in ms (0 when idle). */
+export function busyForMs(): number {
+  return busySince === null ? 0 : Date.now() - busySince;
+}
+
+api.interceptors.request.use(
+  (config) => {
+    requestStarted();
+    return config;
+  },
+  (error) => {
+    requestSettled();
+    return Promise.reject(error);
+  },
+);
+
 // An expired/invalid JWT must land the officer on the login screen, not paint the
 // authenticated shell around a "Could not validate credentials" message — on a machine
 // idle for days that reads as a broken app, and recovery meant typing /login by hand.
@@ -24,8 +86,12 @@ api.interceptors.request.use((config) => {
 // Deliberately narrow: ONLY 401 redirects. 403/404/500 and every 2xx are passed straight
 // through to the caller untouched, so existing per-page error handling is unchanged.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    requestSettled();
+    return response;
+  },
   (error) => {
+    requestSettled();
     const status = error?.response?.status;
     const url: string = error?.config?.url ?? "";
 
@@ -34,14 +100,8 @@ api.interceptors.response.use(
     // (that would wipe the message and bounce the page onto itself).
     const isLoginAttempt = url.includes("/api/auth/login");
 
-    if (
-      status === 401 &&
-      !isLoginAttempt &&
-      typeof window !== "undefined" &&
-      window.location.pathname !== "/login"
-    ) {
-      clearToken(); // drop the stale token + cached user before leaving
-      window.location.replace("/login"); // replace(), so Back can't return to the dead shell
+    if (status === 401 && !isLoginAttempt) {
+      redirectToLogin(); // the shared path: clears the token, then leaves
     }
 
     // Always re-reject: callers' .catch() still runs and nothing else changes behaviour.
