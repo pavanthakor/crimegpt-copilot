@@ -225,6 +225,49 @@ def _asks_for_judgement(text: str) -> bool:
     return any(marker in text for marker in _JUDGEMENT_MARKERS)
 
 
+# ---------------------------------------------------------------------------
+# "Make the document" — a request to PRODUCE something, that names nothing.
+#
+# This is not the same failure as an unanswerable question, and must not get the same
+# answer. The officer has told us what they want done; they have only left out which
+# document. The useful reply is the list to choose from, not "I cannot assess a case".
+#
+# Detected as an ACT plus a GENERIC OBJECT: an imperative to produce, and a word for a
+# document that names no particular one. A specific document would already have matched
+# the alias table above, so reaching here means they did not name one.
+# ---------------------------------------------------------------------------
+_MAKE_VERBS = (
+    "make", "prepare", "generate", "draft", "create", "write", "produce", "issue",
+    "बनाओ", "बनाइए", "बनाएं", "तैयार", "लिखो", "लिखिए", "जारी",
+    "બનાવો", "બનાવ", "તૈયાર", "લખો", "લખ", "કાઢો",
+)
+_GENERIC_DOC_NOUNS = (
+    "document", "documents", "doc", "docs", "paper", "papers", "form", "forms",
+    "letter", "letters", "report", "application", "it",
+    "दस्तावेज", "दस्तावेज़", "कागज", "कागज़", "पत्र", "फॉर्म", "अर्जी", "रिपोर्ट",
+    "દસ્તાવેજ", "કાગળ", "પત્ર", "ફોર્મ", "અરજી", "અહેવાલ",
+)
+
+
+# A QUESTION IS NOT AN INSTRUCTION, and the difference is what separates "make the
+# document" from "which documents have been generated?" — which contains "generate" and a
+# document noun, yet asks to be told, not to be done. An interrogative rules the message
+# out as a command and lets it fall through to the query tables where it belongs.
+_INTERROGATIVES = (
+    "what", "which", "how many", "how much", "do we", "did we", "have we", "has the",
+    "is there", "are there", "list", "show",
+    "क्या", "कौन", "कितने", "कितनी", "कौनसे", "कौन से",
+    "શું", "કયા", "કઈ", "કેટલા", "કેટલી", "કોણ",
+)
+
+
+def _wants_unnamed_document(text: str) -> bool:
+    """True when the officer INSTRUCTED us to produce a document but named none."""
+    if any(q in text for q in _INTERROGATIVES):
+        return False
+    return any(v in text for v in _MAKE_VERBS) and any(n in text for n in _GENERIC_DOC_NOUNS)
+
+
 _WS = re.compile(r"\s+")
 
 
@@ -301,7 +344,7 @@ def classify_document_request(message: str) -> dict:
     receipt", 15). Only when the two tie — or neither matches — does the model arbitrate.
 
     Returns:
-        {"intent": "GENERATE" | "AMBIGUOUS" | "QUERY" | "UNKNOWN",
+        {"intent": "GENERATE" | "AMBIGUOUS" | "DOC_UNSPECIFIED" | "QUERY" | "UNKNOWN",
          "doc_type": str | None,      # set only when intent is GENERATE
          "query_kind": str | None,    # set only when intent is QUERY
          "candidates": list[str],     # set only when intent is AMBIGUOUS
@@ -323,10 +366,8 @@ def classify_document_request(message: str) -> dict:
     doc_hits, doc_score = _score_aliases(text, _ALIASES, VALID_DOC_TYPES)
     query_hits, query_score = _score_aliases(text, _QUERY_ALIASES)
 
-    # A question beats a document request only by being MORE specific, and vice versa.
-    if query_hits and query_score > doc_score and len(query_hits) == 1:
-        return {"intent": "QUERY", "doc_type": None, "query_kind": query_hits[0],
-                "candidates": [], "source": "alias"}
+    # A NAMED document outranks everything: "prepare the remand application" is a command
+    # even though "remand" could be asked about.
     if doc_hits and doc_score > query_score:
         if len(doc_hits) == 1:
             return {"intent": "GENERATE", "doc_type": doc_hits[0], "query_kind": None,
@@ -336,12 +377,32 @@ def classify_document_request(message: str) -> dict:
         return {"intent": "AMBIGUOUS", "doc_type": None, "query_kind": None,
                 "candidates": doc_hits, "source": "alias"}
 
+    # No document named, but plainly INSTRUCTED to produce one. Checked before the query
+    # tables because a verb of production outranks a topical noun — "દસ્તાવેજ બનાવો" is an
+    # order to make a document, not a question about which documents exist. Offer the list
+    # rather than the can't-help card, instantly, with no model call.
+    # candidates stays empty: the client lists every registered document in its own
+    # display order (with icons), the way it already does elsewhere.
+    if _wants_unnamed_document(text):
+        return {"intent": "DOC_UNSPECIFIED", "doc_type": None, "query_kind": None,
+                "candidates": [], "source": "alias"}
+
+    # A question beats a bare document request by being more specific.
+    if query_hits and query_score > doc_score and len(query_hits) == 1:
+        return {"intent": "QUERY", "doc_type": None, "query_kind": query_hits[0],
+                "candidates": [], "source": "alias"}
+
     doc_type, query_kind = _model_labels(message)
     if doc_type:
         return {"intent": "GENERATE", "doc_type": doc_type, "query_kind": None,
                 "candidates": [], "source": "model"}
     if query_kind:
         return {"intent": "QUERY", "doc_type": None, "query_kind": query_kind,
+                "candidates": [], "source": "model"}
+    # The model found nothing either. If the words still read as an instruction to
+    # produce something, ask which document rather than declining outright.
+    if any(v in text for v in _MAKE_VERBS):
+        return {"intent": "DOC_UNSPECIFIED", "doc_type": None, "query_kind": None,
                 "candidates": [], "source": "model"}
     return {**blank, "source": "model"}
 

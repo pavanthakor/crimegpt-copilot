@@ -170,6 +170,7 @@ const en = {
   "tab.sections": "Legal sections",
   "tab.documents": "Documents",
   "tab.diary": "Case diary",
+  "tab.assistant": "Assistant",
 
   // -- case details tab --
   "details.narrative.title": "Complaint narrative",
@@ -685,7 +686,12 @@ const en = {
     "I only read back what is recorded in this case file — I cannot assess a case, weigh evidence or advise on charges. I can tell you:",
   "chat.q.decline.docs": "I can also prepare any of the case documents — just ask.",
   "chat.q.EVIDENCE.title": "From the case file — {n} piece(s) of evidence:",
-  "chat.q.EVIDENCE.empty": "No evidence has been recorded on this case yet.",
+  "chat.q.EVIDENCE.title.combined":
+    "From the case file — {items} seized item(s) and {files} evidence file(s):",
+  "chat.q.EVIDENCE.seized": "seized",
+  "chat.q.EVIDENCE.file": "file",
+  "chat.q.EVIDENCE.empty":
+    "No seized property or evidence files have been recorded on this case yet.",
   "chat.q.EVIDENCE.label": "what evidence has been collected",
   "chat.q.WITNESSES.title": "From the case file — {n} witness(es):",
   "chat.q.WITNESSES.empty": "No witnesses have been recorded on this case yet.",
@@ -833,6 +839,7 @@ const hi: Dict = {
   "tab.sections": "कानूनी धाराएं",
   "tab.documents": "दस्तावेज़",
   "tab.diary": "केस डायरी",
+  "tab.assistant": "सहायक",
 
   "details.narrative.title": "शिकायत विवरण",
   "details.narrative.empty": "इस केस के लिए कोई शिकायत विवरण दर्ज नहीं है।",
@@ -1322,7 +1329,11 @@ const hi: Dict = {
     "मैं केवल इस केस फ़ाइल में दर्ज बातें पढ़कर बताता हूँ — मैं केस का आकलन, सबूत का मूल्यांकन या धाराओं पर सलाह नहीं दे सकता। मैं यह बता सकता हूँ:",
   "chat.q.decline.docs": "मैं केस के दस्तावेज़ भी तैयार कर सकता हूँ — बस कहिए।",
   "chat.q.EVIDENCE.title": "केस फ़ाइल से — {n} सबूत:",
-  "chat.q.EVIDENCE.empty": "इस केस में अभी कोई सबूत दर्ज नहीं है।",
+  "chat.q.EVIDENCE.title.combined":
+    "केस फ़ाइल से — {items} जब्त सामान और {files} सबूत फ़ाइल:",
+  "chat.q.EVIDENCE.seized": "जब्त",
+  "chat.q.EVIDENCE.file": "फ़ाइल",
+  "chat.q.EVIDENCE.empty": "इस केस में अभी न कोई जब्त सामान है, न कोई सबूत फ़ाइल।",
   "chat.q.EVIDENCE.label": "कौन से सबूत एकत्र हुए हैं",
   "chat.q.WITNESSES.title": "केस फ़ाइल से — {n} गवाह:",
   "chat.q.WITNESSES.empty": "इस केस में अभी कोई गवाह दर्ज नहीं है।",
@@ -1470,6 +1481,7 @@ const gu: Dict = {
   "tab.sections": "કાનૂની કલમો",
   "tab.documents": "દસ્તાવેજો",
   "tab.diary": "કેસ ડાયરી",
+  "tab.assistant": "સહાયક",
 
   "details.narrative.title": "ફરિયાદ વર્ણન",
   "details.narrative.empty": "આ કેસ માટે કોઈ ફરિયાદ વર્ણન નોંધાયેલ નથી.",
@@ -1960,7 +1972,11 @@ const gu: Dict = {
     "હું ફક્ત આ કેસ ફાઇલમાં નોંધાયેલી વિગતો વાંચી આપું છું — હું કેસનું મૂલ્યાંકન, પુરાવાનું આકલન કે કલમો અંગે સલાહ આપી શકતો નથી. હું આ જણાવી શકું:",
   "chat.q.decline.docs": "હું કેસના દસ્તાવેજ પણ તૈયાર કરી શકું છું — ફક્ત કહો.",
   "chat.q.EVIDENCE.title": "કેસ ફાઇલમાંથી — {n} પુરાવા:",
-  "chat.q.EVIDENCE.empty": "આ કેસમાં હજુ કોઈ પુરાવો નોંધાયો નથી.",
+  "chat.q.EVIDENCE.title.combined":
+    "કેસ ફાઇલમાંથી — {items} જપ્ત મુદ્દામાલ અને {files} પુરાવા ફાઇલ:",
+  "chat.q.EVIDENCE.seized": "જપ્ત",
+  "chat.q.EVIDENCE.file": "ફાઇલ",
+  "chat.q.EVIDENCE.empty": "આ કેસમાં હજુ ન કોઈ જપ્ત મુદ્દામાલ છે, ન કોઈ પુરાવા ફાઇલ.",
   "chat.q.EVIDENCE.label": "કયા પુરાવા એકત્ર થયા છે",
   "chat.q.WITNESSES.title": "કેસ ફાઇલમાંથી — {n} સાક્ષી:",
   "chat.q.WITNESSES.empty": "આ કેસમાં હજુ કોઈ સાક્ષી નોંધાયો નથી.",

@@ -28,7 +28,7 @@ type Msg =
   | { kind: "assistant"; text: string }
   | { kind: "choices"; text: string; options: string[] }
   | { kind: "missing"; docType: string; fields: string[]; blocked: string[] }
-  | { kind: "query"; queryKind: string; lines: string[] }
+  | { kind: "query"; queryKind: string; lines: string[]; title?: string }
   | { kind: "decline" }
   | { kind: "done"; docType: string; docId: number; version: number };
 
@@ -139,6 +139,10 @@ export default function AssistantTab({
       } else if (intent === "AMBIGUOUS") {
         // Two documents fit the words equally well. Ask; never pick one.
         say({ kind: "choices", text: t("chat.ask.which"), options: candidates ?? [] });
+      } else if (intent === "DOC_UNSPECIFIED") {
+        // They asked for a document and named none. Offer the list — this is a
+        // different failure from an unanswerable question and gets a different answer.
+        say({ kind: "choices", text: t("chat.ask.which"), options: DOC_TYPES.map((d) => d.key) });
       } else {
         // Not a document request and not a question we can look up — including anything
         // asking for an assessment. Say what can be answered; never venture an opinion.
@@ -184,12 +188,30 @@ export default function AssistantTab({
       [p.full_name || p.alias, p.age ? `${p.age}` : null, p.address].filter(Boolean).join(", ");
 
     let lines: string[] = [];
+    // Set only when a kind needs a title the standard "{n} of X" template cannot express.
+    let title: string | undefined;
     switch (queryKind) {
       case "EVIDENCE": {
-        const rows = await get("/evidence");
-        lines = rows.map((e: any) =>
-          [e.description, e.type].filter(Boolean).join(" — ")
-        );
+        // "Evidence" on screen means BOTH seized property and uploaded files — that is
+        // what the Evidence tab shows. Reporting only the files made the chat contradict
+        // the tab: a case with two seized items and no uploads was answered with "none".
+        // The chat has to agree with what the officer can see.
+        const [files, seized] = await Promise.all([get("/evidence"), get("/seized-items")]);
+        lines = [
+          ...seized.map(
+            (s: any) =>
+              `[${t("chat.q.EVIDENCE.seized")}] ` +
+              [s.description, s.seizure_location].filter(Boolean).join(" — ")
+          ),
+          ...files.map(
+            (e: any) =>
+              `[${t("chat.q.EVIDENCE.file")}] ` +
+              [e.description, e.type].filter(Boolean).join(" — ")
+          ),
+        ];
+        title = lines.length
+          ? t("chat.q.EVIDENCE.title.combined", { items: seized.length, files: files.length })
+          : undefined;
         break;
       }
       case "WITNESSES":
@@ -263,7 +285,7 @@ export default function AssistantTab({
         say({ kind: "decline" });
         return;
     }
-    say({ kind: "query", queryKind, lines: lines.filter(Boolean) });
+    say({ kind: "query", queryKind, lines: lines.filter(Boolean), title });
   }
 
   /** Put a confirmation card up. This is the only route to generation. */
@@ -484,7 +506,7 @@ export default function AssistantTab({
                 ) : (
                   <>
                     <p>
-                      {t(`chat.q.${m.queryKind}.title` as TKey, { n: m.lines.length })}
+                      {m.title ?? t(`chat.q.${m.queryKind}.title` as TKey, { n: m.lines.length })}
                     </p>
                     <ul className="mt-2 space-y-1">
                       {m.lines.map((line, j) => (
