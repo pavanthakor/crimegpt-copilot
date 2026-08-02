@@ -156,6 +156,75 @@ def split_missing(missing: list[str]) -> dict[str, list[str]]:
     return {"fillable": fillable, "blocked": blocked, "unknown": unknown}
 
 
+# ---------------------------------------------------------------------------
+# Questions the assistant can answer — a CLOSED SET, every one of them a lookup of
+# something already stored. There is deliberately no kind for "is this a strong case",
+# "is he guilty" or "what should I charge": those call for judgement, and the assistant
+# has no label to put them under, so they come back UNKNOWN and are declined.
+#
+# Weak-charge alerts and judgment retrieval are absent on purpose too. They are live
+# legal-reasoning endpoints, and routing a chat question into one would turn a record
+# lookup into an analysis the officer never asked to run. They stay on the Legal tab.
+# ---------------------------------------------------------------------------
+QUERY_KINDS = (
+    "EVIDENCE", "WITNESSES", "ACCUSED", "PEOPLE", "ITEMS",
+    "SECTIONS", "DIARY", "DOCUMENTS", "STATEMENTS", "STATUS",
+)
+
+_QUERY_ALIASES: dict[str, list[str]] = {
+    "EVIDENCE":   ["evidence", "exhibit", "सबूत", "साक्ष्य", "पुरावा", "પુરાવા", "સાબિતી"],
+    "WITNESSES":  ["witness", "witnesses", "गवाह", "साक्षी", "સાક્ષી", "સાક્ષીઓ"],
+    "ACCUSED":    ["accused", "suspect", "आरोपी", "आरोपित", "આરોપી"],
+    "PEOPLE":     ["people", "persons", "everyone", "व्यक्ति", "लोग", "વ્યક્તિ", "લોકો"],
+    "ITEMS":      ["seized items", "items seized", "property", "मुद्दामाल", "जब्त सामान",
+                   "મુદ્દામાલ", "જપ્ત મુદ્દામાલ"],
+    "SECTIONS":   ["charges", "charge", "sections", "section", "धारा", "धाराएं", "आरोप",
+                   "કલમ", "કલમો", "આરોપ"],
+    "DIARY":      ["diary", "case diary", "डायरी", "केस डायरी", "ડાયરી", "કેસ ડાયરી"],
+    "DOCUMENTS":  ["documents", "which documents", "दस्तावेज", "दस्तावेज़", "દસ્તાવેજ", "દસ્તાવેજો"],
+    "STATEMENTS": ["statements", "statement", "बयान", "कथन", "નિવેદન", "નિવેદનો"],
+    "STATUS":     ["status", "case status", "स्थिति", "स्तिथि", "સ્થિતિ"],
+}
+
+# ---------------------------------------------------------------------------
+# Asking for JUDGEMENT is not asking for a record.
+#
+# "what should I charge him with?" contains the word "charge"; "do you think the evidence
+# is enough?" contains "evidence". Matched on topic alone, both look like lookups — but
+# neither wants a lookup. They want the assistant to evaluate the case, and it must not,
+# whatever vocabulary the question happens to carry.
+#
+# So this is checked BEFORE any alias, and it forces UNKNOWN. The markers are of register
+# rather than subject: the officer addressing the assistant's opinion ("do you think",
+# "what do you advise"), asking what they ought to do ("should I"), or asking for an
+# assessment ("strong", "enough", "guilty", "hold up"). None of those is answerable from a
+# stored record no matter which table matched.
+#
+# The bias is deliberately toward declining. Wrongly declining costs one rephrase;
+# wrongly answering makes the assistant look like it assessed a criminal case.
+# ---------------------------------------------------------------------------
+_JUDGEMENT_MARKERS = (
+    # asking for advice or an opinion
+    "should i", "should we", "do you think", "what do you think", "your opinion",
+    "advise", "advice", "recommend", "suggest i", "suggest we",
+    # asking for an assessment or a prediction
+    "strong case", "weak case", "is it enough", "is the evidence enough", "enough evidence",
+    "hold up", "hold in court", "will this", "would this", "chances", "likely to",
+    "guilty", "innocent", "convict", "acquit", "prove the case",
+    # Hindi
+    "क्या करूं", "क्या करना", "सलाह", "आपको क्या लगता", "क्या लगता है",
+    "मजबूत", "कमजोर", "दोषी", "निर्दोष", "पर्याप्त",
+    # Gujarati
+    "શું કરું", "શું કરવું", "સલાહ", "તમને શું લાગે", "શું લાગે છે",
+    "મજબૂત", "નબળો", "દોષિત", "નિર્દોષ", "પૂરતું",
+)
+
+
+def _asks_for_judgement(text: str) -> bool:
+    """True when the message asks the assistant to evaluate, predict or advise."""
+    return any(marker in text for marker in _JUDGEMENT_MARKERS)
+
+
 _WS = re.compile(r"\s+")
 
 
@@ -164,31 +233,40 @@ def _normalise(message: str) -> str:
     return f" {_WS.sub(' ', (message or '').strip().lower())} "
 
 
-def _alias_matches(message: str) -> list[str]:
-    """Document types the message names, best first — THE MOST SPECIFIC PHRASE WINS.
+def _score_aliases(text: str, table: dict[str, list[str]], valid=None) -> tuple[list[str], int]:
+    """Best-scoring labels in one table, and that score. THE MOST SPECIFIC PHRASE WINS.
 
     Scored by the length of the longest alias that matched, because a longer alias is a
     more specific phrase. "custody" alone is a real ambiguity and stays one; "judicial
     custody letter" is not, and must not be dragged into ambiguity by the bare "custody"
-    it happens to contain. Only a genuine TIE — two documents matched with equal
-    specificity — is reported as ambiguous.
+    it happens to contain. Only a genuine TIE is reported as ambiguous.
     """
-    text = _normalise(message)
     scores: dict[str, int] = {}
-    for doc_type, aliases in _ALIASES.items():
-        if doc_type not in VALID_DOC_TYPES:
+    for label, aliases in table.items():
+        if valid is not None and label not in valid:
             continue  # a doc type removed from the registry stops being routable
         matched = [len(alias) for alias in aliases if alias in text]
         if matched:
-            scores[doc_type] = max(matched)
+            scores[label] = max(matched)
     if not scores:
-        return []
+        return [], 0
     best = max(scores.values())
-    return [doc_type for doc_type, score in scores.items() if score == best]
+    return [label for label, score in scores.items() if score == best], best
 
 
-def _model_doc_type(message: str) -> str | None:
-    """Ask the model for ONE label. Anything not an exact registry key is discarded."""
+def _alias_matches(message: str) -> list[str]:
+    """Document types the message names (kept for direct callers/tests)."""
+    return _score_aliases(_normalise(message), _ALIASES, VALID_DOC_TYPES)[0]
+
+
+def _model_labels(message: str) -> tuple[str | None, str | None]:
+    """Ask the model for ONE label of each kind. Anything not in the closed set is dropped.
+
+    This is the whole of the model's authority in a query: it may name a label, and the
+    caller does the rest. It cannot write the answer, so it cannot interpret the case,
+    speculate about it, or state law — there is no channel through which a sentence of its
+    composition could reach the officer.
+    """
     try:
         raw = call_llm(
             DOC_REQUEST_PROMPT.format(message=message),
@@ -197,42 +275,75 @@ def _model_doc_type(message: str) -> str | None:
             max_tokens=64,
         )
     except Exception as exc:  # noqa: BLE001 — a routing failure must not break the chat
-        logger.warning("chat: doc-type classification failed (%s); asking the officer", exc)
-        return None
+        logger.warning("chat: classification failed (%s); asking the officer", exc)
+        return None, None
     if not isinstance(raw, dict):
-        return None
-    value = str(raw.get("doc_type") or "").strip().upper()
-    if value in VALID_DOC_TYPES:
-        return value
-    if value and value != "NONE":
-        logger.info("chat: discarding non-registry doc_type %r from model", value)
-    return None
+        return None, None
+
+    doc = str(raw.get("doc_type") or "").strip().upper()
+    kind = str(raw.get("query_kind") or "").strip().upper()
+    if doc and doc != "NONE" and doc not in VALID_DOC_TYPES:
+        logger.info("chat: discarding non-registry doc_type %r from model", doc)
+    if kind and kind != "NONE" and kind not in QUERY_KINDS:
+        logger.info("chat: discarding unknown query_kind %r from model", kind)
+    return (
+        doc if doc in VALID_DOC_TYPES else None,
+        kind if kind in QUERY_KINDS else None,
+    )
 
 
 def classify_document_request(message: str) -> dict:
-    """Which document is this officer asking for?
+    """What is this officer asking for — a document prepared, or a fact read back?
+
+    Both alias tables are scored, and THE MORE SPECIFIC MATCH WINS ACROSS THEM. That is
+    what keeps "show me the seized items" a question (query alias "seized items", 12
+    characters) while "generate the seizure receipt" stays a command (doc alias "seizure
+    receipt", 15). Only when the two tie — or neither matches — does the model arbitrate.
 
     Returns:
-        {"intent": "GENERATE" | "AMBIGUOUS" | "UNKNOWN",
+        {"intent": "GENERATE" | "AMBIGUOUS" | "QUERY" | "UNKNOWN",
          "doc_type": str | None,      # set only when intent is GENERATE
+         "query_kind": str | None,    # set only when intent is QUERY
          "candidates": list[str],     # set only when intent is AMBIGUOUS
-         "source": "alias" | "model" | "none"}   # which stage decided, for the log
+         "source": "alias" | "model" | "none"}
     """
+    blank = {"intent": "UNKNOWN", "doc_type": None, "query_kind": None,
+             "candidates": [], "source": "none"}
     if not (message or "").strip():
-        return {"intent": "UNKNOWN", "doc_type": None, "candidates": [], "source": "none"}
+        return blank
 
-    hits = _alias_matches(message)
-    if len(hits) == 1:
-        return {"intent": "GENERATE", "doc_type": hits[0], "candidates": [], "source": "alias"}
-    if len(hits) > 1:
+    text = _normalise(message)
+
+    # Checked before anything else: a request for judgement is never a lookup, however
+    # much of a lookup's vocabulary it borrows.
+    if _asks_for_judgement(text):
+        logger.info("chat: declining a request for judgement, not a record lookup")
+        return {**blank, "source": "guard"}
+
+    doc_hits, doc_score = _score_aliases(text, _ALIASES, VALID_DOC_TYPES)
+    query_hits, query_score = _score_aliases(text, _QUERY_ALIASES)
+
+    # A question beats a document request only by being MORE specific, and vice versa.
+    if query_hits and query_score > doc_score and len(query_hits) == 1:
+        return {"intent": "QUERY", "doc_type": None, "query_kind": query_hits[0],
+                "candidates": [], "source": "alias"}
+    if doc_hits and doc_score > query_score:
+        if len(doc_hits) == 1:
+            return {"intent": "GENERATE", "doc_type": doc_hits[0], "query_kind": None,
+                    "candidates": [], "source": "alias"}
         # Two documents fit the same words. Ask; never pick one and hope.
-        logger.info("chat: ambiguous document request -> %s", hits)
-        return {"intent": "AMBIGUOUS", "doc_type": None, "candidates": hits, "source": "alias"}
+        logger.info("chat: ambiguous document request -> %s", doc_hits)
+        return {"intent": "AMBIGUOUS", "doc_type": None, "query_kind": None,
+                "candidates": doc_hits, "source": "alias"}
 
-    doc_type = _model_doc_type(message)
+    doc_type, query_kind = _model_labels(message)
     if doc_type:
-        return {"intent": "GENERATE", "doc_type": doc_type, "candidates": [], "source": "model"}
-    return {"intent": "UNKNOWN", "doc_type": None, "candidates": [], "source": "model"}
+        return {"intent": "GENERATE", "doc_type": doc_type, "query_kind": None,
+                "candidates": [], "source": "model"}
+    if query_kind:
+        return {"intent": "QUERY", "doc_type": None, "query_kind": query_kind,
+                "candidates": [], "source": "model"}
+    return {**blank, "source": "model"}
 
 
 # ---------------------------------------------------------------------------

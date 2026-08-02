@@ -28,7 +28,23 @@ type Msg =
   | { kind: "assistant"; text: string }
   | { kind: "choices"; text: string; options: string[] }
   | { kind: "missing"; docType: string; fields: string[]; blocked: string[] }
+  | { kind: "query"; queryKind: string; lines: string[] }
+  | { kind: "decline" }
   | { kind: "done"; docType: string; docId: number; version: number };
+
+/**
+ * The questions the assistant answers, and where each answer comes from.
+ *
+ * Every entry is an EXISTING read endpoint, and `lines` only formats values that came out
+ * of it. There is no branch here that composes a sentence of its own, and nothing that
+ * calls weak-charges, judgment retrieval or the consistency check — those run live legal
+ * reasoning, and a record lookup must not quietly turn into an analysis the officer did
+ * not ask to run. They stay on the Legal tab.
+ */
+const QUERY_KINDS = [
+  "EVIDENCE", "WITNESSES", "ACCUSED", "PEOPLE", "ITEMS",
+  "SECTIONS", "DIARY", "DOCUMENTS", "STATEMENTS", "STATUS",
+] as const;
 
 type Pending = { docType: string; existing: { version: number } | null };
 
@@ -118,11 +134,15 @@ export default function AssistantTab({
 
       if (intent === "GENERATE" && doc_type) {
         await proposeGeneration(doc_type);
+      } else if (intent === "QUERY" && res.data.query_kind) {
+        await answerQuery(res.data.query_kind);
       } else if (intent === "AMBIGUOUS") {
         // Two documents fit the words equally well. Ask; never pick one.
         say({ kind: "choices", text: t("chat.ask.which"), options: candidates ?? [] });
       } else {
-        say({ kind: "choices", text: t("chat.unknown"), options: DOC_TYPES.map((d) => d.key) });
+        // Not a document request and not a question we can look up — including anything
+        // asking for an assessment. Say what can be answered; never venture an opinion.
+        say({ kind: "decline" });
       }
     } catch {
       say({ kind: "assistant", text: t("chat.error") });
@@ -148,6 +168,102 @@ export default function AssistantTab({
       return;
     }
     setFill({ docType: ctx.docType, values, unanswered, plan: res.data.plan ?? {} });
+  }
+
+  /**
+   * Answer a question by READING an existing endpoint and formatting what it returns.
+   *
+   * Nothing in here writes a sentence about the case. Each branch fetches, picks fields
+   * out of the response, and hands back a list of values; the surrounding sentence is an
+   * i18n template. That is the whole guarantee — a component with no ability to compose
+   * prose cannot interpret evidence, weigh a case, or state law, however it is prompted.
+   */
+  async function answerQuery(queryKind: string) {
+    const get = async (path: string) => (await api.get(`/api/cases/${caseId}${path}`)).data ?? [];
+    const person = (p: any) =>
+      [p.full_name || p.alias, p.age ? `${p.age}` : null, p.address].filter(Boolean).join(", ");
+
+    let lines: string[] = [];
+    switch (queryKind) {
+      case "EVIDENCE": {
+        const rows = await get("/evidence");
+        lines = rows.map((e: any) =>
+          [e.description, e.type].filter(Boolean).join(" — ")
+        );
+        break;
+      }
+      case "WITNESSES":
+      case "ACCUSED": {
+        const role = queryKind === "WITNESSES" ? "WITNESS" : "ACCUSED";
+        const rows = await get("/persons");
+        lines = rows.filter((p: any) => p.role === role).map(person);
+        break;
+      }
+      case "PEOPLE": {
+        const rows = await get("/persons");
+        lines = rows.map((p: any) => `${person(p)} — ${t(`person.${p.role}.one` as TKey)}`);
+        break;
+      }
+      case "ITEMS": {
+        const rows = await get("/seized-items");
+        lines = rows.map((s: any) =>
+          [s.description, s.quantity ? `× ${s.quantity}` : null, s.seizure_location]
+            .filter(Boolean)
+            .join(" — ")
+        );
+        break;
+      }
+      case "SECTIONS": {
+        // ACCEPTED only, verbatim from the pool. Suggested-but-unreviewed sections are
+        // not "the charges", and the assistant does not decide which apply.
+        const rows = await get("/sections");
+        lines = rows
+          .filter((s: any) => s.status === "ACCEPTED")
+          .map((s: any) => `${s.act} ${s.section_code} — ${s.section_title ?? ""}`.trim());
+        break;
+      }
+      case "DIARY": {
+        const detail = (await api.get(`/api/cases/${caseId}`)).data;
+        lines = (detail.diary_entries ?? []).map((d: any) =>
+          [d.entry_datetime?.slice(0, 10), d.description].filter(Boolean).join(" — ")
+        );
+        break;
+      }
+      case "DOCUMENTS": {
+        const rows = await get("/documents");
+        lines = rows.map(
+          (d: any) => `${docLabel(d.doc_type)} — v${d.version ?? 1}, ${d.status}`
+        );
+        break;
+      }
+      case "STATEMENTS": {
+        const [rows, persons] = await Promise.all([get("/statements"), get("/persons")]);
+        const nameById: Record<number, string> = Object.fromEntries(
+          persons.map((p: any) => [p.id, p.full_name || p.alias || ""])
+        );
+        lines = rows.map((s: any) =>
+          [nameById[s.person_id], s.statement_type, s.recorded_at?.slice(0, 10)]
+            .filter(Boolean)
+            .join(" — ")
+        );
+        break;
+      }
+      case "STATUS": {
+        const c = (await api.get(`/api/cases/${caseId}`)).data;
+        lines = [
+          `${t("docs.field.case_number")}: ${c.case_number}`,
+          `${t("docs.field.fir_number")}: ${c.fir_number ?? "—"}`,
+          `${t("docs.field.police_station")}: ${c.police_station ?? "—"}`,
+          `${t("docs.field.district")}: ${c.district ?? "—"}`,
+          `${t("chat.q.STATUS.state")}: ${c.status}`,
+        ];
+        break;
+      }
+      default:
+        say({ kind: "decline" });
+        return;
+    }
+    say({ kind: "query", queryKind, lines: lines.filter(Boolean) });
   }
 
   /** Put a confirmation card up. This is the only route to generation. */
@@ -357,6 +473,46 @@ export default function AssistantTab({
                     })}
                   </p>
                 )}
+              </Bubble>
+            );
+
+          if (m.kind === "query")
+            return (
+              <Bubble key={i} who={t("chat.assistant")} tone="assistant">
+                {m.lines.length === 0 ? (
+                  <p>{t(`chat.q.${m.queryKind}.empty` as TKey)}</p>
+                ) : (
+                  <>
+                    <p>
+                      {t(`chat.q.${m.queryKind}.title` as TKey, { n: m.lines.length })}
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {m.lines.map((line, j) => (
+                        <li key={j} className="font-body-sm text-on-surface flex gap-2">
+                          <span className="text-on-surface-variant">{j + 1}.</span>
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </Bubble>
+            );
+
+          if (m.kind === "decline")
+            return (
+              <Bubble key={i} who={t("chat.assistant")} tone="assistant">
+                <p>{t("chat.q.decline")}</p>
+                <ul className="mt-2 space-y-1">
+                  {QUERY_KINDS.map((k) => (
+                    <li key={k} className="font-body-sm text-on-surface-variant">
+                      · {t(`chat.q.${k}.label` as TKey)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="font-body-sm text-on-surface-variant mt-2">
+                  {t("chat.q.decline.docs")}
+                </p>
               </Bubble>
             );
 

@@ -375,10 +375,15 @@ DOC_REQUEST_SCHEMA = {
         "exactly one of SEIZURE_RECEIPT, PANCHNAMA, REMAND, CUSTODY_LETTER, CHARGESHEET, "
         "MEDICAL_LETTER, LERS_PRESERVATION_REQUEST, LERS_RECORDS_REQUEST — or NONE"
     ),
+    "query_kind": (
+        "exactly one of EVIDENCE, WITNESSES, ACCUSED, PEOPLE, ITEMS, SECTIONS, DIARY, "
+        "DOCUMENTS, STATEMENTS, STATUS — or NONE"
+    ),
 }
 
 DOC_REQUEST_PROMPT = """You route messages in a police case-file assistant. \
-Decide which ONE document the officer is asking for.
+The officer is either ASKING FOR A DOCUMENT to be prepared, or ASKING A QUESTION about \
+what is already recorded in the case file. Decide which, and label it.
 
 The documents are:
 - SEIZURE_RECEIPT — receipt for property seized from a person (Form IF4)
@@ -390,12 +395,30 @@ The documents are:
 - LERS_PRESERVATION_REQUEST — asks a platform to PRESERVE data
 - LERS_RECORDS_REQUEST — asks a platform to DISCLOSE records
 
+The questions you can label are ONLY these, and each asks for something already recorded:
+- EVIDENCE — what evidence has been collected
+- WITNESSES — who the witnesses are
+- ACCUSED — who the accused are
+- PEOPLE — everyone recorded on the case
+- ITEMS — what property has been seized
+- SECTIONS — which legal sections have already been ACCEPTED on the case
+- DIARY — the case diary entries
+- DOCUMENTS — which documents have been generated
+- STATEMENTS — the statements recorded
+- STATUS — the case header: number, FIR, station, status
+
 RULES:
-- Answer with the label alone. Write no sentence, no explanation, no legal comment.
-- Answer NONE if the officer is not asking for a document, if you cannot tell which one \
-they mean, or if two of them fit equally well. NONE is a good answer — the officer will \
-simply be asked which document they meant. A guess is worse than a question.
-- Never choose a document because it sounds important. Choose only what the words ask for.
+- Answer with the labels alone. Write no sentence, no explanation, no legal comment.
+- Set doc_type when they want a document PREPARED. Set query_kind when they are asking \
+what the file already contains. Never set both.
+- Set BOTH to NONE if the officer is asking anything else at all. This matters most for \
+questions that ask you to JUDGE: whether the case is strong, whether someone is guilty, \
+what they ought to charge, what will happen in court, what you advise. You do not answer \
+those — you have no label for them, and NONE is the correct and expected answer. Do not \
+reach for the nearest label because a question mentions evidence or charges.
+- SECTIONS means "read back the sections already accepted", never "work out which \
+sections apply". Deciding what applies is a different, reviewed step you take no part in.
+- Never choose a label because it sounds important. Choose only what the words ask for.
 
 OFFICER MESSAGE:
 \"\"\"{message}\"\"\"

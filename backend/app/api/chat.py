@@ -49,10 +49,13 @@ class ChatRouteRequest(BaseModel):
 
 
 class ChatRouteResponse(BaseModel):
-    # A LABEL, not a sentence. GENERATE = one document identified; AMBIGUOUS = the words
-    # fit more than one, so ask; UNKNOWN = not a document request we can serve.
+    # A LABEL, not a sentence. GENERATE = one document identified; QUERY = a question
+    # about what is already recorded; AMBIGUOUS = the words fit more than one document,
+    # so ask; UNKNOWN = nothing this assistant can serve, which is the correct answer for
+    # any question calling for judgement.
     intent: str
     doc_type: str | None = None
+    query_kind: str | None = None
     candidates: list[str] = []
     # Which stage decided — "alias" (deterministic table) or "model" (closed-set
     # fallback). Surfaced so a misroute can be diagnosed without re-running the request.
