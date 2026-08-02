@@ -587,6 +587,22 @@ const en = {
   "intake.commitError": "Could not register the case. Nothing was saved.",
   "intake.startOver": "Start over",
   "intake.legalNote": "Legal sections are not decided here — run the section analysis on the case once it is registered.",
+  // The chat's header report. The server returns FIELD CODES; these compose the sentence,
+  // so the wording is translated and editable here rather than baked into the API.
+  "intake.ask.filled": "I have filled in {fields} for you.",
+  "intake.ask.stillNeed": "I still need {fields}.",
+  "intake.ask.field.fir_number": "the FIR number",
+  "intake.ask.field.police_station": "the police station",
+  "intake.ask.field.district": "the district",
+  "intake.ask.field.when": "when it happened",
+  "intake.ask.field.where": "where it happened",
+  "intake.ask.field.who": "who was involved",
+  "intake.ask.field.what": "what was taken or damaged",
+  "intake.ask.filled.police_station": "the police station",
+  "intake.ask.filled.district": "the district",
+  "intake.ask.filled.fir_date": "today's date",
+  "intake.ask.listSep": ", ",
+  "intake.ask.listLast": " and ",
 };
 
 const hi: Dict = {
@@ -1110,6 +1126,20 @@ const hi: Dict = {
   "intake.commitError": "केस दर्ज नहीं किया जा सका। कुछ भी सहेजा नहीं गया।",
   "intake.startOver": "फिर से शुरू करें",
   "intake.legalNote": "कानूनी धाराएं यहाँ तय नहीं होतीं — केस दर्ज होने के बाद धारा विश्लेषण चलाएं।",
+  "intake.ask.filled": "मैंने आपके लिए {fields} भर दिया है।",
+  "intake.ask.stillNeed": "मुझे अब भी {fields} चाहिए।",
+  "intake.ask.field.fir_number": "एफ़आईआर नंबर",
+  "intake.ask.field.police_station": "पुलिस थाना",
+  "intake.ask.field.district": "जिला",
+  "intake.ask.field.when": "यह कब हुआ",
+  "intake.ask.field.where": "यह कहाँ हुआ",
+  "intake.ask.field.who": "इसमें कौन शामिल था",
+  "intake.ask.field.what": "क्या लिया गया या क्या नुकसान हुआ",
+  "intake.ask.filled.police_station": "पुलिस थाना",
+  "intake.ask.filled.district": "जिला",
+  "intake.ask.filled.fir_date": "आज की तारीख",
+  "intake.ask.listSep": ", ",
+  "intake.ask.listLast": " और ",
 };
 
 const gu: Dict = {
@@ -1634,6 +1664,20 @@ const gu: Dict = {
   "intake.commitError": "કેસ નોંધી શકાયો નહીં. કશું સાચવવામાં આવ્યું નથી.",
   "intake.startOver": "ફરી શરૂ કરો",
   "intake.legalNote": "કાનૂની કલમો અહીં નક્કી થતી નથી — કેસ નોંધાયા પછી કલમ વિશ્લેષણ ચલાવો.",
+  "intake.ask.filled": "મેં તમારા માટે {fields} ભરી દીધું છે.",
+  "intake.ask.stillNeed": "મને હજુ {fields} જોઈએ છે.",
+  "intake.ask.field.fir_number": "એફ.આઈ.આર. નંબર",
+  "intake.ask.field.police_station": "પોલીસ સ્ટેશન",
+  "intake.ask.field.district": "જિલ્લો",
+  "intake.ask.field.when": "આ ક્યારે થયું",
+  "intake.ask.field.where": "આ ક્યાં થયું",
+  "intake.ask.field.who": "એમાં કોણ સંડોવાયેલું હતું",
+  "intake.ask.field.what": "શું લેવાયું કે શું નુકસાન થયું",
+  "intake.ask.filled.police_station": "પોલીસ સ્ટેશન",
+  "intake.ask.filled.district": "જિલ્લો",
+  "intake.ask.filled.fir_date": "આજની તારીખ",
+  "intake.ask.listSep": ", ",
+  "intake.ask.listLast": " અને ",
 };
 
 const TABLE: Record<Lang, Dict> = { EN: en, HI: hi, GU: gu };

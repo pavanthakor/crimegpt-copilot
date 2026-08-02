@@ -34,13 +34,10 @@ logger = logging.getLogger("crimegpt.intake")
 # The ONLY keys allowed out of extraction, per pool table. Anything else the model
 # emits — most importantly a legal section or charge — is discarded (see PURITY above).
 _CASE_KEYS = {
-    "title",
     "incident_datetime",
     "incident_location",
     "complaint_narrative",
     "fir_number",
-    "police_station",
-    "district",
 }
 _PERSON_KEYS = {
     "role",
@@ -83,64 +80,39 @@ _NO_CONTENT_REPLY = {
     ),
 }
 
-# Shown when the officer HAS reported an incident but most of the record is still blank —
-# "someone stole from my house" is a real complaint, it is just thin. Built here rather
-# than taken from the model for the same reason as _NO_CONTENT_REPLY: the model's own
-# follow-up tends to ask about detail it invented ("which shop was it?"). This version can
-# only name facts the draft demonstrably does not have. Edit/translate the two tables
-# below — they are the whole text.
-_ASK_MISSING_LEAD = {
-    "en": "I have recorded what you told me. To complete the report, please tell me:",
-    "hi": "आपने जो बताया वह दर्ज कर लिया है। रिपोर्ट पूरी करने के लिए कृपया बताइए:",
-    "gu": "તમે જે જણાવ્યું તે નોંધી લીધું છે. ફરિયાદ પૂરી કરવા કૃપા કરીને જણાવો:",
+# The case title is COMPOSED, not extracted. Asked for a title, the model writes "Theft
+# at Naranpura" — and naming the offence is precisely what intake must not do: the charge
+# is decided later by the RAG-grounded section flow that the officer accepts or rejects,
+# and a title asserting "theft" pre-classifies the case before any of that has run. A
+# neutral label carries the same identifying information (what place, what incident)
+# while deciding nothing. Composing it in code makes that a guarantee rather than an
+# instruction a 7B model may ignore.
+_TITLE_AT_LOCATION = {
+    "en": "Incident at {location}",
+    "hi": "{location} में हुई घटना",
+    "gu": "{location} ખાતે બનેલ ઘટના",
 }
-_MISSING_LABELS = {
-    "en": {
-        "when": "when it happened",
-        "where": "where it happened",
-        "who": "who was involved",
-        "what": "what was taken or damaged",
-    },
-    "hi": {
-        "when": "यह कब हुआ",
-        "where": "यह कहाँ हुआ",
-        "who": "इसमें कौन शामिल था",
-        "what": "क्या लिया गया या क्या नुकसान हुआ",
-    },
-    "gu": {
-        "when": "આ ક્યારે થયું",
-        "where": "આ ક્યાં થયું",
-        "who": "એમાં કોણ સંડોવાયેલું હતું",
-        "what": "શું લેવાયું કે શું નુકસાન થયું",
-    },
+# Falls back to the date because incident_location is not reliably emitted — measured at
+# roughly one run in three on this model, even when the officer plainly names the place.
+# A title is a label, and a case labelled by date still distinguishes itself in a list;
+# an empty one does not. Both forms are neutral, and the officer edits either.
+_TITLE_ON_DATE = {
+    "en": "Incident on {date}",
+    "hi": "{date} को हुई घटना",
+    "gu": "{date} ના રોજ બનેલ ઘટના",
 }
 
-# How blank a draft has to be before we replace the model's follow-up with the built one.
-# A worked-up report is missing at most one of the four core facts (a house-breaking has no
-# named accused yet; an assault has no property); two or more missing means the officer has
-# given us an outline, and asking for the rest is more use than a model pleasantry.
-_THIN_DRAFT_MISSING = 2
 
-
-def _missing_facts(case: dict, persons: list, items: list) -> list[str]:
-    """Which of the four facts every complaint needs — who/when/where/what — are absent."""
-    missing = []
-    if not case.get("incident_datetime"):
-        missing.append("when")
-    if not case.get("incident_location"):
-        missing.append("where")
-    if not persons:
-        missing.append("who")
-    if not items:
-        missing.append("what")
-    return missing
-
-
-def _ask_for_missing(missing: list[str], lang: str) -> str:
+def _draft_title(location: str | None, incident_datetime: str | None, lang: str) -> str | None:
+    """A neutral case label: the place if known, else the date, else nothing."""
     code = (lang or "en").lower()
-    labels = _MISSING_LABELS.get(code, _MISSING_LABELS["en"])
-    lead = _ASK_MISSING_LEAD.get(code, _ASK_MISSING_LEAD["en"])
-    return f"{lead} {', '.join(labels[m] for m in missing)}."
+    if location:
+        template = _TITLE_AT_LOCATION.get(code, _TITLE_AT_LOCATION["en"])
+        return template.format(location=location)
+    if incident_datetime:
+        template = _TITLE_ON_DATE.get(code, _TITLE_ON_DATE["en"])
+        return template.format(date=str(incident_datetime)[:10])
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +242,7 @@ _TEXT_THRESHOLD = 0.5
 
 # Copied verbatim per the prompt, so they can be grounded. incident_datetime is NOT in
 # this list: "yesterday" legitimately resolves to a date that appears nowhere in the text.
-_VERBATIM_CASE_FIELDS = ("incident_location", "police_station", "district", "fir_number")
+_VERBATIM_CASE_FIELDS = ("incident_location", "fir_number")
 
 
 def _match_tokens(text: str | None) -> list[str]:
@@ -365,12 +337,14 @@ def _empty_result(lang: str) -> dict:
             "incident_location": None,
             "complaint_narrative": None,
             "fir_number": None,
-            "police_station": None,
-            "district": None,
         },
         "persons": [],
         "seized_items": [],
         "reply": _NO_CONTENT_REPLY.get((lang or "en").lower(), _NO_CONTENT_REPLY["en"]),
+        # The caller uses this to tell "the officer described nothing" from "the officer
+        # described something thin": only the latter should be answered with a list of
+        # the header fields still outstanding.
+        "has_content": False,
     }
 
 
@@ -389,13 +363,12 @@ def _officer_text(messages: list[dict]) -> str:
 def _clean_case(raw) -> dict:
     picked = _pick(raw, _CASE_KEYS)
     return {
-        "title": _text(picked.get("title")),
+        # title is composed later from the location, not taken from the model.
+        "title": None,
         "incident_datetime": _dt(picked.get("incident_datetime")),
         "incident_location": _text(picked.get("incident_location")),
         "complaint_narrative": _text(picked.get("complaint_narrative")),
         "fir_number": _text(picked.get("fir_number")),
-        "police_station": _text(picked.get("police_station")),
-        "district": _text(picked.get("district")),
     }
 
 
@@ -516,21 +489,18 @@ def extract_draft(messages: list[dict], lang: str = "en", today: date | None = N
             logger.info("intake: dropping ungrounded %s=%r", field, case[field])
             case[field] = None
 
-    # Narrative and title are the two fields the model WRITES rather than copies, so token
-    # grounding is the wrong test for them: it fails on an honest restatement in another
-    # script and passes anything that recycles the officer's vocabulary. Keep them when
-    # they are traceable OR small enough to be a restatement (_within_budget above); a
-    # value that is neither is the model talking, not the officer.
-    for field in ("complaint_narrative", "title"):
-        value = case[field]
-        if not value:
-            continue
-        if _grounded(value, source_text, source_tokens, _TEXT_THRESHOLD):
-            continue
-        if _within_budget(value, len(officer_tokens)):
-            continue
-        logger.info("intake: dropping ungrounded, over-long %s=%r", field, value)
-        case[field] = None
+    # The narrative is the one field the model WRITES rather than copies, so token
+    # grounding is the wrong test for it: it fails on an honest restatement in another
+    # script and passes anything that recycles the officer's vocabulary. Keep it when it
+    # is traceable OR small enough to be a restatement (_within_budget above); a value
+    # that is neither is the model talking, not the officer.
+    narrative = case["complaint_narrative"]
+    if narrative and not (
+        _grounded(narrative, source_text, source_tokens, _TEXT_THRESHOLD)
+        or _within_budget(narrative, len(officer_tokens))
+    ):
+        logger.info("intake: dropping ungrounded, over-long narrative=%r", narrative)
+        case["complaint_narrative"] = None
     case["complaint_narrative"] = _collapse_repeats(case["complaint_narrative"])
 
     # --- accept, or hand back the ask-for-details reply ---------------------
@@ -557,14 +527,14 @@ def extract_draft(messages: list[dict], lang: str = "en", today: date | None = N
             return _empty_result(lang)
         # Otherwise: a real report that is simply thin. Keep it and ask for the rest.
 
-    missing = _missing_facts(case, persons, items)
-    reply = _text(raw.get("reply")) or ""
-    if len(missing) >= _THIN_DRAFT_MISSING:
-        reply = _ask_for_missing(missing, lang)
+    # Composed last, from the location that survived grounding — so the title can only
+    # name a place the officer actually gave, and never names an offence at all.
+    case["title"] = _draft_title(case["incident_location"], case["incident_datetime"], lang)
 
     return {
         "case": case,
         "persons": persons,
         "seized_items": items,
-        "reply": reply,
+        "reply": _text(raw.get("reply")) or "",
+        "has_content": True,
     }

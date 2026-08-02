@@ -258,14 +258,19 @@ TEXT:
 # invents anyway is dropped before it can reach the officer.
 # ---------------------------------------------------------------------------
 INTAKE_EXTRACTION_SCHEMA = {
+    # No title, police_station or district here on purpose. The title is composed in
+    # code so it cannot pre-classify the offence, and the station/district describe where
+    # the case is being REGISTERED — they come off the logged-in officer's record, not
+    # out of what the complainant said.
     "case": {
-        "title": "string — a short neutral label for the incident, or null",
         "incident_datetime": "string — ISO 8601 'YYYY-MM-DDTHH:MM:SS', or null",
-        "incident_location": "string — where it happened, or null",
+        "incident_location": (
+            "string — the place it happened: the locality, address or landmark the officer "
+            "named. Fill this whenever the officer named any place at all. Null only if "
+            "they named none"
+        ),
         "complaint_narrative": "string — the incident as the officer described it",
-        "fir_number": "string or null",
-        "police_station": "string or null",
-        "district": "string or null",
+        "fir_number": "string — ONLY if the officer stated one, else null",
     },
     "persons": [
         {
@@ -341,6 +346,9 @@ observer and keep only the actor.
 or phone number belongs to the nearest preceding name — the person it is written about — and never \
 to a different person named later in the same sentence. If you are not certain which person a \
 detail describes, leave it null rather than attaching it to the wrong person.
+- fir_number is a LEGAL IDENTIFIER assigned by the police station. Fill it ONLY if the officer \
+stated one in so many words. Never construct, guess, pattern-match or continue a number series to \
+produce one — if the officer did not say it, it is null and it will be asked for.
 - seized_from_name must be the name of a person you also listed in "persons", or null.
 - "reply" is ONE short sentence in {language}: acknowledge what you recorded, and if a plain FACTUAL \
 detail is missing (a name, a date, a place, an item), ask for that ONE detail. Ask about facts only — \

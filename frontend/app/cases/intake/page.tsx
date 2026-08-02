@@ -286,6 +286,24 @@ export default function IntakePage() {
     });
   }
 
+  /** Join field labels the way the officer's language joins a list. */
+  function joinFields(labels: string[]): string {
+    if (labels.length <= 1) return labels[0] ?? "";
+    return labels.slice(0, -1).join(t("intake.ask.listSep")) + t("intake.ask.listLast") + labels[labels.length - 1];
+  }
+
+  /** "I have filled in the police station, the district and today's date. I still need
+   *  the FIR number and when it happened." — composed from field codes, so every word of
+   *  it is translated in lib/i18n.ts rather than shipped from the server. */
+  function headerReport(autoFilled?: string[], missing?: string[]): string {
+    const filledLabels = (autoFilled ?? []).map((f) => t(`intake.ask.filled.${f}` as TKey));
+    const missingLabels = (missing ?? []).map((f) => t(`intake.ask.field.${f}` as TKey));
+    const parts: string[] = [];
+    if (filledLabels.length) parts.push(t("intake.ask.filled", { fields: joinFields(filledLabels) }));
+    if (missingLabels.length) parts.push(t("intake.ask.stillNeed", { fields: joinFields(missingLabels) }));
+    return parts.join(" ");
+  }
+
   async function onSend() {
     const text = input.trim();
     if (!text || extracting) return;
@@ -299,8 +317,13 @@ export default function IntakePage() {
     try {
       const res = await api.post("/api/intake/extract", { messages: history, lang: apiLang });
       mergeExtraction(res.data.draft);
-      if (res.data.reply) {
-        setMessages([...history, { role: "assistant", content: res.data.reply }]);
+      const report = headerReport(res.data.auto_filled, res.data.missing_fields);
+      // The composed header report supersedes the model's own follow-up: it is built from
+      // what the draft actually holds, so it can neither ask about a detail the model
+      // invented nor drift into legal comment.
+      const content = report || res.data.reply;
+      if (content) {
+        setMessages([...history, { role: "assistant", content }]);
       }
     } catch (e: any) {
       const detail = e?.response?.data?.detail;

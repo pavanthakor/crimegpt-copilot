@@ -110,6 +110,11 @@ class ExtractRequest(BaseModel):
 class ExtractResponse(BaseModel):
     draft: IntakeDraft
     reply: str
+    # FIELD CODES, not sentences. The chat's wording lives in the frontend i18n table
+    # (EN/HI/GU) like every other string the officer reads; the server says WHICH fields
+    # it filled and which are still outstanding, and the UI says it in their language.
+    auto_filled: list[str] = []
+    missing_fields: list[str] = []
 
 
 class CommitRequest(IntakeDraft):
@@ -120,6 +125,60 @@ class CommitResult(BaseModel):
     case: CaseOut
     persons: list[PersonOut]
     seized_items: list[SeizedItemOut]
+
+
+# ---------------------------------------------------------------------------
+# Header auto-fill.
+#
+# Three of the four header fields are known WITHOUT asking anyone, because they are not
+# properties of the incident at all:
+#
+#   police_station / district  belong to the REGISTERING OFFICER. Read off the logged-in
+#       user, never from the complaint text — a complainant naming a station is describing
+#       where they went, which is not the same fact and must not overwrite the posting.
+#   fir_date                   is the date of registration, i.e. today.
+#
+# The fourth, fir_number, is a legal identifier assigned by the station. There is no
+# generation scheme anywhere in this codebase (cases.case_number is a manual unique
+# string; fir_number is a manual nullable string), so intake CANNOT produce one and must
+# not try — a fabricated FIR number is worse than a blank field. It stays empty and is
+# asked for. If the officer states one in the conversation it is extracted like any other
+# verbatim value, grounded against their own words.
+# ---------------------------------------------------------------------------
+def _apply_header_defaults(case: DraftCase, user: User) -> list[str]:
+    """Fill what the system genuinely knows. Returns the field codes it filled."""
+    filled = []
+    if not case.police_station and user.police_station:
+        case.police_station = user.police_station
+        filled.append("police_station")
+    if not case.district and user.district:
+        case.district = user.district
+        filled.append("district")
+    if not case.fir_date:
+        case.fir_date = date.today()
+        filled.append("fir_date")
+    return filled
+
+
+# What a registered case needs, in the order the chat should ask for it. Each entry is a
+# field code the frontend renders from its i18n table.
+def _missing_header_fields(draft: IntakeDraft) -> list[str]:
+    missing = []
+    if not draft.case.fir_number:
+        missing.append("fir_number")
+    if not draft.case.police_station:
+        missing.append("police_station")   # only when the officer's record has none
+    if not draft.case.district:
+        missing.append("district")
+    if not draft.case.incident_datetime:
+        missing.append("when")
+    if not draft.case.incident_location:
+        missing.append("where")
+    if not draft.persons:
+        missing.append("who")
+    if not draft.seized_items:
+        missing.append("what")
+    return missing
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +199,7 @@ def intake_extract(
     if not body.messages:
         empty = extract_draft([], lang=body.lang)
         return ExtractResponse(draft=IntakeDraft(), reply=empty["reply"])
+
 
     try:
         raw = extract_draft(
@@ -166,7 +226,19 @@ def intake_extract(
         persons=[DraftPerson(**p) for p in raw["persons"]],
         seized_items=[DraftItem(**i) for i in raw["seized_items"]],
     )
-    return ExtractResponse(draft=draft, reply=raw["reply"])
+
+    # An officer who described nothing gets the "describe the incident" answer, not a
+    # header report — there is no case yet for a station and a date to belong to.
+    if not raw.get("has_content"):
+        return ExtractResponse(draft=draft, reply=raw["reply"])
+
+    auto_filled = _apply_header_defaults(draft.case, user)
+    return ExtractResponse(
+        draft=draft,
+        reply=raw["reply"],
+        auto_filled=auto_filled,
+        missing_fields=_missing_header_fields(draft),
+    )
 
 
 # ---------------------------------------------------------------------------
