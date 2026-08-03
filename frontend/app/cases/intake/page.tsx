@@ -24,7 +24,28 @@ import { PERSON_ROLES } from "@/lib/cases";
  * row they delete is not resurrected by it (see `mergeExtraction`).
  */
 
-type Msg = { role: "officer" | "assistant"; content: string };
+/** A chat line. `notice` lines are written by the merge itself rather than by either
+ *  party: they report what a fresh extraction took OFF the draft, and carry the removed
+ *  rows so the officer can put them straight back. A row that disappears with no trace is
+ *  the failure an officer would not catch before registering the case. */
+type Msg = {
+  role: "officer" | "assistant" | "notice";
+  content: string;
+  removed?: Removal;
+  undone?: boolean;
+};
+
+type Removal = { persons: PersonRow[]; items: ItemRow[] };
+
+/** Who put a row on the draft — the whole safety of the merge rests on this one field.
+ *
+ *  `extract_draft` re-reads the ENTIRE transcript every turn, so its list is a complete
+ *  statement of who the account currently mentions. That makes absence meaningful for a
+ *  row the extractor wrote: it stopped claiming it, so the officer corrected it away. It
+ *  makes absence meaningless for a row the officer typed, because the extractor never saw
+ *  that row and never had a chance to claim it. Only "model" rows are ever auto-removed.
+ */
+type RowOrigin = "model" | "officer";
 
 type CaseDraft = {
   case_number: string;
@@ -42,6 +63,14 @@ type CaseDraft = {
 type PersonRow = {
   _key: string;
   _touched: boolean;
+  _origin: RowOrigin;
+  // The name as the EXTRACTOR last wrote it, normalised. Identity is pinned to this rather
+  // than to the displayed name so that an officer renaming a row does not read, on the next
+  // turn, as "a new person appeared and the old one vanished" — which would both duplicate
+  // the row and put the original on the sweep.
+  _srcName: string;
+  // The last content-bearing turn on which the extractor still claimed this row.
+  _seenTurn: number;
   role: string;
   full_name: string;
   alias: string;
@@ -56,6 +85,10 @@ type PersonRow = {
 type ItemRow = {
   _key: string;
   _touched: boolean;
+  _origin: RowOrigin;
+  // The description as the EXTRACTOR last wrote it — same reasoning as `_srcName`.
+  _srcDesc: string;
+  _seenTurn: number;
   description: string;
   quantity: string;
   estimated_value: string;
@@ -115,6 +148,12 @@ const nextKey = () => `r${++keySeq}`;
 const blankPerson = (): PersonRow => ({
   _key: nextKey(),
   _touched: true, // hand-added rows are the officer's, never extractor-owned
+  // Blank rows are born the officer's. `reconcilePersons` overrides this to "model" for
+  // the rows IT creates, so anything reaching the draft any other way — the Add person
+  // button — is sticky and no extraction can ever sweep it.
+  _origin: "officer",
+  _srcName: "",
+  _seenTurn: 0,
   role: "ACCUSED",
   full_name: "",
   alias: "",
@@ -129,6 +168,9 @@ const blankPerson = (): PersonRow => ({
 const blankItem = (): ItemRow => ({
   _key: nextKey(),
   _touched: true,
+  _origin: "officer", // see blankPerson — hand-added rows are never sweepable
+  _srcDesc: "",
+  _seenTurn: 0,
   description: "",
   quantity: "",
   estimated_value: "",
@@ -152,6 +194,167 @@ const floatOrNull = (v: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+// --- merge helpers -------------------------------------------------------
+
+type ExtractedDraft = {
+  case: Record<string, unknown>;
+  persons: Record<string, unknown>[];
+  seized_items: Record<string, unknown>[];
+};
+
+// How many consecutive content-bearing turns the extractor must leave a row out of before
+// the row is swept. ONE absence is not evidence: the extractor is sampled (temperature
+// 0.1 — low, but not zero) and can drop a name it emitted a turn earlier for no reason the
+// officer would recognise, and grounding can reject a name phrased differently in one
+// turn. Two consecutive absences is the cheapest guard that survives that, and it costs
+// the officer nothing but one extra turn before a genuine correction takes effect.
+const SWEEP_AFTER_ABSENT_TURNS = 2;
+
+/** Did this extraction carry an account at all?
+ *
+ *  The server decides exactly this internally (`has_content`) but does not put it on the
+ *  wire, and this slice changes no backend contract — so it is re-derived here from the
+ *  draft, which is equivalent. A refused or empty extraction returns `_empty_result`:
+ *  every case field null, no people, no items. A content-bearing one always carries an
+ *  entity or a narrative, plus the header defaults the server applies only on that path.
+ *
+ *  NOTHING is ever removed except on a `true` here. A thin turn, a refusal, or a dropped
+ *  connection must leave the draft exactly as it was.
+ */
+function draftHasContent(draft: ExtractedDraft): boolean {
+  if ((draft.persons ?? []).length > 0) return true;
+  if ((draft.seized_items ?? []).length > 0) return true;
+  const c = draft.case ?? {};
+  return CASE_FIELDS.some((f) => str(c[f]).trim() !== "");
+}
+
+/** Fold this turn's extracted people into the draft, then sweep what the extractor has
+ *  stopped claiming. Pure — same inputs, same outputs. A sweep is far easier to trust when
+ *  it can see nothing but its arguments. */
+function reconcilePersons(
+  prev: PersonRow[],
+  extracted: Record<string, unknown>[],
+  dismissed: Set<string>,
+  turn: number,
+  contentful: boolean
+): { next: PersonRow[]; removed: PersonRow[] } {
+  const next = [...prev];
+
+  for (const ex of extracted) {
+    const name = norm(str(ex.full_name) || str(ex.alias));
+    if (!name || dismissed.has(name)) continue;
+
+    // Match on what the extractor called this row last time before falling back to what it
+    // is called now: a row the officer renamed is still the same row.
+    let idx = next.findIndex((p) => p._srcName === name);
+    if (idx === -1) idx = next.findIndex((p) => norm(p.full_name || p.alias) === name);
+
+    if (idx === -1) {
+      next.push({
+        ...blankPerson(),
+        _touched: false,
+        _origin: "model",
+        _srcName: name,
+        _seenTurn: turn,
+        role: str(ex.role) || "ACCUSED",
+        full_name: str(ex.full_name),
+        alias: str(ex.alias),
+        father_name: str(ex.father_name),
+        age: str(ex.age),
+        gender: str(ex.gender),
+        address: str(ex.address),
+        phone: str(ex.phone),
+        occupation: str(ex.occupation),
+      });
+      continue;
+    }
+
+    // Still claimed this turn — stamping the turn is what keeps it off the sweep. The
+    // origin is deliberately NOT promoted to "model": an officer's row stays the officer's
+    // even once the extractor starts naming the same person, or describing them in the
+    // account would quietly make the officer's own entry sweepable.
+    const row = { ...next[idx], _seenTurn: turn, _srcName: next[idx]._srcName || name };
+    if (!next[idx]._touched) {
+      // Fill blanks a later turn supplied; never blank out what we already have.
+      for (const field of PERSON_FILL_FIELDS) {
+        const v = ex[field];
+        if (v === null || v === undefined || v === "") continue;
+        row[field] = str(v);
+      }
+    }
+    next[idx] = row;
+  }
+
+  if (!contentful) return { next, removed: [] };
+
+  const removed: PersonRow[] = [];
+  const kept = next.filter((p) => {
+    const stale =
+      p._origin === "model" && !p._touched && turn - p._seenTurn >= SWEEP_AFTER_ABSENT_TURNS;
+    if (stale) removed.push(p);
+    return !stale;
+  });
+  return { next: kept, removed };
+}
+
+/** The same rule for seized items, keyed on the description. */
+function reconcileItems(
+  prev: ItemRow[],
+  extracted: Record<string, unknown>[],
+  dismissed: Set<string>,
+  turn: number,
+  contentful: boolean
+): { next: ItemRow[]; removed: ItemRow[] } {
+  const next = [...prev];
+
+  for (const ex of extracted) {
+    const desc = norm(str(ex.description));
+    if (!desc || dismissed.has(desc)) continue;
+
+    let idx = next.findIndex((i) => i._srcDesc === desc);
+    if (idx === -1) idx = next.findIndex((i) => norm(i.description) === desc);
+
+    if (idx === -1) {
+      next.push({
+        ...blankItem(),
+        _touched: false,
+        _origin: "model",
+        _srcDesc: desc,
+        _seenTurn: turn,
+        description: str(ex.description),
+        quantity: str(ex.quantity),
+        estimated_value: str(ex.estimated_value),
+        seized_from_name: str(ex.seized_from_name),
+        seizure_datetime: toLocal(ex.seizure_datetime),
+        seizure_location: str(ex.seizure_location),
+      });
+      continue;
+    }
+
+    const row = { ...next[idx], _seenTurn: turn, _srcDesc: next[idx]._srcDesc || desc };
+    if (!next[idx]._touched) {
+      for (const field of ITEM_FILL_FIELDS) {
+        const v = ex[field];
+        if (v === null || v === undefined || v === "") continue;
+        row[field] = str(v);
+      }
+      if (ex.seizure_datetime) row.seizure_datetime = toLocal(ex.seizure_datetime);
+    }
+    next[idx] = row;
+  }
+
+  if (!contentful) return { next, removed: [] };
+
+  const removed: ItemRow[] = [];
+  const kept = next.filter((i) => {
+    const stale =
+      i._origin === "model" && !i._touched && turn - i._seenTurn >= SWEEP_AFTER_ABSENT_TURNS;
+    if (stale) removed.push(i);
+    return !stale;
+  });
+  return { next: kept, removed };
+}
+
 export default function IntakePage() {
   const { user, ready } = useAuth();
   const { t, apiLang } = useI18n();
@@ -166,8 +369,22 @@ export default function IntakePage() {
 
   // Fields/rows the officer has edited — the extractor must not overwrite these.
   const touchedCase = useRef<Set<string>>(new Set());
+  // Keyed on the EXTRACTOR's name/description (`_srcName`/`_srcDesc`), so a row the officer
+  // renamed before deleting is still recognised — and stays deleted — on the next turn.
   const dismissedPersons = useRef<Set<string>>(new Set());
   const dismissedItems = useRef<Set<string>>(new Set());
+
+  // `mergeExtraction` computes the next rows from the current ones rather than inside a
+  // state updater, because it also has to REPORT what it removed — and a state updater
+  // must stay pure. These mirrors keep that read current even though the officer can edit
+  // the panel while an extraction is still in flight.
+  const personsRef = useRef<PersonRow[]>([]);
+  const itemsRef = useRef<ItemRow[]>([]);
+  useEffect(() => { personsRef.current = persons; }, [persons]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+
+  // Counts only the extractions that carried an account (see `draftHasContent`).
+  const extractionTurn = useRef(0);
 
   const [extracting, setExtracting] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -203,14 +420,20 @@ export default function IntakePage() {
    *  - a case field they edited keeps their value;
    *  - a person/item row they edited is left entirely alone;
    *  - a row they deleted stays deleted;
-   *  - anything genuinely new is appended.
-   * Rows are matched on name/description because the draft has no ids yet.
+   *  - anything genuinely new is appended;
+   *  - and a row the EXTRACTOR wrote, which the officer has never touched, is removed once
+   *    the extractor has left it out of two consecutive content-bearing turns. That last
+   *    clause is what lets "the accused is Ramesh, not Suresh" settle on ONE accused —
+   *    while a person the officer added by hand survives untouched, because the extractor
+   *    never claimed that row and its silence about it says nothing.
+   *
+   * Rows are matched on the extractor's own name/description (`_srcName`/`_srcDesc`),
+   * falling back to the displayed one, because the draft has no ids yet.
+   *
+   * Returns the rows the sweep removed, so the caller can say so in the chat — a row
+   * vanishing silently is the failure an officer would not catch before registering.
    */
-  function mergeExtraction(draft: {
-    case: Record<string, unknown>;
-    persons: Record<string, unknown>[];
-    seized_items: Record<string, unknown>[];
-  }) {
+  function mergeExtraction(draft: ExtractedDraft): Removal | null {
     setCaseDraft((prev) => {
       const next = { ...prev };
       for (const field of CASE_FIELDS) {
@@ -223,70 +446,71 @@ export default function IntakePage() {
       return next;
     });
 
-    setPersons((prev) => {
-      const next = [...prev];
-      for (const extracted of draft.persons ?? []) {
-        const name = norm(str(extracted.full_name) || str(extracted.alias));
-        if (!name || dismissedPersons.current.has(name)) continue;
-        const idx = next.findIndex((p) => norm(p.full_name || p.alias) === name);
-        if (idx === -1) {
-          next.push({
-            ...blankPerson(),
-            _touched: false,
-            role: str(extracted.role) || "ACCUSED",
-            full_name: str(extracted.full_name),
-            alias: str(extracted.alias),
-            father_name: str(extracted.father_name),
-            age: str(extracted.age),
-            gender: str(extracted.gender),
-            address: str(extracted.address),
-            phone: str(extracted.phone),
-            occupation: str(extracted.occupation),
-          });
-        } else if (!next[idx]._touched) {
-          // Fill blanks a later turn supplied; never blank out what we already have.
-          const row = { ...next[idx] };
-          for (const field of PERSON_FILL_FIELDS) {
-            const v = extracted[field];
-            if (v === null || v === undefined || v === "") continue;
-            row[field] = str(v);
-          }
-          next[idx] = row;
-        }
-      }
-      return next;
-    });
+    // The turn counter advances ONLY on an extraction that carried an account, so a
+    // refused or empty turn cannot age a row towards the sweep.
+    const contentful = draftHasContent(draft);
+    if (contentful) extractionTurn.current += 1;
+    const turn = extractionTurn.current;
 
-    setItems((prev) => {
-      const next = [...prev];
-      for (const extracted of draft.seized_items ?? []) {
-        const desc = norm(str(extracted.description));
-        if (!desc || dismissedItems.current.has(desc)) continue;
-        const idx = next.findIndex((i) => norm(i.description) === desc);
-        if (idx === -1) {
-          next.push({
-            ...blankItem(),
-            _touched: false,
-            description: str(extracted.description),
-            quantity: str(extracted.quantity),
-            estimated_value: str(extracted.estimated_value),
-            seized_from_name: str(extracted.seized_from_name),
-            seizure_datetime: toLocal(extracted.seizure_datetime),
-            seizure_location: str(extracted.seizure_location),
-          });
-        } else if (!next[idx]._touched) {
-          const row = { ...next[idx] };
-          for (const field of ITEM_FILL_FIELDS) {
-            const v = extracted[field];
-            if (v === null || v === undefined || v === "") continue;
-            row[field] = str(v);
-          }
-          if (extracted.seizure_datetime) row.seizure_datetime = toLocal(extracted.seizure_datetime);
-          next[idx] = row;
-        }
-      }
-      return next;
-    });
+    const p = reconcilePersons(
+      personsRef.current, draft.persons ?? [], dismissedPersons.current, turn, contentful
+    );
+    const i = reconcileItems(
+      itemsRef.current, draft.seized_items ?? [], dismissedItems.current, turn, contentful
+    );
+
+    // Mirrors first, so a second extraction landing before React re-renders still reads the
+    // rows this one produced.
+    personsRef.current = p.next;
+    itemsRef.current = i.next;
+    setPersons(p.next);
+    setItems(i.next);
+
+    return p.removed.length || i.removed.length
+      ? { persons: p.removed, items: i.removed }
+      : null;
+  }
+
+  /** "Removed Suresh Patel — your account no longer mentions them." */
+  function removalLine(removal: Removal): string {
+    const names = [
+      ...removal.persons.map((p) => p.full_name || p.alias),
+      ...removal.items.map((i) => i.description),
+    ].filter((n) => n.trim() !== "");
+    return t("intake.removed.notice", { names: joinFields(names) });
+  }
+
+  /** Put back what the sweep took.
+   *
+   *  The restored rows come back as the OFFICER's, touched: they have now said these
+   *  belong. Without that they would be swept again on the very next turn — they are still
+   *  absent from the account, which is what removed them in the first place. */
+  function undoRemoval(idx: number) {
+    const msg = messages[idx];
+    if (!msg?.removed || msg.undone) return;
+    const back = msg.removed;
+
+    const persons_ = back.persons.map((p) => ({ ...p, _touched: true, _origin: "officer" as RowOrigin }));
+    const items_ = back.items.map((i) => ({ ...i, _touched: true, _origin: "officer" as RowOrigin }));
+
+    const nextPersons = [...personsRef.current, ...persons_];
+    const nextItems = [...itemsRef.current, ...items_];
+    personsRef.current = nextPersons;
+    itemsRef.current = nextItems;
+    setPersons(nextPersons);
+    setItems(nextItems);
+
+    const names = [
+      ...persons_.map((p) => p.full_name || p.alias),
+      ...items_.map((i) => i.description),
+    ].filter((n) => n.trim() !== "");
+    setMessages((prev) =>
+      prev.map((m, k) =>
+        k === idx
+          ? { ...m, undone: true, content: t("intake.removed.undone", { names: joinFields(names) }) }
+          : m
+      )
+    );
   }
 
   /** Join field labels the way the officer's language joins a list. */
@@ -319,15 +543,17 @@ export default function IntakePage() {
 
     try {
       const res = await api.post("/api/intake/extract", { messages: history, lang: apiLang });
-      mergeExtraction(res.data.draft);
+      const removal = mergeExtraction(res.data.draft);
       const report = headerReport(res.data.auto_filled, res.data.missing_fields);
       // The composed header report supersedes the model's own follow-up: it is built from
       // what the draft actually holds, so it can neither ask about a detail the model
       // invented nor drift into legal comment.
       const content = report || res.data.reply;
-      if (content) {
-        setMessages([...history, { role: "assistant", content }]);
-      }
+      const next: Msg[] = [...history];
+      if (content) next.push({ role: "assistant", content });
+      // Anything the sweep took is said out loud, with the rows attached so it can be undone.
+      if (removal) next.push({ role: "notice", content: removalLine(removal), removed: removal });
+      setMessages(next);
     } catch (e: any) {
       const detail = e?.response?.data?.detail;
       setError(typeof detail === "string" ? detail : t("intake.chat.error"));
@@ -432,13 +658,15 @@ export default function IntakePage() {
   }
 
   function removePerson(row: PersonRow) {
-    const name = norm(row.full_name || row.alias);
+    // Dismissed under the name the EXTRACTOR uses, so a row the officer renamed before
+    // deleting is still matched — and so stays deleted — when the next turn re-extracts it.
+    const name = row._srcName || norm(row.full_name || row.alias);
     if (name) dismissedPersons.current.add(name);
     setPersons((prev) => prev.filter((p) => p._key !== row._key));
   }
 
   function removeItem(row: ItemRow) {
-    const desc = norm(row.description);
+    const desc = row._srcDesc || norm(row.description);
     if (desc) dismissedItems.current.add(desc);
     setItems((prev) => prev.filter((i) => i._key !== row._key));
   }
@@ -452,6 +680,9 @@ export default function IntakePage() {
     touchedCase.current = new Set();
     dismissedPersons.current = new Set();
     dismissedItems.current = new Set();
+    personsRef.current = [];
+    itemsRef.current = [];
+    extractionTurn.current = 0;
     setError(null);
   }
 
@@ -489,10 +720,28 @@ export default function IntakePage() {
             {messages.map((m, idx) => (
               <Bubble
                 key={idx}
-                who={m.role === "officer" ? t("intake.chat.you") : t("intake.chat.clerk")}
-                tone={m.role === "officer" ? "officer" : "assistant"}
+                who={
+                  m.role === "officer"
+                    ? t("intake.chat.you")
+                    : m.role === "notice"
+                    ? t("intake.chat.draftChange")
+                    : t("intake.chat.clerk")
+                }
+                tone={m.role}
               >
                 {m.content}
+                {/* Undoable, because the sweep is a judgement about what a correction meant
+                    and the officer is the one who knows. */}
+                {m.role === "notice" && m.removed && !m.undone && (
+                  <button
+                    type="button"
+                    onClick={() => undoRemoval(idx)}
+                    className="mt-2 flex items-center gap-1 font-label-caps text-primary hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-sm">undo</span>
+                    {t("intake.removed.undo")}
+                  </button>
+                )}
               </Bubble>
             ))}
             {/* The wait is honest — this only stops it reading as a hang. The draft
@@ -841,21 +1090,21 @@ function Bubble({
   children,
 }: {
   who: string;
-  tone: "officer" | "assistant";
+  tone: "officer" | "assistant" | "notice";
   children: ReactNode;
 }) {
+  // A notice reports a change the merge made to the draft, so it is set apart from the
+  // clerk's own replies rather than blending into them.
+  const box =
+    tone === "officer"
+      ? "max-w-[85%] bg-surface-container-high text-on-surface rounded px-4 py-2.5 font-body-md whitespace-pre-wrap"
+      : tone === "notice"
+      ? "max-w-[85%] bg-surface-container-low text-on-surface border-l-2 border-primary rounded px-4 py-2.5 font-body-md whitespace-pre-wrap"
+      : "max-w-[85%] bg-surface-container-low text-on-surface-variant border border-outline-variant rounded px-4 py-2.5 font-body-md whitespace-pre-wrap";
   return (
     <div className={tone === "officer" ? "flex flex-col items-end" : "flex flex-col items-start"}>
       <span className="font-label-caps text-[9px] text-on-surface-variant mb-1">{who}</span>
-      <div
-        className={
-          tone === "officer"
-            ? "max-w-[85%] bg-surface-container-high text-on-surface rounded px-4 py-2.5 font-body-md whitespace-pre-wrap"
-            : "max-w-[85%] bg-surface-container-low text-on-surface-variant border border-outline-variant rounded px-4 py-2.5 font-body-md whitespace-pre-wrap"
-        }
-      >
-        {children}
-      </div>
+      <div className={box}>{children}</div>
     </div>
   );
 }
