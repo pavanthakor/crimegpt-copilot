@@ -191,6 +191,116 @@ def verify_pin(
     )
 
 
+# ---------------------------------------------------------------------------
+# PIN login — the mobile field path.
+#
+# A SECOND, WEAKER FRONT DOOR, and it is worth being plain about that. Everywhere else in
+# this file a PIN is a STEP-UP: the officer has already proved who they are with a
+# password, and the PIN re-confirms that the same person is still at the terminal. Here
+# the PIN IS the credential — four digits between the station LAN and a token that can
+# register a case. It exists because an officer in the field is holding a phone, not a
+# keyboard, and it is meant for that network and no other.
+#
+# So it is hardened past the step-up above rather than sharing it:
+#   * its own failure counter, so an attacker on the mobile path cannot burn down a desk
+#     officer's step-up allowance — and so the step-up's behaviour is left exactly as it
+#     was;
+#   * five minutes of lockout rather than sixty seconds;
+#   * ONE answer for every kind of failure — unknown user, no PIN set, wrong PIN, locked
+#     out — so the response never tells the caller which of those they hit;
+#   * a bcrypt verify runs even when there is no account to check, so the reply takes the
+#     same time either way and cannot be used to enumerate usernames;
+#   * fails closed: an account with no PIN set cannot sign in this way at all.
+#
+# What it does NOT do is invent a second kind of session. It issues the SAME JWT as the
+# password login, signed the same way, so every existing endpoint accepts it unchanged and
+# RBAC applies exactly as before.
+#
+# THE ROUTE NAME IS LOAD-BEARING: it must keep "/api/auth/login" as a prefix. The
+# frontend's 401 interceptor treats any URL containing that as a failed sign-in rather
+# than an expired session, so a mistyped PIN shows an error instead of bouncing the page
+# to the login screen. "/api/auth/pin-login" would not match and would redirect-loop.
+# ---------------------------------------------------------------------------
+_PIN_LOGIN_MAX_ATTEMPTS = 5
+_PIN_LOGIN_LOCKOUT_SECONDS = 5 * 60
+# username -> (consecutive failures, locked-until timestamp). Keyed by the string typed,
+# not by user id, because a failed attempt may name no real account. Deliberately SEPARATE
+# from `_pin_failures` above: the step-up counter must keep behaving exactly as it did.
+_pin_login_failures: dict[str, tuple[int, float]] = {}
+
+# Something for bcrypt to chew on when there is no account (or no PIN) to check against,
+# so a miss costs the same wall-clock as a hit. The value is irrelevant and never matches.
+_ABSENT_PIN_HASH = hash_password("no-such-pin")
+
+
+class PinLoginRequest(BaseModel):
+    username: str
+    pin: str
+
+
+def _pin_login_rejected() -> HTTPException:
+    """The ONLY failure this endpoint ever reports, whatever actually went wrong."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid username or PIN",
+    )
+
+
+@router.post("/login-pin", response_model=TokenResponse)
+def login_pin(body: PinLoginRequest, db: Session = Depends(get_db)):
+    """Sign in with username + step-up PIN. Same JWT as the password login."""
+    username = body.username.strip()
+    now = time.time()
+
+    failures, locked_until = _pin_login_failures.get(username, (0, 0.0))
+    if now < locked_until:
+        logger.warning("pin-login: %r is locked out", username)
+        raise _pin_login_rejected()
+
+    user = db.query(User).filter(User.username == username).first()
+    # Always run the verify — against the real digest when there is one, against the
+    # throwaway otherwise — so "no such user" and "wrong PIN" cost the same.
+    digest = user.pin_hash if (user and user.pin_hash) else _ABSENT_PIN_HASH
+    matched = verify_password(body.pin, digest)
+
+    if user is not None and user.pin_hash and matched:
+        _pin_login_failures.pop(username, None)
+        token = create_access_token(user.id, user.role.value)
+        return TokenResponse(token=token, role=user.role, full_name=user.full_name)
+
+    failures += 1
+    locked = failures >= _PIN_LOGIN_MAX_ATTEMPTS
+    _pin_login_failures[username] = (
+        (0, now + _PIN_LOGIN_LOCKOUT_SECONDS) if locked else (failures, 0.0)
+    )
+
+    # Record that a PIN sign-in failed — for whom when we can tell, and whether it tripped
+    # the lockout. The PIN itself is never written, logged or echoed, here or anywhere.
+    # `performed_by` is null when the username matched no account: there is no officer to
+    # attribute it to, and inventing one would be worse than leaving it open.
+    db.add(
+        AuditLog(
+            case_id=None,
+            entity_type="auth.pin_login",
+            entity_id=user.id if user else None,
+            action=AuditAction.CREATE,
+            field_changes={
+                "result": "locked_out" if locked else "failed",
+                "username_attempted": username,
+                "attempt": failures,
+            },
+            performed_by=user.id if user else None,
+        )
+    )
+    db.commit()
+
+    logger.info(
+        "pin-login: failed for %r (%s/%s)%s",
+        username, failures, _PIN_LOGIN_MAX_ATTEMPTS, " — locked out" if locked else "",
+    )
+    raise _pin_login_rejected()
+
+
 @router.post(
     "/register", response_model=UserOut, status_code=status.HTTP_201_CREATED
 )

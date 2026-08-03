@@ -11,12 +11,17 @@ import TopBar from "./TopBar";
  * Applies the app shell (sidebar + top bar + content area) around page content.
  * Pre-auth screens (login) and the pre-hydration state render bare, so the login
  * page keeps working exactly as before and there is no chrome flash.
+ *
+ * The mobile field page (/m) renders bare too, for a different reason: it is a
+ * phone-sized page and this chrome is a 280px sidebar. It brings its own header, its own
+ * language switcher and its own idle watchdog. Every desktop route is unaffected.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
   const pathname = usePathname() ?? "";
 
-  const showChrome = ready && !!user && pathname !== "/login";
+  const bareRoute = pathname === "/login" || pathname === "/m" || pathname.startsWith("/m/");
+  const showChrome = ready && !!user && !bareRoute;
 
   if (!showChrome) {
     return <>{children}</>;
