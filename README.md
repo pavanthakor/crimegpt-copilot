@@ -89,7 +89,19 @@ Everything runs **inside the police network** — no case data leaves the statio
 
 ## Full setup from a clean clone
 
-> Tested on Windows 11 (also runs on macOS/Linux — swap the venv activate path). Every command below maps to a file or module that exists in the repo.
+> **Preferred (demo laptop / fresh machine):** run the one-command setup and follow [SETUP.md](SETUP.md).
+>
+> ```powershell
+> .\setup.ps1          # Windows
+> .\start.ps1          # then start servers (separate windows)
+> ```
+> ```bash
+> ./setup.sh && ./start.sh   # Linux/macOS
+> ```
+>
+> That path forces **Python 3.13 + `python -m uvicorn`** (never bare `uvicorn`), pins the UI to port **3000**, seeds demo users/PINs, and documents the **manual** LAN / mobile `.env.local` step.
+>
+> Manual steps below remain valid. Tested on Windows 11 (also runs on macOS/Linux — swap the venv activate path). Every command below maps to a file or module that exists in the repo.
 
 ### 0. Prerequisites
 
@@ -233,14 +245,14 @@ npm run dev                                   # -> http://localhost:3000
 
 ## Demo credentials
 
-Created by `python -m app.seed`. Password format is `<username>123`.
+Created by `python -m app.seed`. Password format is `<username>123`. Step-up PINs (see [SETUP.md](SETUP.md)):
 
-| Username | Password | Role | Can do |
-|---|---|---|---|
-| `io` | `io123` | Investigating Officer | Create/edit cases, pool data, run AI, generate documents, upload evidence. Sees **only their own** cases. |
-| `sho` | `sho123` | Station House Officer | Everything an IO can, across **all** officers' cases, **plus finalize documents** and the runtime DEMO_MODE toggle. |
-| `legal` | `legal123` | Legal Advisor | Read cases; focus on legal sections, judgments and weak-charge review. **Cannot alter evidence** or export to CCTNS. |
-| `io2` | `io2123` | Investigating Officer | Second IO, owns the vehicle-theft demo case (used to demonstrate case-visibility isolation). |
+| Username | Password | PIN | Role | Can do |
+|---|---|---|---|---|
+| `io` | `io123` | `1234` | Investigating Officer | Create/edit cases, pool data, run AI, generate documents, upload evidence. Sees **only their own** cases. |
+| `sho` | `sho123` | `4321` | Station House Officer | Everything an IO can, across **all** officers' cases, **plus finalize documents** and the runtime DEMO_MODE toggle. |
+| `legal` | `legal123` | `8765` | Legal Advisor | Read cases; focus on legal sections, judgments and weak-charge review. **Cannot alter evidence** or export to CCTNS. |
+| `io2` | `io2123` | `5678` | Investigating Officer | Second IO, owns the vehicle-theft demo case (used to demonstrate case-visibility isolation). |
 
 ---
 
