@@ -13,14 +13,22 @@ from app.api.integrations import router as integrations_router
 from app.api.legal import router as legal_router
 from app.api.pool import router as pool_router
 from app.api.system import router as system_router
+from app.core.config import settings
 from app.core.db import get_db
 
 app = FastAPI(title="CrimeGPT Copilot")
 
 # Allow the Next.js dev frontend (localhost:3000) to call the API from the browser.
+#
+# The two localhost origins are the deployment as it has always been. CORS_EXTRA_ORIGINS
+# APPENDS to them for the mobile field page: a phone loads the frontend from the PC's LAN
+# address, so its origin is that IP and not localhost. Unset (the default) the list is
+# unchanged, so the desktop behaves exactly as before.
+_EXTRA_ORIGINS = [o.strip() for o in settings.CORS_EXTRA_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", *_EXTRA_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

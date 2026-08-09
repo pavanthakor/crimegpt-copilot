@@ -10,7 +10,14 @@ const USER_KEY = "crimegpt_user";
 const STEPUP_KEY = "crimegpt_stepup";
 
 // Axios instance pointed at the FastAPI backend.
-export const api = axios.create({ baseURL: "http://localhost:8000" });
+//
+// The default is the address the desktop has always used, so with no env file the app
+// behaves exactly as before. NEXT_PUBLIC_API_URL overrides it for the mobile field page:
+// a phone loading the frontend over the LAN cannot reach "localhost", because localhost
+// is the phone. Set it to the PC's LAN address (e.g. http://192.168.29.188:8000).
+export const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+});
 
 // Attach the JWT from localStorage to every request.
 api.interceptors.request.use((config) => {

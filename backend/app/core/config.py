@@ -34,5 +34,11 @@ class Settings(BaseSettings):
     # WHISPER_MODEL for Gujarati too. See app/ai/transcribe.py.
     WHISPER_MODEL_GU: str = "gujarati-medium-ct2"
 
+    # Extra browser origins allowed to call the API, comma-separated — for the mobile
+    # field page, which the phone loads from the PC's LAN address rather than localhost
+    # (e.g. "http://192.168.29.188:3000"). EMPTY BY DEFAULT, so a deployment that does not
+    # set it allows exactly the two localhost origins it always has.
+    CORS_EXTRA_ORIGINS: str = ""
+
 
 settings = Settings()
