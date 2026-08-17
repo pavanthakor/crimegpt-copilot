@@ -170,13 +170,124 @@ step "Demo seed (users + cases) - idempotent, no wipe"
 )
 ok "Seed verified (users >= 4, cases >= 2)"
 
-FONT="$ROOT/fonts/NotoSansGujarati-Regular.ttf"
-if [[ -f "$FONT" ]]; then
-  if [[ ! -f "$HOME/.local/share/fonts/NotoSansGujarati-Regular.ttf" \
-     && ! -f "$HOME/Library/Fonts/NotoSansGujarati-Regular.ttf" ]]; then
-    warn "Noto Sans Gujarati is in fonts/ but may not be installed system-wide — see SETUP.md"
+# ---------------------------------------------------------------------------
+# 7b. Gujarati rendering
+#
+# The old check warned whenever Noto Sans Gujarati was absent. On Windows that cries
+# wolf: the .docx names Noto but embeds no font, and Word substitutes Shruti (ships with
+# Windows) and renders correctly - verified by PDF render. Linux/macOS have no such
+# guaranteed fallback, so check for ANY Gujarati-capable font before warning.
+# ---------------------------------------------------------------------------
+step "Gujarati rendering (.docx)"
+if command -v fc-list >/dev/null 2>&1 && fc-list :lang=gu 2>/dev/null | grep -q .; then
+  ok "A Gujarati-capable font is installed ($(fc-list :lang=gu 2>/dev/null | wc -l) face(s))"
+elif [[ -f "$HOME/.local/share/fonts/NotoSansGujarati-Regular.ttf" \
+     || -f "$HOME/Library/Fonts/NotoSansGujarati-Regular.ttf" ]]; then
+  ok "Noto Sans Gujarati installed for this user"
+else
+  warn "No Gujarati-capable font detected. Install fonts/NotoSansGujarati-Regular.ttf or Gujarati .docx may show boxes."
+fi
+
+# ---------------------------------------------------------------------------
+# 8. LAN config for the mobile field page (/m) - ADDITIVE ONLY.
+# An existing .env.local is never rewritten. Without NEXT_PUBLIC_API_URL the phone
+# calls "localhost", which is the phone itself.
+# ---------------------------------------------------------------------------
+step "LAN config for the mobile field page"
+LAN_IP=""
+if command -v ip >/dev/null 2>&1; then
+  LAN_IP="$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
+fi
+if [[ -z "$LAN_IP" ]] && command -v ipconfig >/dev/null 2>&1; then
+  LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || true)"
+fi
+if [[ -z "$LAN_IP" ]] && command -v hostname >/dev/null 2>&1; then
+  LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+fi
+
+ENV_LOCAL="$FRONTEND/.env.local"
+if [[ -z "$LAN_IP" ]]; then
+  warn "Could not detect a LAN IPv4. /m needs $ENV_LOCAL set by hand (SETUP.md)."
+else
+  ok "LAN IPv4 detected: $LAN_IP"
+  if [[ -f "$ENV_LOCAL" ]]; then
+    cur="$(grep -E '^[[:space:]]*NEXT_PUBLIC_API_URL[[:space:]]*=' "$ENV_LOCAL" | head -n1 || true)"
+    if [[ -n "$cur" ]]; then
+      ok "frontend/.env.local already sets ${cur} (kept as-is)"
+      printf '%s' "$cur" | grep -q "$LAN_IP" || \
+        warn "  ...but it does not match the detected LAN IP $LAN_IP - update by hand if the phone cannot reach the API."
+    else
+      printf 'NEXT_PUBLIC_API_URL=http://%s:8000\n' "$LAN_IP" >> "$ENV_LOCAL"
+      ok "Appended NEXT_PUBLIC_API_URL to the existing frontend/.env.local"
+    fi
+  else
+    {
+      echo "# LAN access for the mobile field page (/m). Written by setup.sh."
+      echo "# The phone loads the UI from this machine, so the API must not be 'localhost'."
+      printf 'NEXT_PUBLIC_API_URL=http://%s:8000\n' "$LAN_IP"
+    } > "$ENV_LOCAL"
+    ok "Created frontend/.env.local -> http://$LAN_IP:8000"
+  fi
+
+  if grep -Eq '^[[:space:]]*CORS_EXTRA_ORIGINS[[:space:]]*=' "$BACKEND/.env"; then
+    cur_cors="$(grep -E '^[[:space:]]*CORS_EXTRA_ORIGINS[[:space:]]*=' "$BACKEND/.env" | head -n1)"
+    ok "backend/.env already sets ${cur_cors} (kept as-is)"
+    printf '%s' "$cur_cors" | grep -q "$LAN_IP" || \
+      warn "  ...but it does not include $LAN_IP - the phone browser will be blocked by CORS."
+  else
+    {
+      echo ""
+      echo "# Browser origin of the phone loading /m (added by setup.sh)."
+      printf 'CORS_EXTRA_ORIGINS=http://%s:3000\n' "$LAN_IP"
+    } >> "$BACKEND/.env"
+    ok "Added CORS_EXTRA_ORIGINS=http://$LAN_IP:3000 to backend/.env"
   fi
 fi
+
+# ---------------------------------------------------------------------------
+# 9. Legal RAG corpus (Chroma) - /analyze returns nothing without it.
+# Both ingests are idempotent (no-op when already full). Cold build ~2 min.
+# ---------------------------------------------------------------------------
+step "Legal RAG corpus (Chroma) - idempotent, ~2 min on a cold machine"
+(
+  cd "$BACKEND"
+  "$VENV_PY" -m app.ai.rag || fail "Chroma ingest failed (python -m app.ai.rag). /analyze would return nothing."
+  "$VENV_PY" -m app.ai.judgments || fail "Judgments ingest failed. /judgments would 503."
+)
+ok "Chroma corpus + judgments collection ready"
+
+# ---------------------------------------------------------------------------
+# 10. Runtime tuning
+#
+# DRIFT FROM setup.ps1, stated plainly: the Windows script also SETS
+# OLLAMA_KEEP_ALIVE at user scope and CREATES inbound firewall rules for 3000/8000.
+# Neither is portable here - keep-alive belongs in the Ollama service unit / launchd
+# plist, and the firewall is distro-specific (ufw / firewalld). Printed, not applied.
+# ---------------------------------------------------------------------------
+step "Runtime tuning (manual on this platform - see comment re: drift from setup.ps1)"
+if [[ -n "${OLLAMA_KEEP_ALIVE:-}" ]]; then
+  ok "OLLAMA_KEEP_ALIVE is set to '${OLLAMA_KEEP_ALIVE}'"
+else
+  warn "OLLAMA_KEEP_ALIVE unset - Ollama evicts the model after 5 idle minutes (~7s reload after a pause)."
+  echo "       systemd:  Environment=\"OLLAMA_KEEP_ALIVE=24h\" in the ollama unit, then daemon-reload + restart"
+  echo "       shell:    export OLLAMA_KEEP_ALIVE=24h  before 'ollama serve'"
+fi
+[[ -n "$LAN_IP" ]] && echo "       Firewall: allow inbound TCP 3000 and 8000 on the LAN if a phone cannot reach /m."
+
+# ---------------------------------------------------------------------------
+# 11. Dependency verification (no servers needed) - reuse scripts/preflight.py
+# ---------------------------------------------------------------------------
+step "Dependency verification (scripts/preflight.py, read-only)"
+if "$VENV_PY" "$ROOT/scripts/preflight.py" --no-start; then
+  ok "preflight: all dependency checks PASS"
+else
+  warn "preflight reported at least one FAIL (above). Setup finished, but fix those before the demo."
+fi
+
+DEMO_MODE_VAL="$(grep -E '^[[:space:]]*DEMO_MODE[[:space:]]*=' "$BACKEND/.env" | head -n1 | cut -d= -f2- | tr -d '[:space:]' || true)"
+[[ -n "$DEMO_MODE_VAL" ]] || DEMO_MODE_VAL="(unset - defaults to false)"
+PHONE_URL="see SETUP.md"
+[[ -n "$LAN_IP" ]] && PHONE_URL="http://$LAN_IP:3000/m"
 
 # ---------------------------------------------------------------------------
 # 8. READY
@@ -211,7 +322,27 @@ Demo logins (password = <username>123) + step-up PINs
   sho     / sho123     PIN 4321   (all cases + finalize)
   legal   / legal123   PIN 8765   (read / legal review)
 
-Mobile / LAN field page: see SETUP.md (gitignored .env.local is a MANUAL step).
+DEMO_MODE = $DEMO_MODE_VAL   (backend/.env)
+  true  -> cached analysis + documents for seeded case 1 are served instantly;
+           judgments and weak-charge alerts still call Qwen live.
+  false -> everything runs live against Qwen. Honest default for a fresh install:
+           the demo cache only covers seeded case 1, so a new machine has nothing
+           to serve. Set DEMO_MODE=true in backend/.env for a cached demo of case 1.
+
+Mobile field page (phone on the same Wi-Fi)
+  Start with LAN binding:  ./start.sh --lan
+  Phone URL:               $PHONE_URL
+
+REQUIRED MANUAL STEP - phones already signed in
+  A handset holding a PIN token minted before commit 495a34a has no pin_login claim
+  and is refused at Register. Sign out on the phone and sign back in with the PIN
+  once. One tap, per device.
+
+NEXT: start the servers, then prove the install
+  1.  ./start.sh            (or ./start.sh --lan for phone access)
+  2.  pwsh ./verify.ps1     (PowerShell 7; the verifier is Windows-first - on Linux
+                             use scripts/preflight.py plus a manual login check)
+
 Full notes: SETUP.md
 
 EOF

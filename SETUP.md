@@ -54,11 +54,56 @@ chmod +x setup.sh start.sh
 5. **Migrations** — `python -m alembic upgrade head`, confirms `(head)`.
 6. **Ollama models** — ensures `qwen2.5:7b` and `nomic-embed-text` (pulls if missing).
 7. **Seed** — `python -m app.seed` (**idempotent**, never `--reset` — will not wipe your DB). Verifies ≥4 users and ≥2 cases.
-8. **READY summary** — prints start commands, URLs, demo logins/PINs. **Does not** start servers (avoids orphaned processes on a demo machine).
+7b. **Gujarati rendering** — checks for **any** Gujarati-capable font. On Windows, Nirmala UI and Shruti ship with the OS and Word substitutes one automatically, so this is normally a PASS even without Noto Sans Gujarati installed.
+8. **LAN config for `/m`** — detects the LAN IPv4, writes `frontend/.env.local` (`NEXT_PUBLIC_API_URL`) and adds `CORS_EXTRA_ORIGINS` to `backend/.env`. **Additive only** — an existing file is read and reported, never overwritten.
+9. **Legal RAG corpus** — `python -m app.ai.rag` + `python -m app.ai.judgments`. Idempotent (no-op when already populated); a cold build embeds 1,059 sections on CPU in **~2 minutes**, once. Without this `/analyze` returns nothing.
+10. **Runtime tuning** — sets `OLLAMA_KEEP_ALIVE=24h` and creates inbound firewall rules for 3000/8000 (see caveats below).
+11. **Dependency verification** — runs `scripts/preflight.py --no-start` (read-only, no `--fix`): Postgres, Alembic head, seed, **Chroma = 1,059**, judgments = 41, Ollama + `qwen2.5:7b`.
+12. **READY summary** — prints start commands, URLs, demo logins/PINs, the **resolved `DEMO_MODE` value and what it changes**, and any required manual steps. **Does not** start servers (avoids orphaned processes on a demo machine).
 
 Also copies `backend/.env.example` → `backend/.env` if `.env` is missing.
 
-Re-running setup on a machine that already works is safe: deps install is incremental, seed upserts users/PINs/stations, Postgres data volume is kept.
+Re-running setup on a machine that already works is safe: deps install is incremental, seed upserts users/PINs/stations, Postgres data volume is kept, the RAG ingest is a no-op, and **existing `.env` / `.env.local` values always win**.
+
+### Two caveats on step 10
+
+**`OLLAMA_KEEP_ALIVE=24h` is set at USER scope, and you must restart Ollama.** It applies to every Ollama use on your account, not just CrimeGPT. The Ollama **server reads it at startup**, so setting it does nothing until you **quit Ollama from the system tray and reopen it** — `setup.ps1` says so in a banner at the moment it sets the variable, and repeats it as a required manual step. Without it the model is evicted after 5 idle minutes and the next call pays a **~6.9 s reload**, which is exactly what a pause mid-demo costs you. `verify.ps1` will keep reporting FAIL until Ollama is restarted, because it checks the live deadline rather than the variable.
+
+> There is a **project-scoped** alternative that needs no restart and no machine-wide variable: send `"keep_alive": "24h"` in the Ollama request body from `_ollama_generate` in `backend/app/ai/llm.py`. Verified to work (sets `expires_at` 24 h out immediately, affecting only CrimeGPT's own calls). Not implemented — it is a code change to the LLM path, deliberately out of scope for the setup scripts.
+
+**Firewall rules need elevation.** The script creates **port** rules for 3000 and 8000. If you are not running as Administrator it creates nothing and prints the exact commands to paste into an admin shell instead. Port rules are deliberate: Windows' own "Allow access" prompt creates invisible *program* rules for `node.exe`/`python.exe`, and if `python.exe` is denied while `node.exe` is allowed you get the signature symptom — **`/m` loads on the phone but sign-in hangs**, because port 8000 is blocked.
+
+---
+
+## Prove it works — `verify.ps1`
+
+`setup.ps1` installs; `verify.ps1` proves. It is standalone and re-runnable any time the servers are up — run it before every demo.
+
+```powershell
+.\start.ps1          # or .\start.ps1 -Lan for phone access
+.\verify.ps1
+```
+
+**It is read-only by default.** A plain `.\verify.ps1` changes nothing in the database.
+
+| Flag | Effect |
+|---|---|
+| *(none)* | **Read-only.** Skips the two checks that write. Safe to run before every demo. |
+| `-FullCheck` | Opt in to the writing checks: generates a document, and probes the step-up gate (a refusal writes one `auth.step_up` audit row). |
+| `-CaseId <n>` | Case used by `-FullCheck`'s document generation. Default **2**, deliberately not the case-1 demo case. |
+
+> **Version-history baseline.** `-FullCheck` bumps a real document version, and version history is demo material. As of 18 Aug 2026 the document it targets — case **2** (`I-CR-0199-2026`), `SEIZURE_RECEIPT`, document id **60** — is at **v6, DRAFT, with 5 archived versions**. That is where it started; each `-FullCheck` run adds one. Use a plain `.\verify.ps1` if you want that number to stay put.
+
+It prints PASS/FAIL with a fix line for every failure, covering: `preflight.py` dependencies · backend on **127.0.0.1** · frontend on 3000 · all 3 roles log in · `/m` and the API reachable on the LAN IP · the **live** model-eviction deadline · the resolved `DEMO_MODE` — plus, with `-FullCheck`, one document generated end to end and **commit without step-up returns 401** (the server-side gate from `495a34a`).
+
+Three behaviours worth knowing:
+
+- **The keep-alive check reads Ollama, not the environment variable.** `OLLAMA_KEEP_ALIVE` is read by the Ollama *server* at startup, so setting it changes nothing until Ollama restarts. A variable that is set but not in effect is **worse than one that is unset**, because it reads as PASS while the model still evicts. So `verify.ps1` queries `/api/ps` for the resident model's `expires_at` and reports the real deadline: ≥ 1 hour is a PASS, minutes is a FAIL that tells you to restart Ollama.
+
+- **Everything is hit on `127.0.0.1`, never `localhost`.** On Windows `localhost` resolves to IPv6 `::1` first and uvicorn binds IPv4, so each *new* connection stalls **~2 s** before falling back. Measured and reproducible. Any timing taken through `localhost` measures the resolver, not the app.
+- **It names the firewall specifically.** If a port answers on `127.0.0.1` but not on the LAN IP, the failure text says so in those words rather than making you guess.
+
+A seed-count mismatch from `preflight.py` is downgraded to a **WARN** when `verify_seed_counts.py` still passes: preflight asserts the *pristine* seed baseline, so any machine that has registered real cases "fails" it, which is normal rather than broken.
 
 ---
 
@@ -137,9 +182,13 @@ Wrong PIN blocks the action and writes nothing. Correct PIN then allows the writ
 
 ---
 
-## Mobile / LAN field page (manual — gitignored env)
+## Mobile / LAN field page
 
-The phone load of `/m` (or the desktop UI over LAN) **cannot** rely on `localhost` — on the phone that means the phone itself. `.env.local` is **gitignored**, so a fresh clone never gets LAN config until you add it.
+> **Steps 1–3 below are now done for you by `setup.ps1` / `setup.sh`** (step 8): it detects the LAN IP, writes `frontend/.env.local`, and adds `CORS_EXTRA_ORIGINS` to `backend/.env` — without overwriting anything you already set. They are kept here as the reference for doing it by hand, or when detection picks the wrong adapter.
+>
+> **Step 5 (firewall) still needs you** unless you ran setup elevated, and **one step no script can do**: a handset holding a PIN token minted **before commit `495a34a`** has no `pin_login` claim and is refused at Register. **Sign out on the phone and sign back in with the PIN once — one tap, per device.**
+
+The phone load of `/m` (or the desktop UI over LAN) **cannot** rely on `localhost` — on the phone that means the phone itself. `.env.local` is **gitignored**, so a fresh clone never gets LAN config until it is created.
 
 ### 1. Find this PC’s LAN IP
 

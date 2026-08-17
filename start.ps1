@@ -12,7 +12,10 @@ param(
     [switch]$BackendOnly,
     [switch]$FrontendOnly,
     [switch]$Lan,  # bind 0.0.0.0 for phone / mobile field page
-    [switch]$NoNewWindow
+    [switch]$NoNewWindow,
+    # Optional convenience: wait for the stack to come up, then run .\verify.ps1.
+    # verify.ps1 is standalone - this only saves you typing it in a second terminal.
+    [switch]$Verify
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,4 +77,29 @@ if ($doFrontend) { Start-Frontend }
 if (-not $NoNewWindow) {
     Write-Host ""
     Write-Host "Opened separate PowerShell windows. Close them to stop the servers."
+}
+
+if ($Verify) {
+    $verifyScript = Join-Path $Root "verify.ps1"
+    if (-not (Test-Path $verifyScript)) {
+        Write-Host "verify.ps1 not found next to start.ps1 - skipping." -ForegroundColor Yellow
+    } else {
+        # Poll on 127.0.0.1, never localhost (IPv6 ::1 first costs ~2s per new connection).
+        Write-Host ""
+        Write-Host "Waiting for the backend to answer before verifying ..." -ForegroundColor Cyan
+        $up = $false
+        for ($i = 0; $i -lt 45; $i++) {
+            try {
+                Invoke-WebRequest "http://127.0.0.1:8000/health" -TimeoutSec 2 -UseBasicParsing | Out-Null
+                $up = $true; break
+            } catch { Start-Sleep -Seconds 2 }
+        }
+        if (-not $up) {
+            Write-Host "Backend did not answer within ~90s. Run .\verify.ps1 yourself once it is up." -ForegroundColor Yellow
+        } else {
+            & $verifyScript
+        }
+    }
+} elseif (-not $NoNewWindow) {
+    Write-Host "Prove the install once they are up:  .\verify.ps1" -ForegroundColor Cyan
 }

@@ -281,15 +281,209 @@ try {
     Pop-Location
 }
 
-# Optional font hint (non-fatal)
-$font = Join-Path $Root "fonts\NotoSansGujarati-Regular.ttf"
-if (Test-Path $font) {
-    $installed = Test-Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts\NotoSansGujarati-Regular.ttf"
-    if (-not $installed) {
-        Write-Warn "Noto Sans Gujarati font is in fonts\ but not installed system-wide - Gujarati in .docx may show as boxes. See SETUP.md."
+# ---------------------------------------------------------------------------
+# 7b. Gujarati rendering
+#
+# The old check warned whenever Noto Sans Gujarati was not installed system-wide. That
+# cried wolf: the generated .docx names Noto Sans Gujarati but embeds no font, and on a
+# machine WITHOUT it Word silently substitutes Shruti - which ships with Windows and
+# renders Gujarati correctly (verified by rendering to PDF: Word embedded ABCDEE+Shruti
+# and the glyphs were well-formed; an Arial control produced the classic tofu boxes).
+# So the thing that actually matters is whether ANY Gujarati-capable font is present.
+# ---------------------------------------------------------------------------
+Write-Step "Gujarati rendering (.docx)"
+$guFonts = @()
+foreach ($f in @(
+    @{ n = "Nirmala UI"; p = "$env:WINDIR\Fonts\NIRMALA.TTF" },
+    @{ n = "Shruti";     p = "$env:WINDIR\Fonts\shruti.ttf" },
+    @{ n = "Noto Sans Gujarati"; p = "$env:WINDIR\Fonts\NotoSansGujarati-Regular.ttf" }
+)) {
+    if (Test-Path $f.p) { $guFonts += $f.n }
+}
+if ($guFonts.Count -gt 0) {
+    Write-Ok ("Gujarati-capable font(s) present: " + ($guFonts -join ", ") + " - .docx will render Gujarati")
+} else {
+    Write-Warn "No Gujarati-capable font found. Install fonts\NotoSansGujarati-Regular.ttf (right-click > Install) or Gujarati .docx may show boxes."
+}
+
+# ---------------------------------------------------------------------------
+# 8. LAN config for the mobile field page (/m)
+#
+# ADDITIVE ONLY. An existing .env.local is never rewritten - a working demo machine's
+# config always wins over a clean install. We report what is there and add only what is
+# missing. Without NEXT_PUBLIC_API_URL the phone calls "localhost", which is the phone.
+# ---------------------------------------------------------------------------
+Write-Step "LAN config for the mobile field page"
+
+function Get-LanIPv4 {
+    # The adapter with a default gateway is the real LAN one. This machine also has
+    # Hyper-V/WSL (172.x), OpenVPN and APIPA (169.254.x) addresses that must not win.
+    $c = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
+         Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
+         Select-Object -First 1
+    if ($c) { return $c.IPv4Address.IPAddress }
+    $f = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+         Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' `
+                        -and $_.InterfaceAlias -notmatch 'vEthernet|Loopback' } |
+         Select-Object -First 1
+    if ($f) { return $f.IPAddress }
+    return $null
+}
+
+$LanIp = Get-LanIPv4
+if (-not $LanIp) {
+    Write-Warn "Could not detect a LAN IPv4 address. /m will not work from a phone until you set frontend\.env.local by hand (SETUP.md)."
+} else {
+    Write-Ok "LAN IPv4 detected: $LanIp"
+
+    $envLocal = Join-Path $Frontend ".env.local"
+    if (Test-Path $envLocal) {
+        $existing = Select-String -LiteralPath $envLocal -Pattern '^\s*NEXT_PUBLIC_API_URL\s*=\s*(.+)$' |
+                    Select-Object -First 1
+        if ($existing) {
+            $val = $existing.Matches[0].Groups[1].Value.Trim()
+            Write-Ok "frontend\.env.local already sets NEXT_PUBLIC_API_URL=$val (kept as-is)"
+            if ($val -notmatch [regex]::Escape($LanIp)) {
+                Write-Warn "  ...but it does not match the detected LAN IP $LanIp. If the phone cannot reach the API, update it by hand."
+            }
+        } else {
+            Add-Content -LiteralPath $envLocal -Value "NEXT_PUBLIC_API_URL=http://${LanIp}:8000"
+            Write-Ok "Appended NEXT_PUBLIC_API_URL to the existing frontend\.env.local"
+        }
     } else {
-        Write-Ok "Noto Sans Gujarati appears installed"
+        @(
+            "# LAN access for the mobile field page (/m).",
+            "# The phone loads the UI from this PC, so the API must not be 'localhost'.",
+            "# Written by setup.ps1. Delete this file for desktop-only (falls back to localhost:8000).",
+            "NEXT_PUBLIC_API_URL=http://${LanIp}:8000"
+        ) | Set-Content -LiteralPath $envLocal -Encoding UTF8
+        Write-Ok "Created frontend\.env.local with NEXT_PUBLIC_API_URL=http://${LanIp}:8000"
     }
+
+    # CORS: the phone's browser origin is the LAN IP, not localhost. Append only.
+    $envContent = Get-Content -LiteralPath $envFile -Raw
+    if ($envContent -match '(?m)^\s*CORS_EXTRA_ORIGINS\s*=') {
+        $cur = ([regex]::Match($envContent, '(?m)^\s*CORS_EXTRA_ORIGINS\s*=\s*(.*)$')).Groups[1].Value.Trim()
+        Write-Ok "backend\.env already sets CORS_EXTRA_ORIGINS=$cur (kept as-is)"
+        if ($cur -notmatch [regex]::Escape($LanIp)) {
+            Write-Warn "  ...but it does not include $LanIp. The phone browser will be blocked by CORS until it does."
+        }
+    } else {
+        Add-Content -LiteralPath $envFile -Value ""
+        Add-Content -LiteralPath $envFile -Value "# Browser origin of the phone loading /m (added by setup.ps1)."
+        Add-Content -LiteralPath $envFile -Value "CORS_EXTRA_ORIGINS=http://${LanIp}:3000"
+        Write-Ok "Added CORS_EXTRA_ORIGINS=http://${LanIp}:3000 to backend\.env"
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 9. Legal RAG corpus (Chroma) - /analyze returns nothing without it
+#
+# Both ingests are idempotent: they count the collection first and skip when it is
+# already full (measured: 0.01s no-op on a populated collection). A COLD build embeds
+# 1,059 sections on CPU at ~111 ms each - budget ~2 minutes, once.
+# ---------------------------------------------------------------------------
+Write-Step "Legal RAG corpus (Chroma) - idempotent, ~2 min on a cold machine"
+Push-Location $Backend
+try {
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & $VenvPython -m app.ai.rag 2>&1 | ForEach-Object { Write-Host "  $_" }
+    $ragExit = $LASTEXITCODE
+    & $VenvPython -m app.ai.judgments 2>&1 | ForEach-Object { Write-Host "  $_" }
+    $judExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEa
+    if ($ragExit -ne 0) { Fail "Chroma ingest failed (python -m app.ai.rag). /analyze would return nothing." }
+    if ($judExit -ne 0) { Fail "Judgments ingest failed (python -m app.ai.judgments). /judgments would 503." }
+    Write-Ok "Chroma corpus + judgments collection ready"
+} finally {
+    Pop-Location
+}
+
+# ---------------------------------------------------------------------------
+# 10. Runtime tuning: Ollama keep-alive + LAN firewall
+# ---------------------------------------------------------------------------
+Write-Step "Runtime tuning (Ollama keep-alive, firewall)"
+
+# Ollama evicts an idle model after 5 minutes by default; the next call then pays a
+# ~6.9s reload (measured). This is a USER-SCOPE variable: it applies to every Ollama
+# use on this account, not just CrimeGPT, and the Ollama SERVER only reads it at
+# startup - so it does nothing until Ollama is restarted.
+$existingKeep = [Environment]::GetEnvironmentVariable("OLLAMA_KEEP_ALIVE", "User")
+$script:OllamaRestartNeeded = $false
+if ($existingKeep) {
+    Write-Ok "OLLAMA_KEEP_ALIVE already set to '$existingKeep' (user scope, kept as-is)"
+} else {
+    [Environment]::SetEnvironmentVariable("OLLAMA_KEEP_ALIVE", "24h", "User")
+    $script:OllamaRestartNeeded = $true
+    Write-Ok "Set OLLAMA_KEEP_ALIVE=24h (USER scope - affects all Ollama use on this account)"
+    Write-Host ""
+    Write-Host "  ****************************************************************" -ForegroundColor Yellow
+    Write-Host "  *  THIS HAS NOT TAKEN EFFECT YET. YOU MUST RESTART OLLAMA.     *" -ForegroundColor Yellow
+    Write-Host "  *                                                              *" -ForegroundColor Yellow
+    Write-Host "  *  The Ollama SERVER reads this variable at startup. Until you  *" -ForegroundColor Yellow
+    Write-Host "  *  quit Ollama from the system tray and reopen it, the model    *" -ForegroundColor Yellow
+    Write-Host "  *  still evicts after 5 idle minutes and the first request      *" -ForegroundColor Yellow
+    Write-Host "  *  after a demo pause pays a ~6.9s reload.                      *" -ForegroundColor Yellow
+    Write-Host "  *                                                              *" -ForegroundColor Yellow
+    Write-Host "  *  verify.ps1 checks the LIVE eviction deadline, not this       *" -ForegroundColor Yellow
+    Write-Host "  *  variable, so it will keep reporting FAIL until you restart.  *" -ForegroundColor Yellow
+    Write-Host "  ****************************************************************" -ForegroundColor Yellow
+    Write-Host ""
+}
+
+# Firewall: PORT rules, deliberately. Program rules for node.exe/python.exe are what a
+# Windows 'Allow access' prompt creates - invisible, easy to dismiss, and if python.exe
+# is denied while node.exe is allowed you get the signature symptom: /m loads but
+# sign-in hangs. Port rules are explicit and inspectable.
+$isAdmin = ([Security.Principal.WindowsPrincipal] `
+            [Security.Principal.WindowsIdentity]::GetCurrent()
+           ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$fwRules = @(
+    @{ Name = "CrimeGPT frontend 3000"; Port = 3000 },
+    @{ Name = "CrimeGPT backend 8000";  Port = 8000 }
+)
+$script:FirewallManual = @()
+foreach ($r in $fwRules) {
+    $have = Get-NetFirewallRule -DisplayName $r.Name -ErrorAction SilentlyContinue
+    if ($have) {
+        Write-Ok "Firewall rule already present: $($r.Name)"
+    } elseif ($isAdmin) {
+        try {
+            New-NetFirewallRule -DisplayName $r.Name -Direction Inbound -Protocol TCP `
+                -LocalPort $r.Port -Action Allow -Profile Any | Out-Null
+            Write-Ok "Created firewall rule: $($r.Name) (TCP $($r.Port) inbound)"
+        } catch {
+            Write-Warn "Could not create firewall rule $($r.Name): $($_.Exception.Message)"
+            $script:FirewallManual += $r
+        }
+    } else {
+        $script:FirewallManual += $r
+    }
+}
+if ($script:FirewallManual.Count -gt 0) {
+    Write-Warn "Not elevated - firewall rules NOT created. /m will fail from a phone until you run the commands printed at the end."
+}
+
+# ---------------------------------------------------------------------------
+# 11. Dependency verification (no servers needed) - reuse scripts\preflight.py
+# ---------------------------------------------------------------------------
+Write-Step "Dependency verification (scripts\preflight.py, read-only)"
+Push-Location $Root
+try {
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & $VenvPython (Join-Path $Root "scripts\preflight.py") --no-start 2>&1 |
+        ForEach-Object { Write-Host "  $_" }
+    $pfExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEa
+    if ($pfExit -ne 0) {
+        Write-Warn "preflight reported at least one FAIL (above). Setup finished, but fix those before the demo."
+    } else {
+        Write-Ok "preflight: all dependency checks PASS"
+    }
+} finally {
+    Pop-Location
 }
 
 # ---------------------------------------------------------------------------
@@ -326,6 +520,55 @@ Write-Host "  io2     / io2123     PIN 5678   (Ellisbridge PS - second case)"
 Write-Host "  sho     / sho123     PIN 4321   (all cases + finalize)"
 Write-Host "  legal   / legal123   PIN 8765   (read / legal review)"
 Write-Host ""
-Write-Host "Mobile / LAN field page: see SETUP.md (gitignored .env.local is a MANUAL step)."
+# --- DEMO_MODE: state it, never leave it ambiguous -------------------------
+$demoLine = (Select-String -LiteralPath $envFile -Pattern '^\s*DEMO_MODE\s*=\s*(\S+)' |
+             Select-Object -First 1)
+$demoVal = if ($demoLine) { $demoLine.Matches[0].Groups[1].Value } else { "(unset - defaults to false)" }
+Write-Host "DEMO_MODE = $demoVal   (backend\.env)" -ForegroundColor White
+if ($demoVal -match '^(?i)true$') {
+    Write-Host "  Cached analysis and documents for the seeded case 1 are served instantly."
+    Write-Host "  Judgments and weak-charge alerts still call Qwen live. Nothing else is cached."
+} else {
+    Write-Host "  Everything runs live against Qwen. Honest default for a fresh install -"
+    Write-Host "  the demo cache only covers seeded case 1, so a new machine has nothing to serve."
+    Write-Host "  Set DEMO_MODE=true in backend\.env for a cached, deterministic demo of case 1."
+}
+Write-Host ""
+
+# --- Mobile / LAN ----------------------------------------------------------
+if ($LanIp) {
+    Write-Host "Mobile field page (phone on the same Wi-Fi)"
+    Write-Host "  Start with LAN binding:  .\start.ps1 -Lan"
+    Write-Host "  Phone URL:               http://${LanIp}:3000/m"
+    Write-Host ""
+}
+
+if ($script:FirewallManual.Count -gt 0) {
+    Write-Host "REQUIRED MANUAL STEP - firewall (run in an ADMIN PowerShell)" -ForegroundColor Yellow
+    Write-Host "  Without these, /m loads on the phone but sign-in hangs (port 8000 blocked)." -ForegroundColor Yellow
+    foreach ($r in $script:FirewallManual) {
+        Write-Host ("  New-NetFirewallRule -DisplayName '{0}' -Direction Inbound -Protocol TCP -LocalPort {1} -Action Allow" -f $r.Name, $r.Port)
+    }
+    Write-Host "  Keep this LAN-only. Do not expose 8000 beyond the station network." -ForegroundColor Yellow
+    Write-Host ""
+}
+
+if ($script:OllamaRestartNeeded) {
+    Write-Host "REQUIRED MANUAL STEP - restart Ollama" -ForegroundColor Yellow
+    Write-Host "  OLLAMA_KEEP_ALIVE=24h was just set but is NOT in effect. Quit Ollama from the" -ForegroundColor Yellow
+    Write-Host "  system tray and reopen it, or the model still evicts after 5 idle minutes." -ForegroundColor Yellow
+    Write-Host ""
+}
+
+Write-Host "REQUIRED MANUAL STEP - phones already signed in" -ForegroundColor Yellow
+Write-Host "  A handset holding a PIN token minted before commit 495a34a has no pin_login" -ForegroundColor Yellow
+Write-Host "  claim and is refused at Register. Sign out on the phone and sign back in with" -ForegroundColor Yellow
+Write-Host "  the PIN once. One tap, per device." -ForegroundColor Yellow
+Write-Host ""
+
+Write-Host "NEXT: start the servers, then prove the install" -ForegroundColor Green
+Write-Host "  1.  .\start.ps1          (or .\start.ps1 -Lan for phone access)"
+Write-Host "  2.  .\verify.ps1         (PASS/FAIL for the whole running stack)"
+Write-Host ""
 Write-Host "Full notes: SETUP.md"
 Write-Host ""
