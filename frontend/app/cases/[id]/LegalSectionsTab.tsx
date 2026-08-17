@@ -464,7 +464,14 @@ function SectionCard({
   const { t } = useI18n();
   const accepted = section.status === "ACCEPTED";
   const officerRejected = section.status === "REJECTED";
-  const conf = section.confidence != null ? Math.round(section.confidence * 100) : null;
+  // The model's self-reported `confidence` is deliberately NOT rendered. It is not a
+  // measurement — it is a number the model writes into its own JSON — and it sits in a
+  // range so narrow that a wrong section reads as certain: over three eval runs, 96% of
+  // WRONG sections scored >=90% and a third of them showed exactly 100%. Displaying it
+  // invites the officer to trust a figure that does not track correctness. The honest
+  // justification stays on the card: the triggering phrase, the section title and the
+  // officer's own accept/reject. The value is still returned by the API and stored, so
+  // the eval harness can keep measuring it.
   // The reason is often just the short statutory title, which the full title in the
   // heading already carries — showing both reads as a duplicated title. Suppress the
   // reason when it is a leading fragment of (or identical to) the heading title.
@@ -487,7 +494,7 @@ function SectionCard({
         (active ? " ring-2 ring-accent" : "")
       }
     >
-      <div className="flex items-start justify-between gap-3 mb-2">
+      <div className="flex items-start gap-3 mb-2">
         <div className="min-w-0">
           <span className="font-mono-data text-lg text-primary">
             {section.act} {section.section_code}
@@ -500,18 +507,6 @@ function SectionCard({
           >
             {section.section_title ?? "—"}
           </h4>
-        </div>
-        <div className="text-right shrink-0">
-          {conf != null && (
-            <>
-              <div className="font-display-case text-2xl text-primary leading-none">
-                {conf}%
-              </div>
-              <div className="font-label-caps text-[9px] text-on-surface-variant">
-                {t("legal.confidence")}
-              </div>
-            </>
-          )}
         </div>
       </div>
 

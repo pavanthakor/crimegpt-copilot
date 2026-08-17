@@ -218,7 +218,8 @@ export default function AnalysisPage() {
 function SectionRow({ s }: { s: Section }) {
   const { t } = useI18n();
   const accepted = s.status === "ACCEPTED";
-  const conf = s.confidence != null ? Math.round(s.confidence * 100) : null;
+  // Model self-reported `confidence` is deliberately not rendered — see the note in
+  // LegalSectionsTab. Still returned by the API and stored; just not shown to the officer.
   const reason = reasonRestatesTitle(s.reason, s.section_title) ? null : s.reason;
   return (
     <div
@@ -249,11 +250,6 @@ function SectionRow({ s }: { s: Section }) {
           >
             {accepted ? t("analysis.sections.accepted") : t("analysis.sections.suggested")}
           </span>
-          {conf != null && (
-            <p className="font-mono-sm text-on-surface-variant mt-1">
-              {t("analysis.sections.conf", { n: conf })}
-            </p>
-          )}
         </div>
       </div>
       {reason && (
