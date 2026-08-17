@@ -1,4 +1,4 @@
-# CLAUDE.md — CrimeGPT Technical Foundation
+﻿# CLAUDE.md — CrimeGPT Technical Foundation
 
 > This file is the single source of truth for the CrimeGPT build. Claude Code reads it automatically as persistent context. Humans: read the top 3 sections before writing any code. Keep this file updated as decisions change.
 
@@ -65,9 +65,9 @@ Build toward these exact outputs — everything in the plan serves them:
 2. Remand Request Letter (Police Custody) ✅ (priority)
 3. Seizure Receipt ✅ (priority)
 4. Medical Treatment Letter ✅ (priority)
-5. Court Custody Letter (stretch)
+5. Court Custody Letter ✅ BUILT (was stretch)
 6. Accused Face Identification Form (stretch — pairs with face-capture bonus)
-7. Purvani Chargesheet (stretch — confirm exact Gujarat format from samples)
+7. Purvani Chargesheet ✅ BUILT as Final Form / Report (BNSS §193), Form I, original + supplementary
 
 ---
 
@@ -75,13 +75,13 @@ Build toward these exact outputs — everything in the plan serves them:
 
 > **Status (reconciled against the code, ~30 slices in):** Tiers 1–3 are ALL built and wired end-to-end (FastAPI backend + Next.js frontend). The list below is the original tiered plan annotated with what actually shipped.
 
-**Tier 1 — Core (✅ all built):** Unified Case Data Pool · Document Generation Engine (**6** docs, §8) · Case Diary Automation (auto entries on key actions) · Legal Section Intelligence (grounded BNS/BNSS/BSA sections + landmark judgments, RAG over a 1,059-chunk Chroma corpus) · Multilingual UI (EN/HI/GU, persisted to localStorage, also drives the AI `lang` param) · Search & Audit (case/person/seized-item search returning `SearchHit`, paginated audit trail, document version history).
+**Tier 1 — Core (✅ all built):** Unified Case Data Pool · Document Generation Engine (**8** docs, §8) · Case Diary Automation (auto entries on key actions) · Legal Section Intelligence (grounded BNS/BNSS/BSA sections + landmark judgments, RAG over a 1,059-chunk Chroma corpus) · Multilingual UI (EN/HI/GU, persisted to localStorage, also drives the AI `lang` param) · Search & Audit (case/person/seized-item search returning `SearchHit`, paginated audit trail, document version history).
 
-**Tier 2 — Signature differentiators (✅ built, one exception):** Explainable section mapping (triggering-phrase highlight + marked-up narrative + confidence) ✅ · Cross-document consistency checker (pure-DB staleness/divergence, `GET /consistency`) ✅ · Auto-writing case diary ✅ · Weak-charge / missing-ingredient alerts ✅ · Gujarati voice-to-document (record → Whisper transcript → **Qwen** English narrative → officer reviews & applies) ✅ · **BNSS/BSA compliance checker — NOT built** (the weak-charge check is the nearest thing shipped).
+**Tier 2 — Signature differentiators (✅ built, one exception):** Explainable section mapping (triggering-phrase highlight + marked-up narrative) ✅ — the model's self-reported confidence is retained in the DB/API for regression measurement but is NO LONGER DISPLAYED (728e79f: 96.3% of wrong sections scored ≥90%) · Cross-document consistency checker (pure-DB staleness/divergence, `GET /consistency`) ✅ · Auto-writing case diary ✅ · Weak-charge / missing-ingredient alerts ✅ · Gujarati voice-to-document (record → Whisper transcript → **Qwen** English narrative → officer reviews & applies) ✅ · **BNSS/BSA compliance checker — NOT built** (the weak-charge check is the nearest thing shipped).
 
 **Tier 3 — Committed bonuses (✅ all built):** RBAC (3 roles: IO / SHO / LEGAL_ADVISOR) ✅ · Evidence upload + tagging + SHA-256 auto-hash + authenticated file serving ✅ · LERS request templates (preservation + records — compliant `.docx` templates, not a live API) ✅ · CCTNS mock IIF export (POSTs to a mock receiver, returns a mock FIR id) ✅.
 
-**Tier 4 — Genuinely NOT built (deck / roadmap only):** Golden Hour cyber vertical (only the three §10 seams exist — no live workflow logic or timers) · Face-capture / Face ID form (`DocType.FACE_ID` exists but has no template) · Custody Letter & Purvani Chargesheet docs (`CUSTODY_LETTER` / `CHARGESHEET` enum values exist, no templates) · BNSS/BSA compliance checker · `.docx → PDF` export (download is `.docx` only) · money-trail visualisation · offline-first PWA · live CCTNS / ICJS / eCourts / BharatPol integration.
+**Tier 4 — Genuinely NOT built (deck / roadmap only):** Golden Hour cyber vertical (only the three §10 seams exist — no live workflow logic or timers) · Face-capture / Face ID form (`DocType.FACE_ID` exists but has no template) · BNSS/BSA compliance checker · `.docx → PDF` export (download is `.docx` only) · money-trail visualisation · offline-first PWA · live CCTNS / ICJS / eCourts / BharatPol integration.
 
 ---
 
@@ -138,7 +138,7 @@ documents
        MEDICAL_LETTER | CUSTODY_LETTER | FACE_ID | CHARGESHEET | LERS_REQUEST |
        LERS_PRESERVATION_REQUEST | LERS_RECORDS_REQUEST)
        # LERS_PRESERVATION_REQUEST + LERS_RECORDS_REQUEST were ADDED post-plan. Of the 10
-       # enum values, only 6 have templates and are generatable (§8); the rest are enum-only stretch types.
+       # enum values, 8 have templates and are generatable (§8); FACE_ID and LERS_REQUEST are enum-only.
   version (int) · file_path · generated_data (JSONB)               # the exact data merged in
   language · status (enum: DRAFT | FINALIZED)
   generated_by (FK users) · generated_at
@@ -234,11 +234,41 @@ def call_llm(
 Transcribed verbatim from the routers (`backend/app/api/*.py`). All prefixed `/api`. All
 except `/auth/login` and `/integrations/cctns/mock` require a valid JWT.
 
+TOTAL: 48 endpoints (path x method, excluding /health, /health/db, /docs, /openapi.json,
+/redoc). By tag: pool 16 · documents 6 · legal 6 · auth 5 · cases 5 · chat 3 · intake 2 ·
+integrations 2 · system 2 · audit 1.
+
 ```
 auth  (app/api/auth.py)
   POST  /auth/login                     -> { token, role, full_name }
   GET   /auth/me                        current user
   POST  /auth/register                  create officer account (SHO/admin only)
+  POST  /auth/verify-pin                step-up PIN check. Answers 200 ok=true|false, never
+                                        401, so a mistyped PIN cannot look like a dead
+                                        session. Records the step-up server-side on success.
+  POST  /auth/login-pin                 mobile sign-in with username + PIN. Issues the SAME
+                                        JWT as the password login plus a pin_login claim.
+                                        One uniform 401 for every failure mode;
+                                        5 attempts / 5 min lockout.
+
+intake  (app/api/intake.py — conversational case registration)
+  POST  /intake/extract                 officer's chat turns -> structured pool DRAFT.
+                                        Takes NO db session, so it cannot persist anything.
+  POST  /intake/commit                  confirmed draft -> registered case, in ONE
+                                        transaction. REQUIRES a step-up (exempt for
+                                        pin_login tokens, i.e. the mobile path).
+
+chat  (app/api/chat.py — classify and stop; no side effects)
+  POST  /cases/{id}/chat/route          one message -> an INTENT label from a closed set
+                                        (GENERATE | QUERY | AMBIGUOUS | UNKNOWN). Never prose.
+  POST  /cases/{id}/chat/missing        split a generation checklist into fillable / blocked /
+                                        unknown
+  POST  /cases/{id}/chat/answer         read an officer's reply onto asked fields. Proposes
+                                        values; WRITES NOTHING.
+
+system  (app/api/system.py)
+  GET   /system/demo-mode               current effective DEMO_MODE (any role)
+  PATCH /system/demo-mode               toggle at runtime, no restart (SHO only, audited)
 
 cases  (app/api/cases.py)
   POST  /cases                          create case from FIR (IO/SHO)
@@ -276,7 +306,10 @@ documents  (app/api/documents.py)
   GET   /cases/{id}/documents             list generated documents (current state)
   GET   /documents/{doc_id}/versions      version history: per-version metadata + diff vs previous
   GET   /documents/{doc_id}/download       .docx  (no PDF export)
-  POST  /documents/{doc_id}/finalize      DRAFT -> FINALIZED (+ version snapshot); SHO only
+  POST  /documents/{doc_id}/finalize      DRAFT -> FINALIZED (+ version snapshot); SHO only.
+                                          REQUIRES a step-up PIN with NO exemption: an SHO can
+                                          PIN-login on a phone, so exempting it would let four
+                                          digits approve a document.
   GET   /cases/{id}/consistency           cross-document consistency check — read-only, pure-DB, no LLM, no side effects
 
 audit  (app/api/audit.py)
@@ -352,9 +385,9 @@ crimegpt-copilot/
     bns_bnss_bsa/     BNS/BNSS/BSA .txt + *_sections.json (the RAG corpus source)
     judgments/        judgments.jsonl             <- curated citations + paraphrases
     audio/            A.mpeg B.mpeg + *_16k_mono.wav   <- real Gujarati demo recordings
-    fir_samples/      (empty — pending from team)
+    fir_samples/      3 anonymised synthetic FIR/complaint samples + README
     backfill_section_titles.py                    <- one-off data script
-  templates/                                      <- 6 docx templates, one per generatable doc_type
+  templates/                                      <- 8 docx templates, one per generatable doc_type
     seizure_receipt.docx  panchnama.docx  remand_request.docx  medical_letter.docx
     lers_preservation_request.docx  lers_records_request.docx
     _registry.py   <- doc_type -> template + required_fields (import-free)   _build_templates.py
@@ -364,7 +397,7 @@ crimegpt-copilot/
       core/        config.py (pydantic-settings), security (JWT/bcrypt), db session
       models/      SQLAlchemy models (= schema §5) + enums.py
       schemas/     Pydantic (case.py, …)
-      api/         auth, cases, pool, legal, documents, audit, integrations   (diary + transcribe live in pool.py)
+      api/         auth, cases, pool, legal, documents, intake, chat, audit, integrations, system
       ai/          llm.py (call_llm), prompts.py, rag.py (RAG loader + corpus ingest), legal.py,
                    judgments.py, weak_charge.py, translate.py (Qwen), transcribe.py (faster-whisper, CPU-only)
       services/    documents.py (generation + version-aware archive), consistency.py, cctns.py
@@ -374,10 +407,13 @@ crimegpt-copilot/
     demo_cache/    analysis/  documents/  transcripts/  reviewed_gu.json   <- pre-generated DEMO_MODE outputs
     alembic/       migrations       requirements.txt   .env / .env.example
   frontend/
-    app/           login, dashboard, cases, cases/new, cases/[id] (tabs: details/evidence/sections/documents/diary),
-                   analysis, audit                (Evidence & Documents are tabs, not standalone routes)
-    components/     AppShell  AuthProvider  Sidebar  TopBar  CasePicker
-    lib/            api.ts  cases.ts  i18n.ts (EN/HI/GU string table)
+    app/           login, dashboard, cases, cases/new, cases/intake (conversational),
+                   cases/[id] (tabs: details/evidence/sections/documents/diary),
+                   m (mobile field capture: PIN login, LAN, capture-only), analysis, audit
+                                                  (Evidence & Documents are tabs, not standalone routes)
+    components/     AppShell  AuthProvider  Sidebar  TopBar  CasePicker  StepUp
+                    IdleLogout  MobileIdleLogout  ExtractionProgress
+    lib/            api.ts  cases.ts  idle.ts  i18n.ts (EN/HI/GU string table)
     public/fonts/   material-symbols-outlined.woff2 (self-hosted)
     tailwind.config.ts  package.json  (Next.js + React + TS + Tailwind + framer-motion)
 ```
@@ -490,7 +526,7 @@ so the heavy LLM/Whisper steps are served instantly from `demo_cache/` (see the 
 
 **What DEMO_MODE caches vs runs live:**
 - **[cached]** section analysis (`demo_cache/analysis/`), document generation (`demo_cache/documents/`,
-  6 types × EN/HI/GU), and voice transcription (`demo_cache/transcripts/`, keyed by upload filename —
+  8 types × EN/HI/GU), and voice transcription (`demo_cache/transcripts/`, keyed by upload filename —
   the in-browser record button uploads `dictation.webm/.ogg/.wav`, which are pre-cached).
 - **[live]** judgments and weak-charge alerts (always call Qwen), and the consistency check (pure-DB, no LLM — instant either way). Human-reviewed Gujarati strings in the cache are pinned in `demo_cache/reviewed_gu.json`.
 
@@ -498,7 +534,7 @@ so the heavy LLM/Whisper steps are served instantly from `demo_cache/` (see the 
 2. **Create case from FIR** (or open the seeded case). On **Case details**, use **voice dictation**: record the complaint → **[cached]** Gujarati transcript + English translation appear side by side → officer clicks **Apply** to set the narrative (never auto-overwritten).
 3. Add **persons** (accused, witnesses) + **evidence** (upload an image → auto SHA-256 + tag).
 4. **Legal sections** tab → **Analyse** → **[cached]** grounded BNS/BNSS/BSA sections with the **highlighted triggering phrase** in the marked-up narrative + confidence. Accept a few. Suggest **judgments** **[live]**; run **weak-charge alerts** **[live]**.
-5. **Documents** tab → generate **[cached]** Panchnama, Remand, Seizure Receipt, Medical Letter, and the two LERS templates — all pre-filled from the pool; download one `.docx`. Show **version history** (regen bumps the same row, §8).
+5. **Documents** tab → generate **[cached]** all 8: Seizure Receipt, Panchnama, Remand, Custody Letter, Medical Letter, the two LERS templates, and the Final Form / Report (BNSS §193) — all pre-filled from the pool; download one `.docx`. Show **version history** (regen bumps the same row, §8).
 6. **Case diary** tab — auto-built from the actions just taken.
 7. **AI Analysis** page → **Consistency check** **[live, pure-DB]** → show it catches a deliberate stale value (e.g. rename the accused after a doc was generated).
 8. Switch to **SHO** (supervision + finalize a document) and **Legal Advisor** (section focus).

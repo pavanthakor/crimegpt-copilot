@@ -65,7 +65,7 @@ Everything you add here is the single source of truth the documents and the AI w
    - the section number and title,
    - the **exact phrase from your complaint** that triggered it (highlighted), so you can see
      *why* it was suggested,
-   - a confidence level.
+   - the old-law (IPC or CrPC) provision it replaces, where one exists.
 3. The system only ever suggests **real sections from the law book** — it cannot invent a
    section. If a suggestion is not properly supported by the complaint text, it is dropped and
    shown separately so you can see what was rejected and why.
@@ -89,11 +89,15 @@ You are always in control — nothing is applied to a document until you accept 
 ## 6. Generate documents
 
 1. Open the **Documents** tab.
-2. Choose the document to prepare:
+2. Choose the document to prepare. Eight are available:
+   - **Property Seizure Receipt** (in the CCTNS Form IF4 layout)
    - **Accused Panchnama**
    - **Remand Request** (police custody)
-   - **Property Seizure Receipt** (in the CCTNS Form IF4 layout)
+   - **Court Custody Letter** (judicial custody)
    - **Medical Examination Letter**
+   - **LERS Preservation Request** (ask a platform to preserve data)
+   - **LERS Records Request** (ask a platform to disclose records)
+   - **Final Form / Report** (BNSS §193), as an original or a supplementary report
 3. CrimeGPT fills the document from the case record — persons, seized items, accepted
    sections, dates, your name, rank and buckle number — and produces a **draft** Word file.
 4. **Download** the document to review and print it.

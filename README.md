@@ -21,8 +21,11 @@ Police documentation today is repetitive and error-prone: the same facts — nam
 | Area | What it does |
 |---|---|
 | **Unified Case Data Pool** | Enter persons, seized items, evidence and statements once; every document reads from the same pool — no field is ever typed twice. |
-| **Document generation (6 types)** | Panchnama · Remand Request · Seizure Receipt (CCTNS Form IF4 layout) · Medical Letter · LERS Preservation Request · LERS Records Request — all pre-filled from the pool, rendered as `.docx`, with version-aware regeneration and draft→finalize review. |
-| **Grounded legal intelligence** | RAG over a 1,059-section BNS/BNSS/BSA corpus. Section mapping cites the **exact triggering phrase** from the narrative with a confidence score and old-law (IPC/CrPC) cross-reference; landmark-judgment suggestions and weak-charge / missing-ingredient alerts are grounded in a curated corpus, never free-generated. |
+| **Document generation (8 types)** | Seizure Receipt (CCTNS Form IF4 layout) · Panchnama · Remand Request · Court Custody Letter · Medical Letter · LERS Preservation Request · LERS Records Request · Final Form / Report (BNSS §193). All pre-filled from the pool, rendered as `.docx` in EN/HI/GU, with version-aware regeneration and draft to finalize review. No LLM runs in the document path, so generation is deterministic and takes under 0.12 s per document. |
+| **Grounded legal intelligence** | RAG over a 1,059-section BNS/BNSS/BSA corpus. Section mapping cites the **exact triggering phrase** from the narrative plus an old-law (IPC/CrPC) cross-reference. A grounding validator drops any section outside the retrieved candidate set and any phrase not found verbatim in the narrative: **0 violations across 3 full evaluation runs**. Judgment suggestions and weak-charge alerts are grounded in a curated corpus, never free-generated. |
+| **Conversational intake and chat** | Describe an incident in plain language and the system extracts the case, persons and seized items into a reviewable draft. Chat covers four capabilities: intake from narrative, document generation by request, missing-field prompting, and case queries. It returns labels from a closed set, never prose, so it cannot state law or offer an opinion. **Nothing is written until the officer confirms.** |
+| **Mobile field capture (`/m`)** | Register a case from a phone on the station LAN. PIN sign-in, capture only (no document generation or chat reachable from it), writing into the same shared pool, visible on the desktop immediately. |
+| **Security** | JWT with three roles (IO/SHO/Legal Advisor), server-side **step-up PIN** on case register and document finalize, idle auto-logout, SHA-256 evidence hashing, and an append-only audit trail with field-level old-to-new diffs. |
 | **Case diary automation** | Key actions (case creation, statements, evidence, document generation, status changes, exports) auto-write timestamped diary entries, flagged system-vs-officer. |
 | **Multilingual (EN / HI / GU)** | Full UI localisation persisted across reloads; drives the AI language parameter; documents render in all three languages. |
 | **Search & audit** | Global search across cases, persons and seized items; a paginated audit trail with field-level old→new diffs, performer name and role; per-document version history. |
@@ -33,39 +36,44 @@ Police documentation today is repetitive and error-prone: the same facts — nam
 
 ## Architecture
 
-Six layers, top to bottom — the UI never talks to a model directly; every AI call goes through the `call_llm()` choke point in the AI layer.
+Five layers, top to bottom. The UI never talks to a model directly. Every AI call goes through the `call_llm()` choke point in L4.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ 1. PRESENTATION      Next.js · React · TypeScript · Tailwind       │
-│    login · dashboard · case workspace (5 tabs) · analysis · audit  │
-│    English / हिन्दी / ગુજરાતી, persisted per browser                │
+│ L1. PRESENTATION     Next.js · React · TypeScript · Tailwind      │
+│     login · dashboard · case workspace · conversational intake    │
+│     mobile field page (/m) · analysis · audit                     │
+│     English / हिन्दी / ગુજરાતી, persisted per browser              │
 └────────────────────────────────┬─────────────────────────────────┘
-                                  │  HTTP + JWT (Bearer)
+                                 │  HTTP + JWT (Bearer)
 ┌────────────────────────────────┴─────────────────────────────────┐
-│ 2. API + AUTH        FastAPI routers · JWT · RBAC (IO/SHO/LEGAL)   │
-│    /auth /cases /pool /legal /documents /audit /integrations       │
+│ L2. API + AUTH       FastAPI · JWT · RBAC (IO/SHO/LEGAL)          │
+│     step-up PIN enforcement · idle auto-logout · 48 endpoints     │
+│     /auth /cases /pool /legal /documents /intake /chat            │
+│     /audit /integrations /system                                  │
 └────────────────────────────────┬─────────────────────────────────┘
-                                  │
+                                 │
 ┌────────────────────────────────┴─────────────────────────────────┐
-│ 3. SERVICES          document generation (docxtpl) · consistency   │
-│    checker (pure-DB) · CCTNS IIF mapping                            │
+│ L3. SERVICES         document generation (docxtpl, no LLM) ·      │
+│     consistency checker (pure-DB) · CCTNS IIF mapping ·           │
+│     audit + case-diary writes on every mutation                   │
 └────────────────────────────────┬─────────────────────────────────┘
-                                  │
+                                 │
 ┌────────────────────────────────┴─────────────────────────────────┐
-│ 4. AI / INTELLIGENCE   call_llm() · RAG retrieval · section        │
-│    mapping · judgments · weak-charge · transcribe · translate      │
-└───────────────┬──────────────────────────────────┬───────────────┘
-                │                                  │
-┌───────────────┴────────────────┐   ┌─────────────┴────────────────┐
-│ 5. DATA — Unified Case Pool     │   │ 6. LOCAL INFRA                │
-│    SQLAlchemy → PostgreSQL 15   │   │    Ollama (Qwen 2.5 7B) · LAN │
-│    12 tables · audit · diary    │   │    ChromaDB · Whisper (CPU)   │
-│                                 │   │    filesystem storage         │
-└─────────────────────────────────┘   └──────────────────────────────┘
+│ L4. AI + LEGAL CORE  call_llm() · RAG retrieval + query expansion │
+│     grounding validator · section mapping · judgments ·           │
+│     weak-charge · transcribe · translate                          │
+│     Ollama (Qwen 2.5 7B Q4) on the station GPU, over the LAN      │
+└────────────────────────────────┬─────────────────────────────────┘
+                                 │
+┌────────────────────────────────┴─────────────────────────────────┐
+│ L5. DATA             PostgreSQL 15 (12-table Unified Case Pool)   │
+│     ChromaDB (1,059 legal sections, embedded) ·                   │
+│     local filesystem (generated .docx, evidence, Whisper models)   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-Everything runs **inside the police network** — no case data leaves the station.
+Everything runs **inside the police network**. No case data leaves the station.
 
 ---
 
@@ -74,7 +82,7 @@ Everything runs **inside the police network** — no case data leaves the statio
 | Layer | Choice | Why |
 |---|---|---|
 | Frontend | Next.js 14 · React 18 · TypeScript · Tailwind CSS | Fast to build, first-class TS, utility styling; framer-motion for the fan-out animations. |
-| Backend | FastAPI · Python 3.11+ · Pydantic | Async, typed request/response models, auto OpenAPI docs at `/docs`. |
+| Backend | FastAPI · **Python 3.13** · Pydantic | Async, typed request/response models, auto OpenAPI docs at `/docs`. 3.13 is a hard requirement: it is the interpreter that owns `docxtpl`, and a bare `uvicorn` on PATH often resolves to 3.11 without it, which breaks document generation. `setup.ps1` enforces this and recreates a 3.11 virtual environment. |
 | ORM / migrations | SQLAlchemy · Alembic | Explicit schema and reversible migrations for a 12-table relational pool. |
 | Database | PostgreSQL 15 (Docker) | JSONB for flexible snapshots (audit diffs, generated data) on a solid relational core. |
 | Auth | JWT + bcrypt (python-jose, passlib) | Local, on-prem auth with three roles; no external identity provider. |
@@ -83,25 +91,28 @@ Everything runs **inside the police network** — no case data leaves the statio
 | Vector DB | ChromaDB (local, file-based) | Zero-ops local RAG store for the legal corpus and judgments. |
 | Doc generation | `docxtpl` + `python-docx` | Word templates with `{{ jinja }}` placeholders; drop a template + register it to add a document type. |
 | Voice | `faster-whisper` (CPU, int8) | Gujarati voice-to-document; pinned to CPU so it can't OOM the GPU mid-demo. |
-| Fonts | Noto Sans Gujarati | Correct Gujarati rendering in generated `.docx`. |
+| Fonts | Noto Sans Gujarati (bundled) | Named by the generated `.docx`. Not required on Windows: Word substitutes Shruti, which ships with the OS. See the Gujarati note below. |
 
 ---
 
 ## Full setup from a clean clone
 
-> **Preferred (demo laptop / fresh machine):** run the one-command setup and follow [SETUP.md](SETUP.md).
+> **Preferred (demo laptop / fresh machine):** run the one-command setup, then prove it. See [SETUP.md](SETUP.md).
 >
 > ```powershell
-> .\setup.ps1          # Windows
-> .\start.ps1          # then start servers (separate windows)
+> .\setup.ps1          # Windows. Run as Administrator to get the firewall rules.
+> .\start.ps1          # start both servers
+> .\verify.ps1         # prove the install (read-only)
 > ```
 > ```bash
 > ./setup.sh && ./start.sh   # Linux/macOS
 > ```
 >
-> That path forces **Python 3.13 + `python -m uvicorn`** (never bare `uvicorn`), pins the UI to port **3000**, seeds demo users/PINs, and documents the **manual** LAN / mobile `.env.local` step.
+> `setup.ps1` forces **Python 3.13 + `python -m uvicorn`** (never bare `uvicorn`), pins the UI to port **3000**, seeds demo users and PINs, **builds the ChromaDB legal corpus**, **writes the LAN config for the mobile page** (`frontend/.env.local` and `CORS_EXTRA_ORIGINS`, without overwriting anything you already set), sets `OLLAMA_KEEP_ALIVE`, and adds inbound firewall rules for ports 3000 and 8000 when elevated. It is idempotent: existing configuration always wins over a clean install.
 >
-> Manual steps below remain valid. Tested on Windows 11 (also runs on macOS/Linux — swap the venv activate path). Every command below maps to a file or module that exists in the repo.
+> `verify.ps1` then prints PASS or FAIL for the whole running stack, with a fix line for each failure. It is read-only unless you pass `-FullCheck`.
+>
+> The manual steps below remain valid and are what the script automates. Tested on Windows 11. **The clean-install path has not yet been executed start to finish on a fresh machine**, so treat it as written and reviewed rather than proven.
 
 ### 0. Prerequisites
 
@@ -109,7 +120,7 @@ Everything runs **inside the police network** — no case data leaves the statio
 |---|---|---|
 | Git | any recent | to clone |
 | **Docker Desktop** | any recent | **required** — Postgres runs inside it; there is no local DB fallback |
-| Python | 3.11+ (runs on 3.13) | backend |
+| **Python** | **3.13 (required)** | Backend. This is the interpreter that owns `docxtpl`. A bare `uvicorn` can resolve to 3.11 without it and document generation fails. |
 | Node.js | 20+ | frontend |
 | Ollama | latest | **GPU machine only** — the box with the RTX 4060 |
 
@@ -192,20 +203,20 @@ Non-GPU teammates: set `FORCE_API=true` with a `FALLBACK_API_KEY`, or point `OLL
 - `WHISPER_MODEL=small` **auto-downloads** on first transcription into `backend/app/storage/whisper/` (HuggingFace cache).
 - `WHISPER_MODEL_GU` is optional: drop a CTranslate2 Gujarati checkpoint directory under `backend/app/storage/whisper/` (e.g. `gujarati-medium-ct2`) for the higher-quality Gujarati display transcript. If absent, Gujarati falls back to `WHISPER_MODEL`.
 
-### 9. Gujarati font (for `.docx` rendering)
+### 9. Gujarati font (optional on Windows)
 
-Install `fonts/NotoSansGujarati-Regular.ttf` **system-wide** (SIL OFL, see `fonts/OFL.txt`):
+The generated `.docx` names Noto Sans Gujarati but does not embed it. **On Windows this is not a problem and no action is needed.** Word substitutes Shruti, which ships with the operating system, and Gujarati renders correctly. This was verified by rendering a generated document to PDF: Word embedded a Shruti subset and the glyphs were well formed, while an Arial control produced the empty boxes that a genuine failure looks like. Nirmala UI, also a Windows font, covers Gujarati equally.
+
+On Linux or macOS, where there is no guaranteed fallback, install the bundled font (SIL OFL, see `fonts/OFL.txt`):
 
 ```bash
-# Windows (PowerShell, per-user — no admin):
-Copy-Item fonts\NotoSansGujarati-Regular.ttf "$env:LOCALAPPDATA\Microsoft\Windows\Fonts\"
 # Linux:
 mkdir -p ~/.local/share/fonts && cp fonts/NotoSansGujarati-Regular.ttf ~/.local/share/fonts/ && fc-cache -f
 # macOS:
 cp fonts/NotoSansGujarati-Regular.ttf ~/Library/Fonts/
+# Windows (only if you want the exact designed typeface rather than the Shruti substitute):
+Copy-Item fonts\NotoSansGujarati-Regular.ttf "$env:LOCALAPPDATA\Microsoft\Windows\Fonts\"
 ```
-
-Without it, Word/LibreOffice render Gujarati as empty boxes.
 
 ### 10. Frontend
 
@@ -264,7 +275,7 @@ Created by `python -m app.seed`. Password format is `<username>123`. Step-up PIN
 | TensorFlow / Keras import errors or console spam on startup | Set `USE_TF=0` in the environment. `transformers` (via `sentence-transformers`) otherwise tries to import TensorFlow. `app/ai/rag.py` sets it automatically at import; export it yourself for standalone scripts. |
 | Stale DEMO_MODE / port 8000 "address in use" | An **orphaned uvicorn worker** is still bound to 8000. Kill it (`netstat -ano | findstr :8000` → `taskkill /PID <pid> /F` on Windows) and start one worker. |
 | Backend errors about the database | **Docker must be running** and `docker compose up -d` must have started Postgres — there is no local DB fallback. |
-| Generated `.docx` shows boxes instead of Gujarati | Install **Noto Sans Gujarati** system-wide on the machine that *opens* the file (`fonts/NotoSansGujarati-Regular.ttf`). |
+| Generated `.docx` shows boxes instead of Gujarati | Not expected on Windows, where Word substitutes Shruti. If it happens (Linux, macOS, or a machine with no Indic fonts), install `fonts/NotoSansGujarati-Regular.ttf` on the machine that *opens* the file. |
 | `/analyze` returns nothing on a fresh clone | Run `python -m app.ai.rag` once to build the Chroma corpus (~1,059 sections). `python scripts/preflight.py` fails until the collection is populated. |
 | **Windows: frontend `EACCES` / `listen -4092` on port 3000** | Hyper-V/WSL reserved a port range that includes 3000. Free it by restarting WinNAT **as Administrator**: `net stop winnat` then `net start winnat`. (Or run `npm run dev -- -p 3005` on another port.) |
 
@@ -274,7 +285,7 @@ Created by `python -m app.seed`. Password format is `<username>123`. Step-up PIN
 
 **What it is.** A safety switch that serves pre-generated AI outputs from `backend/demo_cache/` instead of calling the models live — so a GPU stall or slow first-token can never break a live demo, and the reviewed Gujarati strings stay deterministic.
 
-**What it caches vs. runs live.** Cached: section analysis, document generation (6 types × EN/HI/GU) and voice transcription (keyed by upload filename). Live regardless: judgment suggestions, weak-charge alerts, and the consistency check (pure-DB). On a cache miss, the API discloses it (`cache_miss: true`) rather than silently going live.
+**What it caches vs. runs live.** Cached: section analysis, document generation (8 types × EN/HI/GU) and voice transcription (keyed by upload filename). Live regardless: judgment suggestions, weak-charge alerts, and the consistency check (pure-DB). On a cache miss, the API discloses it (`cache_miss: true`) rather than silently going live. The cache covers the seeded demo case only, so a case you register during a demo runs live.
 
 **How to toggle.**
 - Startup default: `DEMO_MODE` in `backend/.env`.
@@ -291,7 +302,7 @@ crimegpt-copilot/
   CLAUDE.md               single source of truth for the build (architecture + decisions)
   README.md               this file
   docker-compose.yml      Postgres 15 service
-  docs/                   architecture.md · user-guide.md
+  docs/                   technical.md · architecture.md · user-guide.md · health-check reports
   data/                   dataset deliverable
     bns_bnss_bsa/         BNS/BNSS/BSA bare acts + parsed sections (RAG source)
     judgments/            curated judgments.jsonl + verification worksheet
@@ -300,11 +311,16 @@ crimegpt-copilot/
     audio/                real Gujarati demo recordings (raw + 16k mono)
   fonts/                  NotoSansGujarati-Regular.ttf (+ OFL licence)
   scripts/                preflight.py — cold-start dependency check
-  templates/              6 .docx document templates + registry + label tables
+                          section_eval.py — accuracy harness · verify_seed_counts.py
+  setup.ps1 / setup.sh    one-command install
+  start.ps1 / start.sh    start both servers
+  verify.ps1              prove the running stack (PASS/FAIL)
+  templates/              8 .docx document templates + registry + label tables
   backend/
     alembic/              schema migrations
     app/
-      api/                FastAPI routers (auth, cases, pool, legal, documents, audit, integrations, system)
+      api/                FastAPI routers (auth, cases, pool, legal, documents, intake,
+                          chat, audit, integrations, system) — 48 endpoints
       ai/                 call_llm, RAG, legal, judgments, weak_charge, transcribe, translate
       core/               config, DB session, security, runtime flags
       models/             SQLAlchemy models (the 12-table pool)
@@ -314,7 +330,9 @@ crimegpt-copilot/
       demo_cache/         pre-generated DEMO_MODE outputs
     requirements.txt
   frontend/
-    app/                  routes: login, dashboard, cases, cases/new, cases/[id] (5 tabs), analysis, audit
+    app/                  routes: login, dashboard, cases, cases/new, cases/intake
+                          (conversational), cases/[id] (5 tabs), m (mobile field page),
+                          analysis, audit
     components/           AppShell, AuthProvider, Sidebar, TopBar, CasePicker
     lib/                  api client, case helpers, i18n string table (EN/HI/GU)
     public/fonts/         self-hosted icon font
@@ -324,9 +342,12 @@ crimegpt-copilot/
 
 ## Documentation & data
 
-- **[CLAUDE.md](CLAUDE.md)** — the technical foundation: locked decisions, database schema, API map, feature scope, demo script.
-- **[docs/architecture.md](docs/architecture.md)** — system architecture in depth.
+- **[docs/technical.md](docs/technical.md)** — technical reference: the five layers, API surface, document engine, section-mapping flow, security model, **measured performance and accuracy**, and known limitations stated openly.
+- **[docs/architecture.md](docs/architecture.md)** — system architecture and the section-analysis request flow in depth.
 - **[docs/user-guide.md](docs/user-guide.md)** — officer-facing walkthrough.
+- **[SETUP.md](SETUP.md)** — installation, LAN and mobile setup, and verification.
+- **[CLAUDE.md](CLAUDE.md)** — the build's technical foundation: locked decisions, database schema, API map, feature scope, demo script.
+- **Audit reports** — two read-only audits measuring commit `95665e8`, each carrying a status header that maps fixed findings to the commits that closed them: [round 1](docs/health-check-2026-08-17.md) (endpoint count, feature inventory over two independent runs, accuracy, timings, repository consistency) and [round 2](docs/health-check-round2-2026-08-17.md) (metric reconciliation, determinism, the slow-tail investigation, Gujarati rendering).
 - **[data/README.md](data/README.md)** — dataset overview and provenance.
 - **[data/bns_bnss_bsa/README.md](data/bns_bnss_bsa/README.md)** — legal-corpus sources and parsing.
 - **[data/fir_samples/README.md](data/fir_samples/README.md)** — synthetic-FIR anonymisation notice.
@@ -334,14 +355,41 @@ crimegpt-copilot/
 
 ---
 
+## Measured performance and accuracy
+
+Hardware: RTX 4060 (8 GB). 5-run medians, demo cache off, measured over `127.0.0.1`.
+
+| Operation | Median |
+|---|---|
+| Intake extraction, 613-char bilingual Gujarati and English narrative | 14.1 s |
+| Intake extraction, 384-char English narrative | 9.7 s |
+| Section analysis, live | 7.8 s |
+| Document generation, each of the eight | 89 ms |
+
+Language dominates, not length: the Gujarati script costs far more tokens per character. Document generation is fast because no LLM runs in that path.
+
+**Accuracy.** On our 21-case held-out test set, CrimeGPT puts the correct BNS section in front of the officer **58% of the time**, and the correct section is in the candidate list it chooses from **90% of the time**. Scope: 19 in-scope cases plus 2 out-of-scope, three runs, live `qwen2.5:7b`, demo cache off, BNS offence mapping only. Ground truth is in the repository at `data/eval/section_eval.json`.
+
+**Guardrails**, re-verified independently of the application's own validator: **0 grounding violations** and **0 verbatim-quote violations** across three full runs. When nothing clears grounding the system returns `no_grounded_match` rather than inventing a section. We do not publish a refusal percentage, because the out-of-scope portion of the set is two cases and cannot support one.
+
+Full method, per-case results and what was not tested: [docs/technical.md](docs/technical.md) and the audit reports.
+
+---
+
 ## Known limitations
 
-Stated plainly — these are real and worth naming.
+Stated plainly. These are real and worth naming. The full list, with measurements, is in [docs/technical.md](docs/technical.md).
+
+- **Section selection is not deterministic.** No seed is set. The same complaint run ten times produced three distinct section sets. The officer accepts or rejects every section; the system proposes and does not decide.
+- **Intake extraction has a slow tail.** About one call in twenty hits a JSON-repair retry. Median is 13.5 s, but the worst observed run took 137 s and then failed with a 422.
+- **The system does not judge whether an input describes an offence.** It maps to grounded sections or returns `no_grounded_match`. That gate was built and reverted twice; a 7B model cannot make that call reliably on speech-act offences, and it errs toward charging rather than toward turning a complainant away.
+- **The fresh-machine setup path has never been run start to finish.** It is written and reviewed, not proven.
 
 - **The legal corpus is BNS/BNSS/BSA only.** RAG covers the three 2023 codes (1,059 sections); IPC/CrPC cross-references are shown from a curated table, not corpus-grounded. There is no IT Act or special-law corpus.
 - **CCTNS integration is a mock.** `/export/cctns` builds a real IIF payload and posts it to a **local mock receiver** that returns a fabricated FIR id. There is no live CCTNS/ICJS/BharatPol connection.
-- **4 of the 7 named documents are implemented.** Accused Panchanama, Remand Request, Seizure Receipt and Medical Treatment Letter ship (plus 2 LERS request templates = 6 generatable types). Court Custody Letter, Purvani Chargesheet and the Accused Face Identification Form are enum placeholders without templates.
-- **No PDF export.** Documents export as `.docx` only; Gujarati rendering depends on Noto Sans Gujarati being installed on the machine that opens the file.
+- **One named document is not implemented.** All 8 generatable types ship (Seizure Receipt, Panchnama, Remand Request, Court Custody Letter, Medical Letter, LERS Preservation Request, LERS Records Request, Final Form / Report under BNSS §193). The Accused Face Identification Form remains an enum value with no template.
+- **No PDF export.** Documents export as `.docx` only. On Windows this renders Gujarati correctly without extra fonts, because Word substitutes Shruti; on Linux or macOS with no Indic font installed it may not.
+- **The evaluation set is small.** 21 cases, single annotator. At that size one case changing its mind moves the headline accuracy by about five points.
 - **Judgment citations require human verification.** Suggestions are grounded in a small curated corpus and paraphrased — a prompt to check on Indian Kanoon, not confirmed law.
 
 ---
