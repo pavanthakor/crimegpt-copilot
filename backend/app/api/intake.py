@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.ai.intake import extract_draft
-from app.api.auth import require_role
+from app.api.auth import require_role, require_step_up
 from app.api.pool import PersonCreate, PersonOut, SeizedItemCreate, SeizedItemOut
 from app.core.db import get_db
 from app.models import User
@@ -256,6 +256,11 @@ def intake_commit(
     body: CommitRequest,
     db: Session = Depends(get_db),
     user: User = Depends(require_role(*_WRITE_ROLES)),
+    # Declared AFTER require_role on purpose: the role check must run first, so a
+    # LEGAL_ADVISOR still gets 403 rather than a 401 about a step-up they could never make.
+    # allow_pin_login=True keeps the mobile /m register path working — there the PIN was
+    # the sign-in. See require_step_up.
+    _step_up: User = Depends(require_step_up(allow_pin_login=True)),
 ):
     """Register the confirmed draft: case + persons + seized items, atomically."""
     if not body.case.case_number or not body.case.case_number.strip():

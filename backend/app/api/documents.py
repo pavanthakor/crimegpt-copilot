@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user, require_role
+from app.api.auth import get_current_user, require_role, require_step_up
 from app.api.cases import _get_visible_case
 from app.core.db import get_db
 from app.models import Document, DocumentVersion, User
@@ -227,6 +227,11 @@ def finalize(
     doc_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.SHO)),  # §9: finalize/approve is an SHO action
+    # Declared AFTER require_role so an IO still gets 403, not 401. NO pin_login
+    # exemption: finalize always demands a live step-up, however the token was minted.
+    # An SHO can PIN-login on a phone, so exempting it would let four digits approve a
+    # document.
+    _step_up: User = Depends(require_step_up()),
 ):
     """Transition a DRAFT document to FINALIZED (snapshots a version + audit + diary)."""
     doc = db.get(Document, doc_id)

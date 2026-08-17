@@ -1,8 +1,9 @@
 """Authentication & RBAC: login, me, step-up PIN, register (SHO/admin only)."""
+import hashlib
 import logging
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from pydantic import BaseModel, ConfigDict
@@ -158,12 +159,51 @@ class VerifyPinResponse(BaseModel):
     attempts_remaining: int | None = None
 
 
+# ---------------------------------------------------------------------------
+# Server-side record of a completed step-up.
+#
+# Until now the fact "this session stepped up" lived ONLY in the browser
+# (sessionStorage + React state), so the server had nothing to check and the two
+# high-stakes writes accepted a bare JWT. This dict is that missing record.
+#
+# Keyed by a SHA-256 of the bearer token, not by user id: the claim being made is
+# "the person holding THIS session proved themselves", and a second sign-in should
+# have to prove it again. The raw token is never stored. The value is the token's own
+# `exp`, so a step-up cannot outlive the session that made it — which is exactly the
+# "once per session" semantics the browser gate already uses.
+#
+# In-process and per-worker, deliberately, mirroring `_pin_failures` above: no schema
+# change, and a restart clears it, which FAILS CLOSED (the officer is asked again).
+# ---------------------------------------------------------------------------
+_step_up: dict[str, float] = {}
+
+
+def _session_key(token: str) -> str:
+    """Stable id for a session without holding the credential itself."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _record_step_up(token: str) -> None:
+    """Mark this session as stepped up until the token's own expiry."""
+    try:
+        exp = float(decode_token(token).get("exp", 0))
+    except (JWTError, TypeError, ValueError):  # unreadable token -> record nothing
+        return
+    _step_up[_session_key(token)] = exp
+
+
 @router.post("/verify-pin", response_model=VerifyPinResponse)
 def verify_pin(
     body: VerifyPinRequest,
+    creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     user: User = Depends(get_current_user),
 ):
-    """Check the logged-in officer's step-up PIN. Writes nothing, logs no PIN."""
+    """Check the logged-in officer's step-up PIN. Writes nothing to the database, logs no PIN.
+
+    On success it now also records the step-up in `_step_up` (in-process only) so the
+    server can enforce it on the two high-stakes writes. A FAILED verification still
+    records nothing at all.
+    """
     now = time.time()
     failures, locked_until = _pin_failures.get(user.id, (0, 0.0))
     if now < locked_until:
@@ -176,6 +216,7 @@ def verify_pin(
 
     if verify_password(body.pin, user.pin_hash):
         _pin_failures.pop(user.id, None)
+        _record_step_up(creds.credentials)
         return VerifyPinResponse(ok=True)
 
     failures += 1
@@ -189,6 +230,72 @@ def verify_pin(
     return VerifyPinResponse(
         ok=False, reason="wrong_pin", attempts_remaining=_PIN_MAX_ATTEMPTS - failures
     )
+
+
+def require_step_up(allow_pin_login: bool = False):
+    """Dependency factory: refuse the request unless this session has stepped up.
+
+    ADDITIVE ENFORCEMENT. It sits BEHIND the browser gate, which is unchanged — the UI
+    still asks for the PIN first; this makes the server stop taking the UI's word for it.
+
+    `allow_pin_login=True` exempts a token minted by `POST /auth/login-pin`, where the PIN
+    WAS the sign-in and asking again seconds later would be ceremony. That exemption is
+    granted to case REGISTER only. FINALIZE passes no exemption and therefore has no
+    bypass at all: an SHO can sign in on a phone with four digits (verified — `login_pin`
+    applies no role restriction), so exempting finalize would have let a 4-digit
+    credential approve a document.
+
+    Refusal is a uniform 401 with one message for every failure mode, audits the attempt,
+    and happens BEFORE the endpoint body runs, so nothing is written. The PIN is never
+    read, logged or recorded here — this only checks whether a step-up already happened.
+    """
+
+    def checker(
+        request: Request,
+        creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user),
+    ) -> User:
+        token = creds.credentials
+
+        if allow_pin_login:
+            try:
+                if decode_token(token).get("pin_login") is True:
+                    return user
+            except JWTError:  # already validated by get_current_user; fall through
+                pass
+
+        key = _session_key(token)
+        expiry = _step_up.get(key)
+        if expiry is not None and time.time() < expiry:
+            return user
+        _step_up.pop(key, None)  # expired -> drop it rather than leave it lying around
+
+        # Record the refusal. The attempted action, not the credential.
+        db.add(
+            AuditLog(
+                case_id=None,
+                entity_type="auth.step_up",
+                entity_id=user.id,
+                action=AuditAction.CREATE,
+                field_changes={
+                    "result": "refused",
+                    "reason": "no_valid_step_up",
+                    # WHICH high-stakes write was attempted. The path only; no body, no PIN.
+                    "attempted": f"{request.method} {request.url.path}",
+                },
+                performed_by=user.id,
+            )
+        )
+        db.commit()
+        logger.warning("step-up required but not present for user %s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Step-up verification required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return checker
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +372,9 @@ def login_pin(body: PinLoginRequest, db: Session = Depends(get_db)):
 
     if user is not None and user.pin_hash and matched:
         _pin_login_failures.pop(username, None)
-        token = create_access_token(user.id, user.role.value)
+        # pin_login=True marks this token as PIN-minted so the step-up gate can exempt
+        # the mobile REGISTER path (and only that path) — see require_step_up.
+        token = create_access_token(user.id, user.role.value, pin_login=True)
         return TokenResponse(token=token, role=user.role, full_name=user.full_name)
 
     failures += 1
