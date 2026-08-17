@@ -1,3 +1,29 @@
+> ## Status as of 18 August 2026
+>
+> **This report measures commit `95665e8`. Several findings below have since been fixed —
+> the report body is left exactly as taken, so read it as a record of that commit, not of
+> the current head.**
+>
+> **Closed since this audit:**
+>
+> | Finding | Closed by |
+> |---|---|
+> | Step-up PIN was a browser-side gate only; the two high-stakes writes accepted a bare JWT (Part F, reported here as analysis only) | **`495a34a`** — server-side enforcement on case register and SHO finalize; finalize has no bypass, since an SHO can PIN-login on a phone |
+> | Model self-reported `confidence` shown as a large percentage, at 1.0 on wrong picks (96.3% of wrong sections scored ≥90%; AUC 0.735) | **`728e79f`** — removed from both display sites; kept in the DB, API and eval harness |
+> | Setup gaps: no LAN config for `/m`, no RAG corpus build, no firewall rules, `OLLAMA_KEEP_ALIVE` unset, and no verification pass | **`8ae9f60`** — `verify.ps1` plus extended `setup.ps1`/`setup.sh`; the keep-alive check reads Ollama's live `expires_at`, not the env var |
+> | Gujarati font warning cried wolf (Part E proved Word substitutes Shruti and renders correctly) | **`8ae9f60`** — replaced with an any-Gujarati-capable-font check |
+>
+> **Deliberately still open, not fixed:** section-selector non-determinism (Part B — 3
+> distinct outcomes in 10 identical runs, no seed set anywhere; determinism is a separate
+> decision, deferred), the ~1-in-20 JSON-repair retry tail on intake extraction (Part D —
+> 127 s worst case, cause identified with a 1:1 correlation), and the three pre-existing
+> auth findings — no IO-exclusive endpoint (RBAC is hierarchical by design), wrong PIN
+> returns 200 rather than a uniform 401 (deliberate, to avoid killing the session), and
+> the step-up lockout is 60 s rather than 5 minutes.
+>
+> Part F below is the **pre-implementation analysis only**; the implementation and its
+> HTTP proof landed in `495a34a`.
+
 # CrimeGPT — health check, Round 2, 17 August 2026
 
 **Commit under test: `95665e88a47348cc222a5c03cebca9bd7a992805`**

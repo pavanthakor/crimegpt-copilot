@@ -1,3 +1,30 @@
+> ## Status as of 18 August 2026
+>
+> **This report measures commit `95665e8`. Several findings below have since been fixed —
+> the report body is left exactly as taken, so read it as a record of that commit, not of
+> the current head.**
+>
+> **Closed since this audit:**
+>
+> | Finding | Closed by |
+> |---|---|
+> | Step-up PIN was a browser-side gate only; `POST /api/intake/commit` and `POST /api/documents/{id}/finalize` accepted a bare JWT | **`495a34a`** — server-side enforcement on case register and SHO finalize, with the mobile exemption scoped to commit only |
+> | Setup gaps: no LAN config for `/m`, no RAG corpus build, no firewall rules, `OLLAMA_KEEP_ALIVE` unset, and READY printed without proving anything | **`8ae9f60`** — `verify.ps1` plus extended `setup.ps1`/`setup.sh` (LAN config, RAG ingest, port firewall rules, keep-alive, read-only `preflight.py`) |
+> | Gujarati font warning cried wolf on a machine that renders correctly | **`8ae9f60`** — replaced; now checks for any Gujarati-capable font. See Round 2 Part E for the render evidence |
+> | `DEMO_MODE` left ambiguous by the setup script | **`8ae9f60`** — resolved value and its effect printed in READY |
+>
+> **Deliberately still open, not fixed:** section-selector non-determinism (3 distinct
+> outcomes in 10 identical runs; no seed is set anywhere — determinism is a separate
+> decision, deferred), the ~1-in-20 JSON-repair retry tail on intake extraction (127 s
+> worst case, cause identified in Round 2 Part D), and the three pre-existing auth
+> findings — no IO-exclusive endpoint (RBAC is hierarchical by design), wrong PIN returns
+> 200 rather than a uniform 401 (deliberate, to avoid killing the session), and the
+> step-up lockout is 60 s rather than 5 minutes.
+>
+> Two Round 1 claims were **retracted** in Round 2 after re-measurement: the
+> query-expansion call never actually failed (0 failures in 63 calls), and the Gujarati
+> tofu risk does not materialise on Windows. See Round 2, Parts C and E.
+
 # CrimeGPT — health check, 17 August 2026
 
 **Commit under test: `95665e88a47348cc222a5c03cebca9bd7a992805`**
